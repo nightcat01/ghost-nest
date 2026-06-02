@@ -3,37 +3,51 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GhostNest Scene Settings</title>
+    <title>GhostNest 무대 조합 설정</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="asset-lab-shell">
       <header class="asset-lab-header">
         <div>
-          <p class="eyebrow">Step 5 / Character Settings</p>
-          <h1>배경 / 소품 배치</h1>
+          <p class="eyebrow">5단계 / 캐릭터 설정</p>
+          <h1>무대 조합 만들기</h1>
         </div>
         <a class="asset-lab-back" href="./dev-character.html">제작 홈</a>
       </header>
 
       <nav class="asset-tool-nav" aria-label="Character setting pages" data-character-nav data-current-page="scene"></nav>
 
-      <section class="asset-lab-grid asset-scene-tool-grid" aria-label="Scene settings">
+      <section class="asset-lab-grid asset-scene-tool-grid" aria-label="무대 조합 설정">
         <section class="asset-lab-panel">
           <div class="asset-lab-section asset-step-intro">
             <h2>이 단계에서 하는 일</h2>
-            <p class="asset-lab-help">캐릭터 바깥의 무대를 만듭니다. 배경, 캐릭터가 놓일 깊이, 책상 같은 앞쪽 소품, FX를 하나의 scene으로 저장합니다.</p>
+            <p class="asset-lab-help">캐릭터와 별개로 런타임 화면에 깔리는 무대 조합을 만듭니다. 기본 무대는 하나만 쓰고, 액션에서는 제한된 오버레이처럼 추가로 겹쳐 쓸 수 있습니다.</p>
             <ol class="asset-step-guide">
               <li>캐릭터를 선택합니다.</li>
-              <li>scene 이름과 기본 scene 여부를 정합니다.</li>
+              <li>무대 ID와 기본 무대 여부를 정합니다.</li>
               <li>배경, 소품, FX 이미지와 depth를 정합니다.</li>
               <li>미리보기에서 겹침을 확인하고 저장합니다.</li>
             </ol>
+            <div class="asset-step-result-map" aria-label="무대 결과 지도">
+              <article>
+                <strong>저장 결과</strong>
+                <span>assets.scenes에 런타임 무대 조합이 저장됩니다.</span>
+              </article>
+              <article>
+                <strong>사용 방식</strong>
+                <span>기본 무대 1개와 오버레이 2개 이하 사용을 권장합니다.</span>
+              </article>
+              <article>
+                <strong>매핑 기준</strong>
+                <span>무대 조합 변경 액션에서 저장된 무대 조합만 선택할 수 있습니다.</span>
+              </article>
+            </div>
           </div>
 
           <div class="asset-lab-section">
             <h2>캐릭터</h2>
-            <p class="asset-lab-help">Scene을 저장할 캐릭터를 선택합니다.</p>
+            <p class="asset-lab-help">무대 조합을 저장할 캐릭터를 선택합니다.</p>
             <label>
               캐릭터
               <select id="characterSelect">
@@ -43,35 +57,36 @@
           </div>
 
           <div class="asset-lab-section">
-            <h2>Scene 기본 정보</h2>
-            <p class="asset-lab-help">Scene은 이미지 하나가 아니라, 배치와 깊이를 포함한 무대 조합입니다.</p>
+            <h2>무대 기본 정보</h2>
+            <p class="asset-lab-help">무대 조합은 이미지 하나가 아니라, 배치와 깊이를 포함한 런타임 배경/전경 세트입니다. 저장 키는 scene입니다.</p>
             <div class="asset-lab-field-grid">
               <label>
-                Scene
+                무대 조합
                 <select id="sceneSelect">
-                  <option value="__new_scene__">새 Scene 만들기</option>
+                  <option value="__new_scene__">새 무대 조합 만들기</option>
                 </select>
               </label>
               <label>
-                Scene ID
+                무대 조합 ID
                 <input id="sceneIdInput" type="text" value="desk-room" autocomplete="off" />
               </label>
               <label class="asset-lab-checkbox asset-inline-checkbox">
                 <input id="defaultSceneInput" type="checkbox" checked />
-                <span>기본 Scene으로 사용</span>
+                <span>기본 무대로 사용</span>
               </label>
             </div>
+            <div class="asset-scene-list" id="sceneList" aria-label="저장된 무대 조합 목록"></div>
           </div>
 
           <div class="asset-lab-section">
-            <h2>Scene 이미지 등록</h2>
-            <p class="asset-lab-help">배경으로 쓸 이미지는 scenes에, 소품이나 FX처럼 재사용할 이미지는 parts에 저장하세요. 저장 후 아래 선택 목록에서 바로 사용할 수 있습니다.</p>
+            <h2>무대 재료 이미지 등록</h2>
+            <p class="asset-lab-help">배경으로 쓸 이미지는 무대 재료에, 여러 캐릭터에서 재사용할 소품이나 FX는 파츠 이미지에 저장하세요. 런타임용은 WebP를 권장하고, 투명 효과가 필요하면 WebP 또는 PNG를 사용하세요.</p>
             <div class="asset-lab-field-grid">
               <label>
                 저장 위치
                 <select id="sceneUploadAssetKindSelect">
-                  <option value="scenes">scenes - 배경 / scene 이미지</option>
-                  <option value="parts">parts - 소품 / FX 이미지</option>
+                  <option value="scenes">무대 재료 이미지 - 배경 / 전경</option>
+                  <option value="parts">파츠 이미지 - 소품 / FX</option>
                 </select>
               </label>
               <label>
@@ -86,12 +101,12 @@
 
           <div class="asset-lab-section">
             <h2>배경</h2>
-            <p class="asset-lab-help">캐릭터 뒤에 깔리는 가장 아래 레이어입니다. 이미지 없이 배경색만 저장할 수도 있습니다.</p>
+            <p class="asset-lab-help">캐릭터 뒤에 깔리는 가장 아래 요소입니다. 이미지 없이 배경색만 저장할 수도 있습니다.</p>
             <div class="asset-lab-field-grid">
               <label>
                 배경 이미지
                 <select id="backgroundAssetSelect">
-                  <option value="">저장된 scene 이미지를 불러오는 중이에요.</option>
+                  <option value="">저장된 무대 재료 이미지를 불러오는 중이에요.</option>
                 </select>
               </label>
               <label>
@@ -107,7 +122,7 @@
 
           <div class="asset-lab-section">
             <h2>캐릭터 위치</h2>
-            <p class="asset-lab-help">캐릭터 이미지는 여기서 고르지 않습니다. Scene 안에서 몇 번째 깊이에 놓을지만 정합니다.</p>
+            <p class="asset-lab-help">캐릭터 이미지는 여기서 고르지 않습니다. 무대 안에서 몇 번째 깊이에 놓을지만 정합니다.</p>
             <label>
               Character Depth
               <input id="characterDepthInput" type="number" value="20" />
@@ -116,7 +131,7 @@
 
           <div class="asset-lab-section">
             <h2>책상 / 소품</h2>
-            <p class="asset-lab-help">캐릭터와 겹칠 수 있는 소품 레이어입니다. 캐릭터 depth보다 높으면 캐릭터 앞에 보입니다.</p>
+            <p class="asset-lab-help">캐릭터와 겹칠 수 있는 소품 요소입니다. 캐릭터 depth보다 높으면 캐릭터 앞에 보입니다.</p>
             <div class="asset-lab-field-grid">
               <label>
                 소품 목록
@@ -145,7 +160,7 @@
 
           <div class="asset-lab-section">
             <h2>FX</h2>
-            <p class="asset-lab-help">빛, 감정 효과, 전경 장식처럼 Scene 위에 얹는 효과 레이어입니다.</p>
+            <p class="asset-lab-help">빛, 날씨, 전경 장식처럼 런타임 무대 위에 얹는 환경 효과입니다. 캐릭터 감정 FX는 파츠 편집에서 캐릭터 파츠로 다루는 것을 권장합니다.</p>
             <div class="asset-lab-field-grid">
               <label>
                 FX 목록
@@ -176,15 +191,15 @@
             <div class="asset-lab-section-header">
               <div>
                 <h2>저장</h2>
-                <p class="asset-lab-help">Scene 구성은 캐릭터의 assets.scenes에 저장됩니다. 기본 Scene으로 체크하면 런타임에서 이 무대를 먼저 사용합니다.</p>
+                <p class="asset-lab-help">무대 구성은 캐릭터의 assets.scenes에 저장됩니다. 기본 무대로 체크하면 런타임에서 이 무대를 먼저 사용합니다.</p>
               </div>
               <div class="asset-lab-actions">
-                <button type="button" id="saveSceneButton">Scene 저장</button>
-                <button class="asset-danger-button" type="button" id="deleteSceneButton">선택 Scene 삭제</button>
+                <button type="button" id="saveSceneButton">무대 조합 저장</button>
+                <button class="asset-danger-button" type="button" id="deleteSceneButton">선택 무대 조합 삭제</button>
                 <a class="asset-primary-link" href="./dev-character.html">제작 홈에서 상태 확인</a>
               </div>
             </div>
-            <p class="asset-lab-status" id="sceneStatus" role="status">Scene 등록을 준비하고 있어요.</p>
+            <p class="asset-lab-status" id="sceneStatus" role="status">무대 조합 등록을 준비하고 있어요.</p>
           </div>
         </section>
 
@@ -192,7 +207,12 @@
           <div class="asset-lab-output-header">
             <h2>미리보기</h2>
           </div>
+          <p class="asset-lab-help">배경, 캐릭터 자리, 소품, 환경 FX가 어떤 깊이로 겹치는지 확인합니다. 저장과 삭제는 왼쪽 설정 흐름에서 처리합니다.</p>
           <div class="asset-scene-preview" id="scenePreview" aria-live="polite"></div>
+          <div class="asset-scene-summary">
+            <h2>현재 무대 작업</h2>
+            <p class="asset-lab-help">왼쪽에서 요소를 조정하면 이 미리보기와 저장 데이터가 함께 바뀝니다.</p>
+          </div>
           <details class="asset-debug-details">
             <summary>저장 데이터 보기</summary>
             <pre id="sceneOutput" aria-live="polite"></pre>

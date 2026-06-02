@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GhostNest Expression Settings</title>
+    <title>GhostNest 표정 설정</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="asset-lab-shell">
       <header class="asset-lab-header">
         <div>
-          <p class="eyebrow">Step 2 / Character Settings</p>
+          <p class="eyebrow">2단계 / 캐릭터 설정</p>
           <h1>표정 이미지 등록</h1>
         </div>
         <a class="asset-lab-back" href="./dev-character.html">제작 홈</a>
@@ -18,17 +18,31 @@
 
       <nav class="asset-tool-nav" aria-label="Character setting pages" data-character-nav data-current-page="expression"></nav>
 
-      <section class="asset-lab-grid asset-character-editor-grid" aria-label="Expression settings">
+      <section class="asset-lab-grid asset-character-editor-grid" aria-label="표정 설정">
         <section class="asset-lab-panel">
           <div class="asset-lab-section asset-step-intro">
             <h2>이 단계에서 하는 일</h2>
-            <p class="asset-lab-help">표정 이름에 base 이미지 후보를 묶습니다. 여러 장을 선택하면 같은 표정 안에서 랜덤 후보로 쓸 수 있어요.</p>
+            <p class="asset-lab-help">표정 이름에 기본 이미지 후보를 묶습니다. 여러 장을 선택하면 같은 표정 안에서 랜덤 후보로 쓸 수 있어요.</p>
             <ol class="asset-step-guide">
               <li>캐릭터를 선택합니다.</li>
               <li>표정 이름을 고르거나 새로 만듭니다.</li>
-              <li>이 표정에 사용할 base 이미지 후보를 선택합니다.</li>
+              <li>이 표정에 사용할 기본 이미지 후보를 선택합니다.</li>
               <li>미리보기를 확인하고 저장합니다.</li>
             </ol>
+            <div class="asset-step-result-map" aria-label="표정 결과 지도">
+              <article>
+                <strong>저장 결과</strong>
+                <span>assets.expressions에 표정 후보가 저장됩니다.</span>
+              </article>
+              <article>
+                <strong>다음 사용처</strong>
+                <span>캐릭터 상태에서 실제 표시 기준으로 사용합니다.</span>
+              </article>
+              <article>
+                <strong>매핑 기준</strong>
+                <span>change_expression 액션에서 선택할 수 있는 재료가 됩니다.</span>
+              </article>
+            </div>
           </div>
 
           <div class="asset-lab-section">
@@ -49,10 +63,10 @@
               <label>
                 표정 이름
                 <select id="expressionSelect">
-                  <option value="neutral">neutral</option>
-                  <option value="happy">happy</option>
-                  <option value="thinking">thinking</option>
-                  <option value="surprised">surprised</option>
+                  <option value="neutral">기본 표정 (neutral)</option>
+                  <option value="happy">기쁜 표정 (happy)</option>
+                  <option value="thinking">생각하는 표정 (thinking)</option>
+                  <option value="surprised">놀란 표정 (surprised)</option>
                   <option value="__new_expression__">새 표정 추가</option>
                 </select>
               </label>
@@ -61,15 +75,9 @@
                 <input id="customExpressionInput" type="text" placeholder="예: shy" autocomplete="off" />
               </label>
               <label>
-                연결할 base 이미지
+                연결할 기본 이미지
                 <select id="expressionAssetSelect" multiple size="8">
-                  <option value="">저장된 base 이미지를 불러오는 중이에요.</option>
-                </select>
-              </label>
-              <label>
-                연결할 Scene 조합
-                <select id="expressionSceneSelect" multiple size="5">
-                  <option value="">저장된 Scene 조합을 불러오는 중이에요.</option>
+                  <option value="">저장된 기본 이미지를 불러오는 중이에요.</option>
                 </select>
               </label>
             </div>
@@ -77,14 +85,13 @@
 
           <div class="asset-lab-section">
             <h2>이미지 등록</h2>
-            <p class="asset-lab-help">새 이미지를 바로 캐릭터 에셋 폴더에 저장합니다. 한 장짜리 완성 이미지처럼 쓸 scene도 표정 후보로 연결할 수 있습니다.</p>
+            <p class="asset-lab-help">새 이미지를 바로 캐릭터 에셋 폴더에 저장합니다. 표정은 기본 이미지 후보만 다루고, 여러 이미지를 묶은 기준 화면은 다음 단계의 장면 조합에서 선택합니다.</p>
             <div class="asset-lab-field-grid">
               <label>
                 저장 위치
                 <select id="uploadAssetKindSelect">
-                  <option value="base">base - 표정 후보 이미지</option>
-                  <option value="parts">parts - 파츠 이미지</option>
-                  <option value="scenes">scenes - 배경 / 소품 이미지</option>
+                  <option value="base">기본 이미지 - 표정 후보</option>
+                  <option value="parts">파츠 이미지 - 눈, 입, 소품</option>
                 </select>
               </label>
               <label>
@@ -101,7 +108,7 @@
             <div class="asset-lab-section-header">
               <div>
                 <h2>저장</h2>
-                <p class="asset-lab-help">선택한 base 이미지 목록을 캐릭터의 표정 후보로 저장합니다.</p>
+                <p class="asset-lab-help">선택한 기본 이미지 목록을 캐릭터의 표정 후보로 저장합니다. 무대나 장면 조합은 표정 후보에 섞지 않습니다.</p>
               </div>
               <div class="asset-lab-actions">
                 <button type="button" id="saveExpressionButton">표정 이미지 저장</button>

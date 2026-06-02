@@ -3,30 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GhostNest Crop Tool</title>
+    <title>GhostNest 영역 선택 도구</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="asset-lab-shell">
       <header class="asset-lab-header">
         <div>
-          <p class="eyebrow">Helper / Character Settings</p>
-          <h1>Crop</h1>
+          <p class="eyebrow">보조 도구 / 캐릭터 설정</p>
+          <h1>영역 선택</h1>
         </div>
         <a class="asset-lab-back" href="./dev-character.html">제작 홈</a>
       </header>
 
       <nav class="asset-tool-nav" aria-label="Character setting pages" data-character-nav data-current-page="crop"></nav>
 
-      <section class="asset-lab-grid" aria-label="Crop tool">
+      <section class="asset-lab-grid asset-crop-tool-grid" aria-label="영역 선택 도구">
         <section class="asset-lab-panel">
           <div class="asset-lab-section asset-step-intro">
             <h2>이 도구를 쓰는 때</h2>
-            <p class="asset-lab-help">base 이미지에서 눈, 입 같은 파츠를 만들 영역을 잡을 때 사용합니다. 영역 값은 파츠 / 애니메이션 단계의 위치 기준으로도 이어집니다.</p>
+            <p class="asset-lab-help">기본 이미지에서 눈, 입 같은 파츠를 만들 영역을 잡을 때 사용합니다. 영역 값은 파츠 / 애니메이션 단계의 위치 기준으로도 이어집니다.</p>
           </div>
 
           <div class="asset-lab-section">
-            <h2>이미지와 영역</h2>
+            <h2>1. 이미지 선택</h2>
+            <p class="asset-lab-help">어느 종류의 파츠를 만들지 고른 뒤, 기준 이미지를 선택합니다. 이미지를 고르면 영역 조정 단계가 열립니다.</p>
             <label>
               파츠 종류
               <select id="partRecipeSelect" name="partRecipe">
@@ -39,6 +40,11 @@
               기준 이미지
               <input id="baseImageInput" type="file" accept="image/*" />
             </label>
+          </div>
+
+          <div class="asset-lab-section asset-crop-adjust-section" id="cropAdjustSection" hidden>
+            <h2>2. 영역 조정</h2>
+            <p class="asset-lab-help">오른쪽 미리보기에서 영역을 직접 드래그하거나 아래 값을 입력합니다.</p>
             <div class="asset-lab-region-grid">
               <label>X <input id="targetRegionXInput" type="number" min="0" max="100" step="1" /></label>
               <label>Y <input id="targetRegionYInput" type="number" min="0" max="100" step="1" /></label>
@@ -49,8 +55,17 @@
               <input id="regionOverlayVisibleInput" type="checkbox" checked />
               <span>영역 테두리 표시</span>
             </label>
+          </div>
+
+          <div class="asset-lab-section asset-crop-action-section" id="cropActionSection" hidden>
+            <div class="asset-lab-section-header">
+              <div>
+                <h2>3. 저장 또는 다음 단계</h2>
+                <p class="asset-lab-help">선택 영역을 PNG로 내려받거나, 같은 위치 값을 파츠 편집 단계에서 이어서 사용합니다.</p>
+              </div>
+            </div>
             <div class="asset-lab-actions">
-              <button type="button" id="downloadCropButton">Crop 다운로드</button>
+              <button type="button" id="downloadCropButton">선택 영역 다운로드</button>
               <a class="asset-primary-link" href="./dev-assets-layer.html">파츠 단계로 돌아가기</a>
             </div>
             <p class="asset-lab-status" id="cropStatus" role="status">기준 이미지를 선택하면 영역을 확인할 수 있어요.</p>

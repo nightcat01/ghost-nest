@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GhostNest Character Create</title>
+    <title>GhostNest 캐릭터 만들기</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="asset-lab-shell">
       <header class="asset-lab-header">
         <div>
-          <p class="eyebrow">Character Settings Plugin</p>
+          <p class="eyebrow">캐릭터 설정 플러그인</p>
           <h1>캐릭터 만들기</h1>
         </div>
         <a class="asset-lab-back" href="./dev-character.html">캐릭터 설정</a>
@@ -22,7 +22,21 @@
         <section class="asset-lab-panel">
           <div class="asset-lab-section">
             <h2>기본 정보</h2>
-            <p class="asset-lab-help">새 캐릭터 폴더와 최소 설정 파일을 만듭니다. 생성 후 Expression, Set, Layer 순서로 이어가세요.</p>
+            <p class="asset-lab-help">새 캐릭터 폴더와 최소 설정 파일을 만듭니다. 생성 후 표정, 캐릭터 상태, 파츠 순서로 이어가세요.</p>
+            <div class="asset-step-result-map" aria-label="Create character result map">
+              <article>
+                <strong>저장 결과</strong>
+                <span>profile, lines, assets 폴더와 기본 index가 만들어집니다.</span>
+              </article>
+              <article>
+                <strong>다음 사용처</strong>
+                <span>표정 등록에서 이 캐릭터의 표정 이미지를 등록합니다.</span>
+              </article>
+              <article>
+                <strong>매핑 기준</strong>
+                <span>캐릭터가 만들어져야 매핑에서 캐릭터 재료를 연결할 수 있습니다.</span>
+              </article>
+            </div>
             <div class="asset-lab-field-grid">
               <label>
                 캐릭터 ID
@@ -45,7 +59,7 @@
 
           <div class="asset-lab-section asset-composition-save-section">
             <h2>생성</h2>
-            <p class="asset-lab-help">src/characters 아래에 profile.ts, lines.ts, index.ts와 assets/base, assets/parts 폴더를 만듭니다.</p>
+            <p class="asset-lab-help">src/characters 아래에 profile.ts, lines.ts, index.ts와 기본 이미지, 파츠 이미지 폴더를 만듭니다.</p>
             <div class="asset-lab-actions">
               <button type="button" id="createCharacterButton">캐릭터 만들기</button>
             </div>

@@ -11,6 +11,7 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./styles.css": "./styles.css",
     "./package.json": "./package.json"
   },
   "files": [
@@ -22,12 +23,14 @@
     "dev-character-expression.html",
     "dev-character-set.html",
     "dev-character-composition.html",
+    "dev-fortune-embed.html",
     "dev-nanika-mapping.html",
     "dev-assets-crop.html",
     "dev-assets-comfy.html",
     "dev-assets-layer.html",
     "server.cjs",
     "styles.css",
+    "docs/runtime-embed-guide.md",
     "ASSET_GENERATOR_SETUP.md",
     "README.md"
   ],
@@ -40,9 +43,11 @@
     "postbuild": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Copy-Item -LiteralPath ghost-nest.extensions.json -Destination dist/ghost-nest.extensions.json -Force; New-Item -ItemType Directory -Force -Path dist/devtools | Out-Null; Copy-Item -LiteralPath src/devtools/layer-part-workflow.api.json -Destination dist/devtools/layer-part-workflow.api.json -Force; Copy-Item -LiteralPath src/devtools/layer-part-workflow.sdxl-inpaint.api.json -Destination dist/devtools/layer-part-workflow.sdxl-inpaint.api.json -Force; Copy-Item -LiteralPath src/devtools/layer-part-workflow.sdxl-general.api.json -Destination dist/devtools/layer-part-workflow.sdxl-general.api.json -Force; Copy-Item -LiteralPath src/devtools/layer-part-workflow.sd15-inpaint.api.json -Destination dist/devtools/layer-part-workflow.sd15-inpaint.api.json -Force\"",
     "dev": "node server.cjs",
     "check": "tsc --noEmit",
+    "verify:ui": "node scripts/verify-ui.mjs",
     "prepublishOnly": "npm run check && npm run build"
   },
   "devDependencies": {
+    "playwright": "^1.60.0",
     "typescript": "^5.8.3"
   }
 }

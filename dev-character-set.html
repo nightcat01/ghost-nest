@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GhostNest Set Settings</title>
+    <title>GhostNest 캐릭터 상태 설정</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="asset-lab-shell">
       <header class="asset-lab-header">
         <div>
-          <p class="eyebrow">Step 3 / Character Settings</p>
+          <p class="eyebrow">3단계 / 캐릭터 설정</p>
           <h1>캐릭터 상태 만들기</h1>
         </div>
         <a class="asset-lab-back" href="./dev-character.html">제작 홈</a>
@@ -18,17 +18,31 @@
 
       <nav class="asset-tool-nav" aria-label="Character setting pages" data-character-nav data-current-page="set"></nav>
 
-      <section class="asset-lab-grid asset-character-editor-grid" aria-label="Set settings">
+      <section class="asset-lab-grid asset-character-editor-grid" aria-label="캐릭터 상태 설정">
         <section class="asset-lab-panel">
           <div class="asset-lab-section asset-step-intro">
             <h2>이 단계에서 하는 일</h2>
-            <p class="asset-lab-help">표정 이미지 후보 중 실제로 사용할 base 한 장을 골라 캐릭터의 기준 상태를 만듭니다. 파츠와 애니메이션은 이 상태 위에 붙습니다.</p>
+            <p class="asset-lab-help">표정 이미지 후보 중 실제로 사용할 기본 이미지 한 장을 고르거나, 캐릭터를 포함한 장면 조합을 골라 기준 상태를 만듭니다. 파츠와 애니메이션은 이 상태 위에 붙습니다.</p>
             <ol class="asset-step-guide">
               <li>캐릭터를 선택합니다.</li>
               <li>상태 ID를 정합니다. 처음이면 0으로 두어도 됩니다.</li>
-              <li>연결할 표정과 base 이미지를 고릅니다.</li>
+              <li>연결할 표정과 기준 화면을 고릅니다.</li>
               <li>미리보기를 확인하고 저장합니다.</li>
             </ol>
+            <div class="asset-step-result-map" aria-label="캐릭터 상태 결과 지도">
+              <article>
+                <strong>저장 결과</strong>
+                <span>assets.surfaces에 실제 표시 상태가 저장됩니다.</span>
+              </article>
+              <article>
+                <strong>다음 사용처</strong>
+                <span>파츠 움직임은 선택한 캐릭터 상태 위에만 붙어서 움직입니다.</span>
+              </article>
+              <article>
+                <strong>매핑 기준</strong>
+                <span>캐릭터 상태 변경 액션에서 화면에 보여줄 상태로 선택됩니다.</span>
+              </article>
+            </div>
           </div>
 
           <div class="asset-lab-section">
@@ -44,7 +58,7 @@
 
           <div class="asset-lab-section">
             <h2>상태 기본 정보</h2>
-            <p class="asset-lab-help">상태는 표정, 기준 이미지, 이후 붙일 파츠를 묶는 단위입니다.</p>
+            <p class="asset-lab-help">상태는 표정, 기준 화면, 이후 붙일 파츠를 묶는 단위입니다.</p>
             <div class="asset-lab-field-grid">
               <label>
                 기존 상태
@@ -60,10 +74,10 @@
                 연결할 표정
                 <select id="surfaceExpressionSelect">
                   <option value="">없음</option>
-                  <option value="neutral">neutral</option>
-                  <option value="happy">happy</option>
-                  <option value="thinking">thinking</option>
-                  <option value="surprised">surprised</option>
+                  <option value="neutral">기본 표정 (neutral)</option>
+                  <option value="happy">기쁜 표정 (happy)</option>
+                  <option value="thinking">생각하는 표정 (thinking)</option>
+                  <option value="surprised">놀란 표정 (surprised)</option>
                 </select>
               </label>
               <label>
@@ -74,12 +88,12 @@
           </div>
 
           <div class="asset-lab-section">
-            <h2>기준 이미지</h2>
-            <p class="asset-lab-help">선택한 표정에 등록된 base 후보 중 하나를 상태의 기준 이미지로 사용합니다. Scene 조합은 아래 별도 목록에서 선택합니다.</p>
+            <h2>기준 화면 - 기본 이미지</h2>
+            <p class="asset-lab-help">선택한 표정에 등록된 기본 이미지 후보 중 하나를 상태의 기준 화면으로 사용합니다. 장면 조합을 선택하면 기본 이미지는 자동으로 비워집니다.</p>
             <label>
-              저장된 base 이미지
+              저장된 기본 이미지
               <select id="baseAssetSelect">
-                <option value="">저장된 base 이미지를 불러오는 중이에요.</option>
+                <option value="">저장된 기본 이미지를 불러오는 중이에요.</option>
               </select>
             </label>
             <label>
@@ -89,12 +103,12 @@
           </div>
 
           <div class="asset-lab-section">
-            <h2>Scene 조합</h2>
-            <p class="asset-lab-help">저장된 Scene 조합을 이미지처럼 보이는 기준 visual로 사용할 수 있습니다. 이미지 파일은 아니므로 별도 목록에서 선택합니다.</p>
+            <h2>기준 화면 - 장면 조합</h2>
+            <p class="asset-lab-help">캐릭터가 포함된 저장 조합을 한 장짜리 기준 화면처럼 사용할 수 있습니다. 런타임 배경으로 쓰는 무대 조합과 다르게, 이 값은 캐릭터 상태 안에서만 쓰입니다.</p>
             <label>
-              저장된 Scene 조합
+              저장된 장면 조합
               <select id="surfaceSceneSelect">
-                <option value="">Scene 조합 사용 안 함</option>
+                <option value="">장면 조합 사용 안 함</option>
               </select>
             </label>
           </div>

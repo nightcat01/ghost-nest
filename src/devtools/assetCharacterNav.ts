@@ -2,19 +2,19 @@ type CharacterNavItem = {
   id: string;
   href: string;
   label: string;
-  group: "flow" | "support";
+  group: "basic" | "editor" | "support";
   step?: string;
 };
 
 const navItems: CharacterNavItem[] = [
-  { id: "home", href: "./dev-character.html", label: "제작 홈", group: "flow", step: "0" },
-  { id: "create", href: "./dev-character-create.html", label: "캐릭터", group: "flow", step: "1" },
-  { id: "expression", href: "./dev-character-expression.html", label: "표정", group: "flow", step: "2" },
-  { id: "set", href: "./dev-character-set.html", label: "상태", group: "flow", step: "3" },
-  { id: "layer", href: "./dev-assets-layer.html", label: "파츠", group: "flow", step: "4" },
-  { id: "scene", href: "./dev-character-scene.html", label: "Scene", group: "flow", step: "5" },
-  { id: "crop", href: "./dev-assets-crop.html", label: "Crop", group: "support" },
-  { id: "composition", href: "./dev-character-composition.html", label: "Set 조합", group: "support" },
+  { id: "home", href: "./dev-character.html", label: "제작 홈", group: "basic", step: "0" },
+  { id: "create", href: "./dev-character-create.html", label: "캐릭터", group: "basic", step: "1" },
+  { id: "expression", href: "./dev-character-expression.html", label: "표정", group: "basic", step: "2" },
+  { id: "set", href: "./dev-character-set.html", label: "캐릭터 상태", group: "basic", step: "3" },
+  { id: "crop", href: "./dev-assets-crop.html", label: "영역 선택", group: "editor" },
+  { id: "layer", href: "./dev-assets-layer.html", label: "파츠 편집", group: "editor", step: "4" },
+  { id: "scene", href: "./dev-character-scene.html", label: "무대 편집", group: "editor", step: "5" },
+  { id: "composition", href: "./dev-character-composition.html", label: "상태 조합", group: "support" },
 ];
 
 /**
@@ -38,30 +38,58 @@ function getCurrentPageId(nav: HTMLElement) {
  */
 function renderCharacterNav(nav: HTMLElement) {
   const currentPageId = getCurrentPageId(nav);
+  const groups = [
+    { id: "basic", label: "기본 등록" },
+    { id: "editor", label: "이미지 편집 도구" },
+    { id: "support", label: "보조 도구" },
+  ] satisfies Array<{ id: CharacterNavItem["group"]; label: string }>;
+  const fragments = groups.flatMap((group) => {
+    const groupItems = navItems.filter((item) => item.group === group.id);
 
-  nav.replaceChildren(...navItems.map((item) => {
-    const link = document.createElement("a");
-    const label = document.createElement("span");
-
-    link.href = item.href;
-    link.dataset.navGroup = item.group;
-    label.textContent = item.label;
-
-    if (item.step) {
-      const step = document.createElement("strong");
-
-      step.textContent = item.step;
-      link.append(step);
+    if (groupItems.length === 0) {
+      return [];
     }
 
-    link.append(label);
+    const groupElement = document.createElement("div");
+    const groupLabel = document.createElement("span");
 
-    if (item.id === currentPageId) {
-      link.setAttribute("aria-current", "page");
-    }
+    groupElement.className = "asset-tool-nav-group";
+    groupElement.dataset.navGroup = group.id;
+    groupLabel.className = "asset-tool-nav-group-label";
+    groupLabel.textContent = group.label;
+    groupElement.append(groupLabel, ...groupItems.map((item) => createNavLink(item, currentPageId)));
 
-    return link;
-  }));
+    return [groupElement];
+  });
+
+  nav.replaceChildren(...fragments);
+}
+
+/**
+ * Creates one shared navigation link.
+ */
+function createNavLink(item: CharacterNavItem, currentPageId: string) {
+  const link = document.createElement("a");
+  const label = document.createElement("span");
+
+  link.href = item.href;
+  link.dataset.navGroup = item.group;
+  label.textContent = item.label;
+
+  if (item.step) {
+    const step = document.createElement("strong");
+
+    step.textContent = item.step;
+    link.append(step);
+  }
+
+  link.append(label);
+
+  if (item.id === currentPageId) {
+    link.setAttribute("aria-current", "page");
+  }
+
+  return link;
 }
 
 document.querySelectorAll<HTMLElement>("[data-character-nav]").forEach(renderCharacterNav);

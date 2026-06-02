@@ -59,6 +59,7 @@ type SceneDragState = {
 const newSceneSelectValue = "__new_scene__";
 const characterSelect = requireElement(document.querySelector<HTMLSelectElement>("#characterSelect"), "#characterSelect");
 const sceneSelect = requireElement(document.querySelector<HTMLSelectElement>("#sceneSelect"), "#sceneSelect");
+const sceneList = requireElement(document.querySelector<HTMLElement>("#sceneList"), "#sceneList");
 const sceneIdInput = requireElement(document.querySelector<HTMLInputElement>("#sceneIdInput"), "#sceneIdInput");
 const defaultSceneInput = requireElement(document.querySelector<HTMLInputElement>("#defaultSceneInput"), "#defaultSceneInput");
 const sceneUploadAssetKindSelect = requireElement(document.querySelector<HTMLSelectElement>("#sceneUploadAssetKindSelect"), "#sceneUploadAssetKindSelect");
@@ -95,6 +96,7 @@ const output = requireElement(document.querySelector<HTMLElement>("#sceneOutput"
 const status = requireElement(document.querySelector<HTMLElement>("#sceneStatus"), "#sceneStatus");
 const saveButton = requireElement(document.querySelector<HTMLButtonElement>("#saveSceneButton"), "#saveSceneButton");
 const deleteButton = requireElement(document.querySelector<HTMLButtonElement>("#deleteSceneButton"), "#deleteSceneButton");
+const sceneActionProxyButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-scene-action-proxy]"));
 
 let savedAssetFiles: AssetFile[] = [];
 let existingScenes: Record<string, RuntimeScene> = {};
@@ -117,9 +119,9 @@ function renderAssetOptions() {
   const sceneAssets = filterAssetFiles(savedAssetFiles, ["scene"]);
   const sceneAndPartAssets = filterAssetFiles(savedAssetFiles, ["scene", "part"]);
 
-  backgroundAssetSelect.replaceChildren(new Option(sceneAssets.length > 0 ? "배경 이미지 없음" : "assets/scenes 이미지가 없어요.", ""));
-  propAssetSelect.replaceChildren(new Option(sceneAndPartAssets.length > 0 ? "소품 이미지 선택" : "scene/parts 이미지가 없어요.", ""));
-  effectAssetSelect.replaceChildren(new Option(sceneAndPartAssets.length > 0 ? "FX 이미지 선택" : "scene/parts 이미지가 없어요.", ""));
+  backgroundAssetSelect.replaceChildren(new Option(sceneAssets.length > 0 ? "배경 이미지 없음" : "무대 재료 이미지가 없어요.", ""));
+  propAssetSelect.replaceChildren(new Option(sceneAndPartAssets.length > 0 ? "소품 이미지 선택" : "무대 재료/파츠 이미지가 없어요.", ""));
+  effectAssetSelect.replaceChildren(new Option(sceneAndPartAssets.length > 0 ? "FX 이미지 선택" : "무대 재료/파츠 이미지가 없어요.", ""));
   appendAssetOptionGroups(backgroundAssetSelect, sceneAssets);
   appendAssetOptionGroups(propAssetSelect, sceneAndPartAssets);
   appendAssetOptionGroups(effectAssetSelect, sceneAndPartAssets);
@@ -593,6 +595,7 @@ function applySceneSelection() {
     applyEditableLayerToInputs(null, "prop");
     applyEditableLayerToInputs(null, "effect");
     renderOutputs();
+    renderSceneList();
     return;
   }
 
@@ -612,6 +615,7 @@ function applySceneSelection() {
   applyEditableLayerToInputs(getSelectedEditableLayer("prop"), "prop");
   applyEditableLayerToInputs(getSelectedEditableLayer("effect"), "effect");
   renderOutputs();
+  renderSceneList();
 }
 
 /**
@@ -620,7 +624,7 @@ function applySceneSelection() {
 function renderSceneOptions() {
   const currentValue = sceneSelect.value;
 
-  sceneSelect.replaceChildren(new Option("새 Scene 만들기", newSceneSelectValue));
+  sceneSelect.replaceChildren(new Option("새 무대 조합 만들기", newSceneSelectValue));
   Object.values(existingScenes)
     .sort((left, right) => left.id.localeCompare(right.id, undefined, { numeric: true, sensitivity: "base" }))
     .forEach((scene) => {
@@ -632,6 +636,69 @@ function renderSceneOptions() {
   if (currentValue && Array.from(sceneSelect.options).some((option) => option.value === currentValue)) {
     sceneSelect.value = currentValue;
   }
+
+  renderSceneList();
+}
+
+/**
+ * Selects one saved scene and refreshes the editor form.
+ */
+function selectScene(sceneId: string) {
+  if (!existingScenes[sceneId]) {
+    return;
+  }
+
+  sceneSelect.value = sceneId;
+  applySceneSelection();
+}
+
+/**
+ * Renders saved scenes as visible cards so deletion and selection are discoverable.
+ */
+function renderSceneList() {
+  const scenes = Object.values(existingScenes)
+    .sort((left, right) => left.id.localeCompare(right.id, undefined, { numeric: true, sensitivity: "base" }));
+
+  if (scenes.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "asset-lab-help";
+    empty.textContent = "아직 저장된 무대 조합이 없습니다. 위에서 새 무대 조합을 만든 뒤 저장하세요.";
+    sceneList.replaceChildren(empty);
+    return;
+  }
+
+  sceneList.replaceChildren(...scenes.map((scene) => {
+    const card = document.createElement("article");
+    card.className = "asset-scene-list-card";
+    card.dataset.selected = sceneSelect.value === scene.id ? "true" : "false";
+
+    const title = document.createElement("strong");
+    title.textContent = scene.id === existingDefaultScene ? `${scene.id} / 기본` : scene.id;
+
+    const summary = document.createElement("span");
+    summary.textContent = `${scene.layers.length}개 요소`;
+
+    const controls = document.createElement("div");
+    controls.className = "asset-lab-actions";
+
+    const selectButton = document.createElement("button");
+    selectButton.type = "button";
+    selectButton.textContent = "선택";
+    selectButton.addEventListener("click", () => selectScene(scene.id));
+
+    const deleteSceneButton = document.createElement("button");
+    deleteSceneButton.type = "button";
+    deleteSceneButton.className = "asset-danger-button";
+    deleteSceneButton.textContent = "삭제";
+    deleteSceneButton.addEventListener("click", () => {
+      void deleteSceneConfig(scene.id);
+    });
+
+    controls.append(selectButton, deleteSceneButton);
+    card.append(title, summary, controls);
+
+    return card;
+  }));
 }
 
 /**
@@ -653,7 +720,7 @@ async function uploadSceneImages() {
   const characterId = characterSelect.value || "rine";
 
   if (files.length === 0) {
-    status.textContent = "저장할 Scene 이미지를 먼저 선택하세요.";
+    status.textContent = "저장할 무대 재료 이미지를 먼저 선택하세요.";
     return;
   }
 
@@ -680,7 +747,7 @@ async function uploadSceneImages() {
     renderOutputs();
     status.textContent = `${assetKind} 폴더에 이미지 ${savedFiles.length}개를 저장했어요.`;
   } catch (error) {
-    status.textContent = error instanceof Error ? error.message : "Scene 이미지 저장 요청에 실패했어요.";
+    status.textContent = error instanceof Error ? error.message : "무대 재료 이미지 저장 요청에 실패했어요.";
   } finally {
     uploadSceneImagesButton.disabled = false;
   }
@@ -689,7 +756,7 @@ async function uploadSceneImages() {
 /**
  * Loads scene settings from the selected character.
  */
-async function loadCharacterAssets() {
+async function loadCharacterAssets(preferredSceneId?: string) {
   const characterId = characterSelect.value || "rine";
   const result = await fetchCharacterAssets(characterId);
 
@@ -697,8 +764,11 @@ async function loadCharacterAssets() {
   existingDefaultScene = result.assets?.defaultScene ?? "";
   await loadSavedAssetFiles();
   renderSceneOptions();
+  if (preferredSceneId && Array.from(sceneSelect.options).some((option) => option.value === preferredSceneId)) {
+    sceneSelect.value = preferredSceneId;
+  }
   applySceneSelection();
-  status.textContent = `${characterId} 캐릭터의 Scene 정보를 불러왔어요.`;
+  status.textContent = `${characterId} 캐릭터의 무대 조합 정보를 불러왔어요.`;
 }
 
 /**
@@ -724,11 +794,11 @@ async function loadCharacters() {
  */
 function validateSceneSnippet(sceneSnippet: ReturnType<typeof createSceneSnippet>) {
   if (!sceneSnippet.sceneId) {
-    return "Scene ID를 입력하세요.";
+    return "무대 조합 ID를 입력하세요.";
   }
 
   if (!sceneSnippet.scene.layers.some((layer) => layer.role === "character")) {
-    return "Scene에는 character 위치가 필요해요.";
+    return "무대 조합에는 캐릭터 위치가 필요해요.";
   }
 
   if (!sceneSnippet.scene.layers.some((layer) => layer.role !== "character" && (layer.image || layer.color))) {
@@ -751,7 +821,7 @@ async function saveSceneConfig() {
   }
 
   saveButton.disabled = true;
-  status.textContent = "Scene을 저장하는 중이에요.";
+  status.textContent = "무대 조합을 저장하는 중이에요.";
 
   try {
     const response = await fetch(createDevtoolsApiPath("/api/devtools/save-character-scene"), {
@@ -765,15 +835,14 @@ async function saveSceneConfig() {
     const result = await readApiJson<SceneSaveResponse>(response);
 
     if (!response.ok || !result.ok) {
-      status.textContent = result.message ?? `Scene 저장 실패: ${result.error ?? response.status}`;
+      status.textContent = result.message ?? `무대 조합 저장 실패: ${result.error ?? response.status}`;
       return;
     }
 
-    await loadCharacterAssets();
-    sceneSelect.value = sceneSnippet.sceneId;
-    status.textContent = `${result.saved?.path ?? "character index.ts"}에 Scene을 저장했어요.`;
+    await loadCharacterAssets(sceneSnippet.sceneId);
+    status.textContent = `${result.saved?.path ?? "character index.ts"}에 무대 조합을 저장했어요.`;
   } catch (error) {
-    status.textContent = error instanceof Error ? error.message : "Scene 저장 요청에 실패했어요.";
+    status.textContent = error instanceof Error ? error.message : "무대 조합 저장 요청에 실패했어요.";
   } finally {
     saveButton.disabled = false;
     renderOutputs();
@@ -783,22 +852,21 @@ async function saveSceneConfig() {
 /**
  * Deletes the selected scene from the character config.
  */
-async function deleteSceneConfig() {
-  const sceneId = sceneSelect.value;
+async function deleteSceneConfig(sceneId = sceneSelect.value) {
 
   if (!sceneId || sceneId === newSceneSelectValue) {
-    status.textContent = "삭제할 기존 Scene을 선택하세요.";
+    status.textContent = "삭제할 기존 무대 조합을 선택하세요.";
     return;
   }
 
-  const confirmed = window.confirm(`${characterSelect.value || "rine"} 캐릭터의 Scene '${sceneId}'를 삭제할까요?`);
+  const confirmed = window.confirm(`${characterSelect.value || "rine"} 캐릭터의 무대 조합 '${sceneId}'를 삭제할까요?`);
 
   if (!confirmed) {
     return;
   }
 
   deleteButton.disabled = true;
-  status.textContent = "Scene을 삭제하는 중이에요.";
+  status.textContent = "무대 조합을 삭제하는 중이에요.";
 
   try {
     const response = await fetch(createDevtoolsApiPath("/api/devtools/delete-character-scene"), {
@@ -812,16 +880,17 @@ async function deleteSceneConfig() {
     const result = await readApiJson<SceneSaveResponse>(response);
 
     if (!response.ok || !result.ok) {
-      status.textContent = result.message ?? `Scene 삭제 실패: ${result.error ?? response.status}`;
+      status.textContent = result.message ?? `무대 조합 삭제 실패: ${result.error ?? response.status}`;
       return;
     }
 
     sceneSelect.value = newSceneSelectValue;
-    await loadCharacterAssets();
-    status.textContent = `${sceneId} Scene을 삭제했어요.`;
+    await loadCharacterAssets(newSceneSelectValue);
+    status.textContent = `${sceneId} 무대 조합을 삭제했어요.`;
   } catch (error) {
-    status.textContent = error instanceof Error ? error.message : "Scene 삭제 요청에 실패했어요.";
+    status.textContent = error instanceof Error ? error.message : "무대 조합 삭제 요청에 실패했어요.";
   } finally {
+    deleteButton.disabled = false;
     applySceneSelection();
   }
 }
@@ -901,6 +970,16 @@ function init() {
   });
   deleteButton.addEventListener("click", () => {
     void deleteSceneConfig();
+  });
+  sceneActionProxyButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.dataset.sceneActionProxy === "delete") {
+        void deleteSceneConfig();
+        return;
+      }
+
+      void saveSceneConfig();
+    });
   });
   uploadSceneImagesButton.addEventListener("click", () => {
     void uploadSceneImages();

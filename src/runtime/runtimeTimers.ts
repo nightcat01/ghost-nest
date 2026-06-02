@@ -1,7 +1,7 @@
 import type {
   RuntimeControlOptions,
-  RuntimeEventMap,
   RuntimeEventName,
+  RuntimeEventPayload,
   RuntimeState,
   RuntimeTimingOptions,
 } from "../core/types.js";
@@ -9,7 +9,7 @@ import type {
 type RuntimeEventEmitter = {
   emit: <TEventName extends RuntimeEventName>(
     eventName: TEventName,
-    payload?: RuntimeEventMap[TEventName],
+    payload?: RuntimeEventPayload<TEventName>,
   ) => void;
 };
 

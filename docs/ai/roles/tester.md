@@ -20,6 +20,9 @@ Tester는 구현을 수정하지 않는다.
 - UI 변경이면 주요 화면 접근과 정적 리소스 로드를 확인한다.
 - UI 변경이면 핵심 조작 흐름, 리로드, 데이터 전환 후 화면 상태를 확인한다.
 - 반복 조작 UI는 같은 조작을 2회 이상 실행해 깜빡임과 layout shift를 확인한다.
+- UI 불변조건이 있으면 전후 DOM 상태나 화면 상태로 검증한다.
+- scroll/focus 문제는 관련 요소의 `scrollTop`, focus target, hidden 상태를 전후 비교한다.
+- 브라우저 재현이 불가능하면 타입/빌드와 UX 검증을 분리해서 보고한다.
 - 실패 로그를 요약한다.
 - 검증하지 못한 항목과 이유를 남긴다.
 
@@ -43,4 +46,6 @@ trivial 작업에서는 다음만 확인한다.
 - Passed
 - Failed
 - Not Run
+- UX Scenario
+- Residual Risk
 - Notes

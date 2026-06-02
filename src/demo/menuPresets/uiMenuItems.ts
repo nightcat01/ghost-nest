@@ -64,6 +64,15 @@ export function createUiMenuItems(): ManagementMenuItem[] {
             { type: "log", label: "management.balloon.dark_magic" },
           ],
         },
+        {
+          id: "balloon-fortune-prompt",
+          label: "fortune prompt",
+          actions: [
+            { type: "change_balloon", theme: "fortune_prompt" },
+            { type: "speak_text", text: "포춘마스터 화면에 맞춘 반투명 프롬프트 분위기로 바꿨어요." },
+            { type: "log", label: "management.balloon.fortune_prompt" },
+          ],
+        },
       ],
     },
     {

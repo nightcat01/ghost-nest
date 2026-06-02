@@ -8,8 +8,8 @@ import type {
   RuntimeNavigationOptions,
   RuntimeAction,
   RuntimeActionHandler,
-  RuntimeEventMap,
   RuntimeEventName,
+  RuntimeEventPayload,
   RuntimePlugin,
   SpeechBalloonSizeOptions,
   SpeechLayoutOptions,
@@ -31,7 +31,7 @@ import {
 type RuntimeEventEmitter = {
   emit: <TEventName extends RuntimeEventName>(
     eventName: TEventName,
-    payload?: RuntimeEventMap[TEventName],
+    payload?: RuntimeEventPayload<TEventName>,
   ) => void;
 };
 
@@ -45,6 +45,7 @@ type ActionRunnerContext = {
   managementMenu?: ManagementMenuOptions | undefined;
   navigation?: RuntimeNavigationOptions | undefined;
   speechLayout?: SpeechLayoutOptions | undefined;
+  defaultRuntimeUiPreferences?: RuntimeUiPreferences | undefined;
   defaultSpeechBalloonSize: SpeechBalloonSizeOptions;
   controls: RuntimeControlOptions;
   userPreferences: RuntimeUserPreferenceOptions;
@@ -53,11 +54,17 @@ type ActionRunnerContext = {
   renderPreviewSpeech: (message: DialogueMessage) => void;
   renderCharacterState: () => void;
   applySurface: (surfaceId: string, options?: { startIdleLayers?: boolean }) => void;
+  setScene: (sceneId: string) => void;
+  addSceneOverlay: (sceneId: string, options?: { slot?: string; duration?: number }) => void;
+  removeSceneOverlay: (slotOrSceneId: string) => void;
   setLayerAnimationActive: (layerId: string, isActive: boolean) => void;
   applySpeechBalloonSize: (size?: Partial<SpeechBalloonSizeOptions>) => void;
   addLog: (label: string) => void;
   touchInteraction: () => void;
 };
+
+const maxNestedActionDepth = 4;
+const maxActionBatchSize = 24;
 
 function getRuntimeUi(target: string) {
   return document.querySelector<HTMLElement>(`[data-runtime-ui="${target}"]`);
@@ -95,6 +102,7 @@ export function createActionRunner(context: ActionRunnerContext) {
     managementMenu,
     navigation,
     speechLayout,
+    defaultRuntimeUiPreferences,
     defaultSpeechBalloonSize,
     controls,
     userPreferences,
@@ -103,6 +111,9 @@ export function createActionRunner(context: ActionRunnerContext) {
     renderPreviewSpeech,
     renderCharacterState,
     applySurface,
+    setScene,
+    addSceneOverlay,
+    removeSceneOverlay,
     setLayerAnimationActive,
     applySpeechBalloonSize,
     addLog,
@@ -116,7 +127,9 @@ export function createActionRunner(context: ActionRunnerContext) {
     mode: speechLayout?.mode ?? "floating",
     placement: speechLayout?.placement ?? "below-character",
   };
-  const runtimeUiPreferences: RuntimeUiPreferences = {};
+  const runtimeUiPreferences: RuntimeUiPreferences = {
+    ...defaultRuntimeUiPreferences,
+  };
 
   const managementMenuOptionsReady = loadManagementMenuOptions();
   const runtimeUiPreferencesReady = loadRuntimeUiPreferences();
@@ -214,30 +227,40 @@ export function createActionRunner(context: ActionRunnerContext) {
 
       if (storedPreferences.balloonTheme) {
         runtimeUiPreferences.balloonTheme = storedPreferences.balloonTheme;
+      } else if (defaultRuntimeUiPreferences?.balloonTheme) {
+        runtimeUiPreferences.balloonTheme = defaultRuntimeUiPreferences.balloonTheme;
       } else {
         delete runtimeUiPreferences.balloonTheme;
       }
 
       if (storedPreferences.balloonFontSize) {
         runtimeUiPreferences.balloonFontSize = storedPreferences.balloonFontSize;
+      } else if (defaultRuntimeUiPreferences?.balloonFontSize) {
+        runtimeUiPreferences.balloonFontSize = defaultRuntimeUiPreferences.balloonFontSize;
       } else {
         delete runtimeUiPreferences.balloonFontSize;
       }
 
       if (storedPreferences.speechLayout) {
         runtimeUiPreferences.speechLayout = storedPreferences.speechLayout;
+      } else if (defaultRuntimeUiPreferences?.speechLayout) {
+        runtimeUiPreferences.speechLayout = defaultRuntimeUiPreferences.speechLayout;
       } else {
         delete runtimeUiPreferences.speechLayout;
       }
 
       if (storedPreferences.speechBalloonSize) {
         runtimeUiPreferences.speechBalloonSize = storedPreferences.speechBalloonSize;
+      } else if (defaultRuntimeUiPreferences?.speechBalloonSize) {
+        runtimeUiPreferences.speechBalloonSize = defaultRuntimeUiPreferences.speechBalloonSize;
       } else {
         delete runtimeUiPreferences.speechBalloonSize;
       }
 
       if (storedPreferences.characterPosition) {
         runtimeUiPreferences.characterPosition = storedPreferences.characterPosition;
+      } else if (defaultRuntimeUiPreferences?.characterPosition) {
+        runtimeUiPreferences.characterPosition = defaultRuntimeUiPreferences.characterPosition;
       } else {
         delete runtimeUiPreferences.characterPosition;
       }
@@ -272,6 +295,7 @@ export function createActionRunner(context: ActionRunnerContext) {
     delete runtimeUiPreferences.speechLayout;
     delete runtimeUiPreferences.speechBalloonSize;
     delete runtimeUiPreferences.characterPosition;
+    Object.assign(runtimeUiPreferences, defaultRuntimeUiPreferences);
     applyRuntimeUiPreferences();
     elements.stage.style.removeProperty("--character-stage-x");
     elements.stage.style.removeProperty("--character-stage-y");
@@ -353,6 +377,26 @@ export function createActionRunner(context: ActionRunnerContext) {
     applySurface(a.id, a.startIdleLayers === undefined ? undefined : { startIdleLayers: a.startIdleLayers });
   });
 
+  registerAction("scene", (action, _) => {
+    const a = action as Extract<BuiltinRuntimeAction, { type: "scene" }>;
+
+    setScene(a.id);
+  });
+
+  registerAction("scene_overlay", (action, _) => {
+    const a = action as Extract<BuiltinRuntimeAction, { type: "scene_overlay" }>;
+
+    if (a.active === false) {
+      removeSceneOverlay(a.slot || a.id);
+      return;
+    }
+
+    addSceneOverlay(a.id, {
+      ...(a.slot ? { slot: a.slot } : {}),
+      ...(a.duration ? { duration: a.duration } : {}),
+    });
+  });
+
   registerAction("set_touched_part", (action, _) => {
     const a = action as Extract<BuiltinRuntimeAction, { type: "set_touched_part" }>;
     state.lastTouchedPart = a.part;
@@ -418,6 +462,27 @@ export function createActionRunner(context: ActionRunnerContext) {
 
   registerAction("mark_prompted", () => {
     state.lastPromptedAt = Date.now();
+  });
+
+  registerAction("run_sequence", async (action, context) => {
+    const a = action as Extract<BuiltinRuntimeAction, { type: "run_sequence" }>;
+    await context.runActions(a.actions);
+  });
+
+  registerAction("run_parallel", async (action, context) => {
+    const a = action as Extract<BuiltinRuntimeAction, { type: "run_parallel" }>;
+    await Promise.all(a.actions.map((nestedAction) => context.runActions([nestedAction])));
+  });
+
+  registerAction("run_random", async (action, context) => {
+    const a = action as Extract<BuiltinRuntimeAction, { type: "run_random" }>;
+    const nextAction = a.actions[Math.floor(Math.random() * a.actions.length)];
+
+    if (!nextAction) {
+      return;
+    }
+
+    await context.runActions([nextAction]);
   });
 
   registerAction("play_animation", (action, _) => {
@@ -689,19 +754,31 @@ export function createActionRunner(context: ActionRunnerContext) {
     closeManagementMenu(getManagementMenuTargets(elements));
   });
 
-  async function runAction(action: RuntimeAction) {
+  async function runAction(action: RuntimeAction, depth = 0) {
     const handler = actionHandlers.get(action.type);
     
     if (handler) {
-      await handler(action, { runActions });
+      await handler(action, {
+        runActions: (actions) => runActions(actions, depth + 1),
+      });
     } else {
       console.warn(`[GhostNest] 알 수 없는 액션 타입입니다: ${action.type}`, action);
     }
   }
 
-  async function runActions(actions: RuntimeAction[]) {
+  async function runActions(actions: RuntimeAction[], depth = 0) {
+    if (depth > maxNestedActionDepth) {
+      console.warn(`[GhostNest] 액션 묶음 중첩이 너무 깊습니다. 최대 ${maxNestedActionDepth}단계까지만 실행합니다.`, actions);
+      return;
+    }
+
+    if (actions.length > maxActionBatchSize) {
+      console.warn(`[GhostNest] 한 번에 실행할 액션이 너무 많습니다. 최대 ${maxActionBatchSize}개까지만 실행합니다.`, actions);
+      actions = actions.slice(0, maxActionBatchSize);
+    }
+
     for (const action of actions) {
-      await runAction(action);
+      await runAction(action, depth);
     }
   }
 

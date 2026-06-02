@@ -1,4 +1,4 @@
-import type { RuntimeEventHandler, RuntimeEventMap, RuntimeEventName } from "./types.js";
+import type { RuntimeEventHandler, RuntimeEventName, RuntimeEventPayload } from "./types.js";
 
 type ListenerMap = {
   [TEventName in RuntimeEventName]?: Set<RuntimeEventHandler<TEventName>>;
@@ -31,7 +31,7 @@ export function createEventBus() {
    */
   function emit<TEventName extends RuntimeEventName>(
     eventName: TEventName,
-    payload = {} as RuntimeEventMap[TEventName],
+    payload = {} as RuntimeEventPayload<TEventName>,
   ) {
     const handlers = listeners[eventName] as Set<RuntimeEventHandler<TEventName>> | undefined;
 

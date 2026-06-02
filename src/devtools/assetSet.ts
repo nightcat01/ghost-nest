@@ -7,8 +7,9 @@ import {
   readApiJson,
 } from "./assetApi.js";
 import { populateCharacterSelect } from "./assetCharacterSelect.js";
+import { createExpressionLabel } from "./assetTerminology.js";
 import { createAssetOptionLabel, filterAssetFiles } from "./assetSelect.js";
-import type { CharacterExpressionAsset, CharacterVisualSource, RuntimeScene } from "../core/types.js";
+import type { CharacterExpressionAsset, RuntimeScene } from "../core/types.js";
 
 type SurfaceSaveResponse = {
   ok?: boolean;
@@ -47,7 +48,6 @@ let existingSurfaces: ExistingSurface[] = [];
 let existingExpressions: Record<string, CharacterExpressionAsset> = {};
 let existingScenes: Record<string, RuntimeScene> = {};
 let savedAssetFiles: AssetFile[] = [];
-type SceneVisualSource = Extract<CharacterVisualSource, { type: "scene" }>;
 
 /**
  * Keeps Set options in numeric id order when possible.
@@ -98,22 +98,6 @@ function getExpressionAssetPaths(expression: string) {
 }
 
 /**
- * Returns saved Scene visual candidates for an expression.
- */
-function getExpressionSceneIds(expression: string) {
-  const savedAsset = existingExpressions[expression];
-  const candidates = Array.isArray(savedAsset)
-    ? savedAsset
-    : savedAsset
-      ? [savedAsset]
-      : [];
-
-  return candidates
-    .filter((asset): asset is SceneVisualSource => typeof asset !== "string" && asset.type === "scene")
-    .map((asset) => asset.sceneId);
-}
-
-/**
  * Checks whether the Set can be reached by the runtime expression flow.
  */
 function validateSurfaceSnippet(surfaceSnippet: ReturnType<typeof createSurfaceSnippet>) {
@@ -122,19 +106,15 @@ function validateSurfaceSnippet(surfaceSnippet: ReturnType<typeof createSurfaceS
   const sceneId = surfaceSnippet.surface.visual?.type === "scene" ? surfaceSnippet.surface.visual.sceneId : "";
 
   if (!expression) {
-    return "Set에 연결할 Expression을 선택하세요.";
+    return "캐릭터 상태에 연결할 표정을 선택하세요.";
   }
 
   if (!image && !sceneId) {
-    return "Set의 기준 이미지 또는 Scene 조합을 선택하세요.";
+    return "캐릭터 상태의 기준 이미지 또는 장면 조합을 선택하세요.";
   }
 
   if (image && !getExpressionAssetPaths(expression).includes(image)) {
-    return `먼저 Expression '${expression}' 등록을 완료하고, 그 후보 안에 Set base 이미지를 포함하세요.`;
-  }
-
-  if (sceneId && !getExpressionSceneIds(expression).includes(sceneId)) {
-    return `먼저 Expression '${expression}' 등록을 완료하고, 그 후보 안에 Scene '${sceneId}'를 포함하세요.`;
+    return `먼저 표정 '${expression}' 등록을 완료하고, 그 후보 안에 캐릭터 상태용 기본 이미지를 포함하세요.`;
   }
 
   return null;
@@ -159,7 +139,7 @@ function renderOutputs() {
   } else {
     const empty = document.createElement("p");
 
-    empty.textContent = "Set base 이미지를 선택하세요.";
+    empty.textContent = "캐릭터 상태의 기준 이미지를 선택하세요.";
     preview.append(empty);
   }
 
@@ -182,7 +162,7 @@ function renderScenePreview(sceneId: string) {
   if (!scene) {
     const empty = document.createElement("p");
 
-    empty.textContent = `${sceneId} Scene 조합을 찾지 못했어요.`;
+    empty.textContent = `${sceneId} 장면 조합을 찾지 못했어요.`;
     preview.append(empty);
     return;
   }
@@ -228,7 +208,7 @@ function renderScenePreview(sceneId: string) {
 function renderBaseAssetOptions() {
   const baseAssets = filterAssetFiles(savedAssetFiles, ["base"], { includeCommon: false });
 
-  baseAssetSelect.replaceChildren(new Option(baseAssets.length > 0 ? "base 이미지 선택" : "assets/base 이미지가 없어요.", ""));
+  baseAssetSelect.replaceChildren(new Option(baseAssets.length > 0 ? "기본 이미지 선택" : "기본 이미지가 없어요.", ""));
   baseAssets.forEach((assetFile) => {
     baseAssetSelect.append(new Option(createAssetOptionLabel(assetFile), assetFile.path));
   });
@@ -243,13 +223,13 @@ function renderExpressionOptions() {
 
   surfaceExpressionSelect.replaceChildren(new Option("없음", ""));
   ["neutral", "happy", "thinking", "surprised"].forEach((expression) => {
-    surfaceExpressionSelect.append(new Option(expression, expression));
+    surfaceExpressionSelect.append(new Option(createExpressionLabel(expression), expression));
   });
   Object.keys(existingExpressions)
     .filter((expression) => !fixedExpressions.has(expression))
     .sort((left, right) => left.localeCompare(right))
     .forEach((expression) => {
-      surfaceExpressionSelect.append(new Option(expression, expression));
+      surfaceExpressionSelect.append(new Option(createExpressionLabel(expression), expression));
     });
 
   if (currentValue && Array.from(surfaceExpressionSelect.options).some((option) => option.value === currentValue)) {
@@ -258,7 +238,7 @@ function renderExpressionOptions() {
 }
 
 /**
- * Renders saved Scene composition options separately from image files.
+ * Renders saved scene compositions separately from image files.
  */
 function renderSceneOptions() {
   const currentValue = surfaceSceneSelect.value;
@@ -266,9 +246,9 @@ function renderSceneOptions() {
     left.id.localeCompare(right.id, undefined, { numeric: true, sensitivity: "base" }),
   );
 
-  surfaceSceneSelect.replaceChildren(new Option("Scene 조합 사용 안 함", ""));
+  surfaceSceneSelect.replaceChildren(new Option("장면 조합 사용 안 함", ""));
   scenes.forEach((scene) => {
-    surfaceSceneSelect.append(new Option(`${scene.id} / ${scene.layers.length} layer`, scene.id));
+    surfaceSceneSelect.append(new Option(`${scene.id} / ${scene.layers.length}개 요소`, scene.id));
   });
 
   if (currentValue && Array.from(surfaceSceneSelect.options).some((option) => option.value === currentValue)) {
@@ -325,14 +305,14 @@ async function loadCharacterAssets() {
   }));
 
   surfaceSelect.replaceChildren(
-    new Option("Set 선택", ""),
-    new Option("새 Set 만들기", newSurfaceSelectValue),
+    new Option("캐릭터 상태 선택", ""),
+    new Option("새 캐릭터 상태 만들기", newSurfaceSelectValue),
   );
   existingSurfaces.forEach((surface) => {
     const label = [
       surface.surfaceId,
-      surface.expression ? `expression ${surface.expression}` : "",
-      `${surface.layerCount} layer`,
+      surface.expression ? `표정 ${surface.expression}` : "",
+      `${surface.layerCount}개 파츠`,
     ].filter(Boolean).join(" / ");
 
     surfaceSelect.append(new Option(label, surface.surfaceId));
@@ -340,7 +320,7 @@ async function loadCharacterAssets() {
 
   await loadSavedAssetFiles();
   applySurfaceSelection();
-  status.textContent = `${characterId} 캐릭터 Set을 불러왔어요.`;
+  status.textContent = `${characterId} 캐릭터 상태를 불러왔어요.`;
 }
 
 /**
@@ -402,7 +382,7 @@ async function saveSurfaceConfig() {
   }
 
   saveButton.disabled = true;
-  status.textContent = "Set을 저장하는 중이에요.";
+  status.textContent = "캐릭터 상태를 저장하는 중이에요.";
 
   try {
     const response = await fetch(createDevtoolsApiPath("/api/devtools/save-character-surface"), {
@@ -416,15 +396,15 @@ async function saveSurfaceConfig() {
     const result = await readApiJson<SurfaceSaveResponse>(response);
 
     if (!response.ok || !result.ok) {
-      status.textContent = result.message ?? `Set 저장 실패: ${result.error ?? response.status}`;
+      status.textContent = result.message ?? `캐릭터 상태 저장 실패: ${result.error ?? response.status}`;
       return;
     }
 
     await loadCharacterAssets();
     surfaceSelect.value = surfaceSnippet.surfaceId;
-    status.textContent = `${result.saved?.path ?? "character index.ts"}에 Set을 저장했어요.`;
+    status.textContent = `${result.saved?.path ?? "character index.ts"}에 캐릭터 상태를 저장했어요.`;
   } catch (error) {
-    status.textContent = error instanceof Error ? error.message : "Set 저장 요청에 실패했어요.";
+    status.textContent = error instanceof Error ? error.message : "캐릭터 상태 저장 요청에 실패했어요.";
   } finally {
     saveButton.disabled = false;
     renderOutputs();
@@ -438,18 +418,18 @@ async function deleteSurfaceConfig() {
   const surfaceId = surfaceSelect.value;
 
   if (!surfaceId || surfaceId === newSurfaceSelectValue) {
-    status.textContent = "삭제할 기존 Set을 선택하세요.";
+    status.textContent = "삭제할 기존 캐릭터 상태를 선택하세요.";
     return;
   }
 
-  const confirmed = window.confirm(`${characterSelect.value || "rine"} 캐릭터의 Set ${surfaceId}를 삭제할까요?\n\n이 Set에 붙은 Layer 설정도 함께 삭제됩니다.`);
+  const confirmed = window.confirm(`${characterSelect.value || "rine"} 캐릭터의 상태 ${surfaceId}를 삭제할까요?\n\n이 상태에 붙은 파츠 설정도 함께 삭제됩니다.`);
 
   if (!confirmed) {
     return;
   }
 
   deleteButton.disabled = true;
-  status.textContent = "Set을 삭제하는 중이에요.";
+  status.textContent = "캐릭터 상태를 삭제하는 중이에요.";
 
   try {
     const response = await fetch(createDevtoolsApiPath("/api/devtools/delete-character-surface"), {
@@ -463,14 +443,14 @@ async function deleteSurfaceConfig() {
     const result = await readApiJson<SurfaceSaveResponse>(response);
 
     if (!response.ok || !result.ok) {
-      status.textContent = result.message ?? `Set 삭제 실패: ${result.error ?? response.status}`;
+      status.textContent = result.message ?? `캐릭터 상태 삭제 실패: ${result.error ?? response.status}`;
       return;
     }
 
     await loadCharacterAssets();
-    status.textContent = `Set ${surfaceId}를 삭제했어요.`;
+    status.textContent = `캐릭터 상태 ${surfaceId}를 삭제했어요.`;
   } catch (error) {
-    status.textContent = error instanceof Error ? error.message : "Set 삭제 요청에 실패했어요.";
+    status.textContent = error instanceof Error ? error.message : "캐릭터 상태 삭제 요청에 실패했어요.";
   } finally {
     applySurfaceSelection();
   }

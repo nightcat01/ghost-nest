@@ -22,12 +22,22 @@ export type BaseRuntimeEventMap = {
   };
 };
 
-export type RuntimeEventMap = BaseRuntimeEventMap & Record<RuntimeCommandEventName, Record<string, never>>;
+export type RuntimeEventMap =
+  & BaseRuntimeEventMap
+  & Record<RuntimeCommandEventName, Record<string, never>>
+  & Record<string, Record<string, unknown>>;
 
-export type RuntimeEventName = keyof RuntimeEventMap;
+export type RuntimeEventName = string;
+
+export type RuntimeEventPayload<TEventName extends RuntimeEventName> =
+  TEventName extends keyof BaseRuntimeEventMap
+    ? BaseRuntimeEventMap[TEventName]
+    : TEventName extends RuntimeCommandEventName
+      ? Record<string, never>
+      : Record<string, unknown>;
 
 export type RuntimeEventHandler<TEventName extends RuntimeEventName> = (
-  payload: RuntimeEventMap[TEventName],
+  payload: RuntimeEventPayload<TEventName>,
 ) => void;
 
 export type CharacterProfile = {
@@ -186,6 +196,10 @@ export type DialogueToken =
       startIdleLayers?: boolean;
     }
   | {
+      type: "scene";
+      id: string;
+    }
+  | {
       type: "clear";
     }
   | {
@@ -229,6 +243,17 @@ export type BuiltinRuntimeAction =
       startIdleLayers?: boolean;
     }
   | {
+      type: "scene";
+      id: string;
+    }
+  | {
+      type: "scene_overlay";
+      id: string;
+      slot?: string;
+      active?: boolean;
+      duration?: number;
+    }
+  | {
       type: "set_touched_part";
       part: CharacterTouchPart | null;
     }
@@ -248,6 +273,18 @@ export type BuiltinRuntimeAction =
     }
   | {
       type: "mark_prompted";
+    }
+  | {
+      type: "run_sequence";
+      actions: RuntimeAction[];
+    }
+  | {
+      type: "run_parallel";
+      actions: RuntimeAction[];
+    }
+  | {
+      type: "run_random";
+      actions: RuntimeAction[];
     }
   | {
       type: "play_animation";
@@ -279,7 +316,7 @@ export type BuiltinRuntimeAction =
   | {
       type: "emit_event";
       event: RuntimeEventName;
-      payload?: RuntimeEventMap[RuntimeEventName];
+      payload?: RuntimeEventPayload<RuntimeEventName>;
     }
   | {
       type: "play_sound";
@@ -577,9 +614,11 @@ export type DialogueEngine = {
 export type GhostRuntimeOptions = {
   character: CharacterDefinition;
   plugins?: RuntimePlugin[];
+  root?: ParentNode | string;
   selectors: RuntimeSelectors;
   initialExpression?: CharacterExpression;
   initialSurface?: string;
+  initialScene?: string;
   scene?: RuntimeSceneOptions;
   devtools?: RuntimeDevtoolsOptions;
   managementMenu?: ManagementMenuOptions;
@@ -590,9 +629,11 @@ export type GhostRuntimeOptions = {
   /** @deprecated Use controls instead. */
   features?: Partial<RuntimeFeatureOptions>;
   typing?: Partial<SpeechTypingOptions>;
+  balloonTheme?: string;
   speechLayout?: SpeechLayoutOptions;
   speechBalloonSize?: Partial<SpeechBalloonSizeOptions>;
   spriteSize?: Partial<CharacterSpriteSizeOptions>;
+  includeDefaultRules?: boolean;
   rules?: RuntimeRule[];
   maxLogItems?: number;
   dialogueEngine?: DialogueEngine;
@@ -602,7 +643,7 @@ export type GhostRuntimeOptions = {
 export type GhostRuntime = {
   emit: <TEventName extends RuntimeEventName>(
     eventName: TEventName,
-    payload?: RuntimeEventMap[TEventName],
+    payload?: RuntimeEventPayload<TEventName>,
   ) => void;
   registerAction: (type: string, handler: RuntimeActionHandler) => void;
   destroy: () => void;

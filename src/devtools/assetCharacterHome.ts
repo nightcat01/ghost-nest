@@ -33,6 +33,7 @@ type StepConfig = {
 
 const characterSelect = requireElement(document.querySelector<HTMLSelectElement>("#characterSelect"), "#characterSelect");
 const summary = requireElement(document.querySelector<HTMLElement>("#characterSummary"), "#characterSummary");
+const readinessMap = requireElement(document.querySelector<HTMLElement>("#characterReadinessMap"), "#characterReadinessMap");
 const stepList = requireElement(document.querySelector<HTMLElement>("#characterStepList"), "#characterStepList");
 const status = requireElement(document.querySelector<HTMLElement>("#characterHomeStatus"), "#characterHomeStatus");
 const deleteCharacterButton = requireElement(document.querySelector<HTMLButtonElement>("#deleteCharacterButton"), "#deleteCharacterButton");
@@ -73,16 +74,16 @@ const steps: StepConfig[] = [
   {
     id: "expression",
     title: "2. 표정 이미지 등록",
-    description: "neutral, happy 같은 표정 이름에 base 이미지 후보를 연결합니다.",
+    description: "neutral, happy 같은 저장 키에 사용자가 알아볼 표정 이름과 기본 이미지 후보를 연결합니다.",
     href: "./dev-character-expression.html",
     required: true,
     complete: (progress) => progress.expressionCount > 0,
-    detail: (progress) => `${progress.expressionCount}개 표정 / ${progress.baseCount}개 base 이미지`,
+    detail: (progress) => `${progress.expressionCount}개 표정 / ${progress.baseCount}개 기본 이미지`,
   },
   {
     id: "set",
     title: "3. 캐릭터 상태 만들기",
-    description: "표정 후보 중 실제로 쓸 base 이미지를 골라 파츠를 붙일 기준 상태를 만듭니다.",
+    description: "표정 후보 중 실제로 쓸 기본 이미지나 장면 조합을 골라 파츠를 붙일 기준 상태를 만듭니다.",
     href: "./dev-character-set.html",
     required: true,
     complete: (progress) => progress.setCount > 0,
@@ -95,7 +96,7 @@ const steps: StepConfig[] = [
     href: "./dev-assets-layer.html",
     required: false,
     complete: (progress) => progress.layerCount > 0,
-    detail: (progress) => `${progress.layerCount}개 레이어 / ${progress.partCount}개 parts 이미지`,
+    detail: (progress) => `${progress.layerCount}개 파츠 움직임 / ${progress.partCount}개 파츠 이미지`,
   },
   {
     id: "scene",
@@ -104,11 +105,11 @@ const steps: StepConfig[] = [
     href: "./dev-character-scene.html",
     required: false,
     complete: (progress) => progress.sceneCount > 0,
-    detail: (progress) => `${progress.sceneCount}개 scene / ${progress.sceneAssetCount}개 scene 이미지`,
+    detail: (progress) => `${progress.sceneCount}개 무대 조합 / ${progress.sceneAssetCount}개 무대 재료 이미지`,
   },
   {
     id: "crop",
-    title: "보조. Crop",
+    title: "보조. 영역 선택",
     description: "base 이미지에서 눈, 입 같은 파츠를 만들 영역을 잡을 때 사용합니다.",
     href: "./dev-assets-crop.html",
     required: false,
@@ -181,12 +182,71 @@ function createSummaryItem(label: string, value: string | number, isReady: boole
  */
 function renderSummary(progress: CharacterProgress) {
   summary.replaceChildren(
-    createSummaryItem("base 이미지", progress.baseCount, progress.baseCount > 0),
+    createSummaryItem("기본 이미지", progress.baseCount, progress.baseCount > 0),
     createSummaryItem("표정", progress.expressionCount, progress.expressionCount > 0),
-    createSummaryItem("상태", progress.setCount, progress.setCount > 0),
-    createSummaryItem("레이어", progress.layerCount, progress.layerCount > 0),
-    createSummaryItem("scene", progress.sceneCount, progress.sceneCount > 0),
+    createSummaryItem("캐릭터 상태", progress.setCount, progress.setCount > 0),
+    createSummaryItem("파츠 움직임", progress.layerCount, progress.layerCount > 0),
+    createSummaryItem("무대 조합", progress.sceneCount, progress.sceneCount > 0),
   );
+}
+
+/**
+ * Creates one node in the character-centered material map.
+ */
+function createReadinessNode(title: string, detail: string, state: "ready" | "missing" | "optional") {
+  const node = document.createElement("article");
+  const titleElement = document.createElement("strong");
+  const detailElement = document.createElement("span");
+
+  node.className = "asset-character-readiness-node";
+  node.dataset.state = state;
+  titleElement.textContent = title;
+  detailElement.textContent = detail;
+  node.append(titleElement, detailElement);
+
+  return node;
+}
+
+/**
+ * Renders how the selected character will appear as reusable mapping materials.
+ */
+function renderReadinessMap(progress: CharacterProgress) {
+  const characterLabel = progress.characterId || "캐릭터 미선택";
+  const nodes = [
+    createReadinessNode("나니카 실행", "나니카가 실행되는 가장 큰 영역입니다.", "ready"),
+    createReadinessNode(
+      characterLabel,
+      progress.characterId ? "이 캐릭터를 기준으로 재료를 연결합니다." : "먼저 캐릭터를 만들거나 선택하세요.",
+      progress.characterId ? "ready" : "missing",
+    ),
+    createReadinessNode(
+      "표정",
+      `${progress.expressionCount}개 표정 후보`,
+      progress.expressionCount > 0 ? "ready" : "missing",
+    ),
+    createReadinessNode(
+      "캐릭터 상태",
+      `${progress.setCount}개 실제 표시 상태`,
+      progress.setCount > 0 ? "ready" : "missing",
+    ),
+    createReadinessNode(
+      "파츠 움직임",
+      `${progress.layerCount}개 보조 움직임`,
+      progress.layerCount > 0 ? "ready" : "optional",
+    ),
+    createReadinessNode(
+      "무대 조합",
+      `${progress.sceneCount}개 이미지 그룹`,
+      progress.sceneCount > 0 ? "ready" : "optional",
+    ),
+    createReadinessNode(
+      "기능 연결",
+      progress.setCount > 0 ? "행동에 연결할 기본 재료가 준비됐습니다." : "표정과 캐릭터 상태를 먼저 준비하세요.",
+      progress.setCount > 0 ? "ready" : "missing",
+    ),
+  ];
+
+  readinessMap.replaceChildren(...nodes);
 }
 
 /**
@@ -284,6 +344,7 @@ function renderCharacterActions() {
 async function loadCharacterProgress(characterId: string) {
   if (!characterId) {
     renderSummary(emptyProgress);
+    renderReadinessMap(emptyProgress);
     renderSteps(emptyProgress);
     renderCharacterActions();
     status.textContent = "먼저 캐릭터를 만들거나 선택하세요.";
@@ -301,11 +362,12 @@ async function loadCharacterProgress(characterId: string) {
   const nextStep = findNextRequiredStep(progress);
 
   renderSummary(progress);
+  renderReadinessMap(progress);
   renderSteps(progress);
   renderCharacterActions();
   status.textContent = nextStep
     ? `다음 추천 단계는 "${nextStep.title}"입니다.`
-    : "필수 단계가 준비됐어요. 파츠, scene, 테스트를 더해보세요.";
+    : "필수 단계가 준비됐어요. 파츠, 무대, 테스트를 더해보세요.";
 }
 
 /**
@@ -316,8 +378,9 @@ async function loadCharacters() {
     const selectedCharacterId = await populateCharacterSelect(characterSelect);
 
     if (!selectedCharacterId) {
-      renderSummary(emptyProgress);
-      renderSteps(emptyProgress);
+        renderSummary(emptyProgress);
+        renderReadinessMap(emptyProgress);
+        renderSteps(emptyProgress);
       renderCharacterActions();
       status.textContent = "캐릭터가 없어요. 작업 경로가 맞는지 확인한 뒤 새 캐릭터 만들기부터 시작하세요.";
       return;
@@ -326,6 +389,7 @@ async function loadCharacters() {
     await loadCharacterProgress(selectedCharacterId);
   } catch (error) {
     renderSummary(emptyProgress);
+    renderReadinessMap(emptyProgress);
     renderSteps(emptyProgress);
     renderCharacterActions();
     status.textContent = error instanceof Error ? error.message : "캐릭터 목록을 불러오지 못했어요.";
@@ -411,6 +475,7 @@ function init() {
     void saveWorkspaceConfig();
   });
   renderSummary(emptyProgress);
+  renderReadinessMap(emptyProgress);
   renderSteps(emptyProgress);
   renderCharacterActions();
   void loadWorkspace();

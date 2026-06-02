@@ -1,4 +1,12 @@
 export { createGhostRuntime } from "./runtime/createGhostRuntime.js";
+export { runtimeSpeechPresets } from "./runtime/runtimeLayoutPresets.js";
+export {
+  createGhostRuntimeFromPreset,
+  createGhostRuntimeOptionsFromPreset,
+  createRuntimeRuleFromMapping,
+  createRuntimeRulesFromMappings,
+  defineNanikaRuntimePreset,
+} from "./plugins/nanikaMapping/index.js";
 export {
   createGhostRuntimeFromManifest,
   createGhostRuntimeOptionsFromManifest,
@@ -17,3 +25,9 @@ export type {
   DialogueScriptValidationOptions,
   DialogueScriptValidationResult,
 } from "./core/dialogueScriptValidator.js";
+export type {
+  NanikaMapping,
+  NanikaRuntimePreset,
+  NanikaRuntimePresetOptions,
+  NanikaRuntimePresetOverrides,
+} from "./plugins/nanikaMapping/index.js";

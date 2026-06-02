@@ -4,19 +4,21 @@ import type { RuntimeElements } from "./domElements.js";
 type SceneRendererOptions = {
   elements: RuntimeElements;
   scene: RuntimeSceneOptions | undefined;
+  initialScene?: string | undefined;
 };
 
 const defaultCharacterSceneDepth = 10;
+const defaultMaxSceneOverlays = 2;
 
 /**
  * Picks one scene definition from either a named scene, a named scene set, or the legacy layer list.
  */
-function resolveScene(scene: RuntimeSceneOptions | undefined): RuntimeScene | null {
+function resolveScene(scene: RuntimeSceneOptions | undefined, preferredSceneId?: string): RuntimeScene | null {
   if (!scene) {
     return null;
   }
 
-  const defaultSceneId = scene.defaultScene;
+  const defaultSceneId = preferredSceneId ?? scene.defaultScene;
 
   if (defaultSceneId && scene.scenes?.[defaultSceneId]) {
     return scene.scenes[defaultSceneId];
@@ -118,9 +120,11 @@ function getCharacterSceneDepth(layers: RuntimeSceneLayer[]) {
 /**
  * Renders stage-level composition layers such as backgrounds, desks, foreground props, and effects.
  */
-export function createSceneRenderer({ elements, scene }: SceneRendererOptions) {
+export function createSceneRenderer({ elements, scene, initialScene }: SceneRendererOptions) {
   const layerRoot = document.createElement("div");
-  const selectedScene = resolveScene(scene);
+  let selectedScene = resolveScene(scene, initialScene);
+  const overlayScenes = new Map<string, RuntimeScene>();
+  const overlayTimers = new Map<string, number>();
 
   layerRoot.className = "scene-layer-root";
   layerRoot.setAttribute("aria-hidden", "true");
@@ -142,19 +146,108 @@ export function createSceneRenderer({ elements, scene }: SceneRendererOptions) {
       .forEach((layer) => {
         layerRoot.append(createSceneLayerElement(layer));
       });
+
+    Array.from(overlayScenes.entries()).forEach(([slot, overlayScene]) => {
+      overlayScene.layers
+        .slice()
+        .filter((layer) => layer.role !== "character")
+        .filter(isRenderableSceneLayer)
+        .sort((current, next) => (current.depth ?? 0) - (next.depth ?? 0))
+        .forEach((layer) => {
+          const element = createSceneLayerElement(layer);
+
+          element.dataset.sceneOverlaySlot = slot;
+          element.dataset.sceneOverlayId = overlayScene.id;
+          layerRoot.append(element);
+        });
+    });
   }
 
   /**
    * Removes stage layer DOM owned by this renderer.
    */
   function destroy() {
+    overlayTimers.forEach((timerId) => window.clearTimeout(timerId));
+    overlayTimers.clear();
     layerRoot.remove();
+  }
+
+  function setScene(sceneId: string) {
+    const nextScene = resolveScene(scene, sceneId);
+
+    if (!nextScene) {
+      elements.stage.dispatchEvent(new CustomEvent("ghostnest:scene-missing", { detail: { id: sceneId } }));
+      return;
+    }
+
+    selectedScene = nextScene;
+    overlayScenes.clear();
+    overlayTimers.forEach((timerId) => window.clearTimeout(timerId));
+    overlayTimers.clear();
+    render();
+  }
+
+  function addSceneOverlay(sceneId: string, options: { slot?: string; duration?: number } = {}) {
+    const overlayScene = resolveScene(scene, sceneId);
+
+    if (!overlayScene) {
+      elements.stage.dispatchEvent(new CustomEvent("ghostnest:scene-missing", { detail: { id: sceneId } }));
+      return;
+    }
+
+    const slot = options.slot || sceneId;
+
+    if (!overlayScenes.has(slot) && overlayScenes.size >= defaultMaxSceneOverlays) {
+      const oldestSlot = overlayScenes.keys().next().value as string | undefined;
+
+      if (oldestSlot) {
+        removeSceneOverlay(oldestSlot);
+      }
+    }
+
+    if (overlayTimers.has(slot)) {
+      window.clearTimeout(overlayTimers.get(slot));
+      overlayTimers.delete(slot);
+    }
+
+    overlayScenes.set(slot, overlayScene);
+    elements.stage.dataset.sceneOverlayCount = String(overlayScenes.size);
+    render();
+
+    if (options.duration && options.duration > 0) {
+      overlayTimers.set(slot, window.setTimeout(() => {
+        removeSceneOverlay(slot);
+      }, options.duration));
+    }
+  }
+
+  function removeSceneOverlay(slotOrSceneId: string) {
+    const removedBySlot = overlayScenes.delete(slotOrSceneId);
+
+    if (!removedBySlot) {
+      Array.from(overlayScenes.entries()).forEach(([slot, overlayScene]) => {
+        if (overlayScene.id === slotOrSceneId) {
+          overlayScenes.delete(slot);
+        }
+      });
+    }
+
+    if (overlayTimers.has(slotOrSceneId)) {
+      window.clearTimeout(overlayTimers.get(slotOrSceneId));
+      overlayTimers.delete(slotOrSceneId);
+    }
+
+    elements.stage.dataset.sceneOverlayCount = String(overlayScenes.size);
+    render();
   }
 
   render();
 
   return {
+    addSceneOverlay,
     destroy,
     render,
+    removeSceneOverlay,
+    setScene,
   };
 }

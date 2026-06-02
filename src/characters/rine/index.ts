@@ -6,9 +6,6 @@ import { rineDefaultScene, rineScenes } from "./assets/scenes.js";
 import { rineSurfaces } from "./assets/surfaces.js";
 import type { CharacterDefinition } from "../../core/types.js";
 
-/**
- * Full character sample composed from split character asset modules.
- */
 export const rine: CharacterDefinition = {
   profile: rineProfile,
   lines: rineLines,

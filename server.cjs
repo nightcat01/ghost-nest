@@ -388,6 +388,211 @@ function sendJson(response, statusCode, payload) {
   response.end(JSON.stringify(payload));
 }
 
+function getNanikaMappingsPath() {
+  const generatedDirectory = path.resolve(root, "generated");
+
+  return ensureInsideDirectory(
+    path.join(generatedDirectory, "nanika-mappings.json"),
+    generatedDirectory,
+    "nanika_mapping_path_outside_project",
+  );
+}
+
+function getNanikaFeatureSetsPath() {
+  const generatedDirectory = path.resolve(root, "generated");
+
+  return ensureInsideDirectory(
+    path.join(generatedDirectory, "nanika-feature-sets.json"),
+    generatedDirectory,
+    "nanika_feature_set_path_outside_project",
+  );
+}
+
+function assertSafeNanikaMappingId(id) {
+  const safeId = String(id ?? "").trim();
+
+  if (!/^[a-zA-Z0-9_.:-]{1,128}$/.test(safeId)) {
+    throw new Error("invalid_nanika_mapping_id");
+  }
+
+  return safeId;
+}
+
+function assertSafeNanikaFeatureSetId(id) {
+  const safeId = String(id ?? "").trim();
+
+  if (!/^[a-zA-Z0-9_.:-]{1,128}$/.test(safeId)) {
+    throw new Error("invalid_nanika_feature_set_id");
+  }
+
+  return safeId;
+}
+
+function normalizeNanikaAction(action) {
+  if (!action || typeof action !== "object" || Array.isArray(action)) {
+    throw new Error("invalid_nanika_mapping_action");
+  }
+
+  const normalizedAction = cloneJson(action);
+
+  if (typeof normalizedAction.type !== "string" || !normalizedAction.type.trim()) {
+    throw new Error("invalid_nanika_mapping_action");
+  }
+
+  normalizedAction.type = normalizedAction.type.trim();
+
+  return normalizedAction;
+}
+
+function normalizeNanikaMapping(mapping) {
+  if (!mapping || typeof mapping !== "object" || Array.isArray(mapping)) {
+    throw new Error("invalid_nanika_mapping");
+  }
+
+  const id = assertSafeNanikaMappingId(mapping.id);
+  const event = String(mapping.event ?? "").trim();
+
+  if (!event) {
+    throw new Error("invalid_nanika_mapping_event");
+  }
+
+  if (!Array.isArray(mapping.actions) || mapping.actions.length === 0) {
+    throw new Error("invalid_nanika_mapping_actions");
+  }
+
+  const normalized = {
+    id,
+    event,
+    actions: mapping.actions.map(normalizeNanikaAction),
+  };
+  const name = String(mapping.name ?? "").trim();
+  const description = String(mapping.description ?? "").trim();
+
+  if (name) {
+    normalized.name = name;
+  }
+
+  if (description) {
+    normalized.description = description;
+  }
+
+  if (mapping.target && typeof mapping.target === "object" && !Array.isArray(mapping.target)) {
+    const targetScope = String(mapping.target.scope ?? "").trim();
+    const targetId = String(mapping.target.id ?? "").trim();
+    const targetLabel = String(mapping.target.label ?? "").trim();
+
+    if (targetScope && targetId) {
+      normalized.target = {
+        scope: targetScope,
+        id: targetId,
+        ...(targetLabel ? { label: targetLabel } : {}),
+      };
+    }
+  }
+
+  if (mapping.when && typeof mapping.when === "object" && !Array.isArray(mapping.when)) {
+    normalized.when = cloneJson(mapping.when);
+  }
+
+  if (Array.isArray(mapping.conditions)) {
+    normalized.conditions = cloneJson(mapping.conditions);
+  }
+
+  return normalized;
+}
+
+function normalizeNanikaFeatureSet(featureSet) {
+  if (!featureSet || typeof featureSet !== "object" || Array.isArray(featureSet)) {
+    throw new Error("invalid_nanika_feature_set");
+  }
+
+  const id = assertSafeNanikaFeatureSetId(featureSet.id);
+
+  if (!Array.isArray(featureSet.mappingIds) || featureSet.mappingIds.length === 0) {
+    throw new Error("invalid_nanika_feature_set_mappings");
+  }
+
+  const mappingIds = Array.from(new Set(featureSet.mappingIds.map(assertSafeNanikaMappingId)));
+  const normalized = {
+    id,
+    mappingIds,
+  };
+  const name = String(featureSet.name ?? "").trim();
+  const description = String(featureSet.description ?? "").trim();
+
+  if (name) {
+    normalized.name = name;
+  }
+
+  if (description) {
+    normalized.description = description;
+  }
+
+  return normalized;
+}
+
+async function readNanikaMappings() {
+  const mappingsPath = getNanikaMappingsPath();
+
+  try {
+    const source = await fs.promises.readFile(mappingsPath, "utf8");
+    const parsed = JSON.parse(source);
+    const mappings = Array.isArray(parsed) ? parsed : parsed.mappings;
+
+    return Array.isArray(mappings) ? mappings.map(normalizeNanikaMapping) : [];
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      return [];
+    }
+
+    throw new Error("invalid_nanika_mappings_file");
+  }
+}
+
+async function writeNanikaMappings(mappings) {
+  const mappingsPath = getNanikaMappingsPath();
+
+  await fs.promises.mkdir(path.dirname(mappingsPath), { recursive: true });
+  await fs.promises.writeFile(
+    mappingsPath,
+    `${JSON.stringify({ mappings }, null, 2)}\n`,
+    "utf8",
+  );
+
+  return path.relative(root, mappingsPath).replaceAll(path.sep, "/");
+}
+
+async function readNanikaFeatureSets() {
+  const featureSetsPath = getNanikaFeatureSetsPath();
+
+  try {
+    const source = await fs.promises.readFile(featureSetsPath, "utf8");
+    const parsed = JSON.parse(source);
+    const featureSets = Array.isArray(parsed) ? parsed : parsed.featureSets;
+
+    return Array.isArray(featureSets) ? featureSets.map(normalizeNanikaFeatureSet) : [];
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      return [];
+    }
+
+    throw new Error("invalid_nanika_feature_sets_file");
+  }
+}
+
+async function writeNanikaFeatureSets(featureSets) {
+  const featureSetsPath = getNanikaFeatureSetsPath();
+
+  await fs.promises.mkdir(path.dirname(featureSetsPath), { recursive: true });
+  await fs.promises.writeFile(
+    featureSetsPath,
+    `${JSON.stringify({ featureSets }, null, 2)}\n`,
+    "utf8",
+  );
+
+  return path.relative(root, featureSetsPath).replaceAll(path.sep, "/");
+}
+
 function readRequestJson(request) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -458,7 +663,39 @@ async function readCharacterAssets(characterId) {
     throw new Error("character_dist_not_found");
   }
 
-  const moduleUrl = `${pathToFileURL(characterModulePath).href}?t=${Date.now()}`;
+  const assetDirectory = path.join(buildCharactersDirectory, safeCharacterId, "assets");
+  const assetPaths = {
+    meta: path.join(assetDirectory, "meta.js"),
+    expressions: path.join(assetDirectory, "expressions.js"),
+    surfaces: path.join(assetDirectory, "surfaces.js"),
+    scenes: path.join(assetDirectory, "scenes.js"),
+  };
+
+  if (Object.values(assetPaths).every((assetPath) => fs.existsSync(assetPath))) {
+    const names = createCharacterAssetExportNames(safeCharacterId);
+    const cacheKey = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const [metaModule, expressionsModule, surfacesModule, scenesModule] = await Promise.all([
+      import(`${pathToFileURL(assetPaths.meta).href}?t=${cacheKey}`),
+      import(`${pathToFileURL(assetPaths.expressions).href}?t=${cacheKey}`),
+      import(`${pathToFileURL(assetPaths.surfaces).href}?t=${cacheKey}`),
+      import(`${pathToFileURL(assetPaths.scenes).href}?t=${cacheKey}`),
+    ]);
+    const defaultScene = scenesModule[names.defaultScene];
+    const assets = {
+      ...(metaModule[names.assetMeta] ?? {}),
+      expressions: expressionsModule[names.expressions] ?? {},
+      surfaces: surfacesModule[names.surfaces] ?? {},
+      ...(defaultScene ? { defaultScene } : {}),
+      scenes: scenesModule[names.scenes] ?? {},
+    };
+
+    return {
+      characterId: safeCharacterId,
+      assets: normalizeCharacterAssets(safeCharacterId, assets),
+    };
+  }
+
+  const moduleUrl = `${pathToFileURL(characterModulePath).href}?t=${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const characterModule = await import(moduleUrl);
   const character = characterModule[safeCharacterId] ?? characterModule.default;
 
@@ -3023,6 +3260,229 @@ async function handleSaveAssetFiles(request, response) {
   return true;
 }
 
+async function handleNanikaMappings(request, response) {
+  if (request.method !== "GET") {
+    sendJson(response, 405, { ok: false, error: "method_not_allowed" });
+    return true;
+  }
+
+  try {
+    const mappings = await readNanikaMappings();
+
+    sendJson(response, 200, {
+      ok: true,
+      mappings,
+      path: path.relative(root, getNanikaMappingsPath()).replaceAll(path.sep, "/"),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "nanika_mappings_failed";
+
+    sendJson(response, 500, {
+      ok: false,
+      error: message,
+      message: "Nanika mappings could not be loaded.",
+    });
+  }
+
+  return true;
+}
+
+async function handleSaveNanikaMapping(request, response) {
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "method_not_allowed" });
+    return true;
+  }
+
+  try {
+    const body = await readRequestJson(request);
+    const mapping = normalizeNanikaMapping(body.mapping);
+    const mappings = await readNanikaMappings();
+    const nextMappings = [
+      ...mappings.filter((item) => item.id !== mapping.id),
+      mapping,
+    ];
+    const savedPath = await writeNanikaMappings(nextMappings);
+
+    sendJson(response, 200, {
+      ok: true,
+      message: "Nanika mapping saved.",
+      mapping,
+      mappings: nextMappings,
+      path: savedPath,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "save_nanika_mapping_failed";
+    const statusCode = [
+      "invalid_json",
+      "invalid_nanika_mapping",
+      "invalid_nanika_mapping_id",
+      "invalid_nanika_mapping_event",
+      "invalid_nanika_mapping_action",
+      "invalid_nanika_mapping_actions",
+      "invalid_nanika_mappings_file",
+      "nanika_mapping_path_outside_project",
+    ].includes(message) ? 400 : 500;
+
+    sendJson(response, statusCode, {
+      ok: false,
+      error: message,
+      message: "Nanika mapping could not be saved.",
+    });
+  }
+
+  return true;
+}
+
+async function handleDeleteNanikaMapping(request, response) {
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "method_not_allowed" });
+    return true;
+  }
+
+  try {
+    const body = await readRequestJson(request);
+    const mappingId = assertSafeNanikaMappingId(body.id);
+    const mappings = await readNanikaMappings();
+    const nextMappings = mappings.filter((mapping) => mapping.id !== mappingId);
+    const savedPath = await writeNanikaMappings(nextMappings);
+
+    sendJson(response, 200, {
+      ok: true,
+      message: "Nanika mapping deleted.",
+      deletedId: mappingId,
+      mappings: nextMappings,
+      path: savedPath,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "delete_nanika_mapping_failed";
+    const statusCode = [
+      "invalid_json",
+      "invalid_nanika_mapping_id",
+      "invalid_nanika_mappings_file",
+      "nanika_mapping_path_outside_project",
+    ].includes(message) ? 400 : 500;
+
+    sendJson(response, statusCode, {
+      ok: false,
+      error: message,
+      message: "Nanika mapping could not be deleted.",
+    });
+  }
+
+  return true;
+}
+
+async function handleNanikaFeatureSets(request, response) {
+  if (request.method !== "GET") {
+    sendJson(response, 405, { ok: false, error: "method_not_allowed" });
+    return true;
+  }
+
+  try {
+    const featureSets = await readNanikaFeatureSets();
+
+    sendJson(response, 200, {
+      ok: true,
+      featureSets,
+      path: path.relative(root, getNanikaFeatureSetsPath()).replaceAll(path.sep, "/"),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "nanika_feature_sets_failed";
+
+    sendJson(response, 500, {
+      ok: false,
+      error: message,
+      message: "Nanika feature sets could not be loaded.",
+    });
+  }
+
+  return true;
+}
+
+async function handleSaveNanikaFeatureSet(request, response) {
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "method_not_allowed" });
+    return true;
+  }
+
+  try {
+    const body = await readRequestJson(request);
+    const featureSet = normalizeNanikaFeatureSet(body.featureSet);
+    const featureSets = await readNanikaFeatureSets();
+    const nextFeatureSets = [
+      ...featureSets.filter((item) => item.id !== featureSet.id),
+      featureSet,
+    ];
+    const savedPath = await writeNanikaFeatureSets(nextFeatureSets);
+
+    sendJson(response, 200, {
+      ok: true,
+      message: "Nanika feature set saved.",
+      featureSet,
+      featureSets: nextFeatureSets,
+      path: savedPath,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "save_nanika_feature_set_failed";
+    const statusCode = [
+      "invalid_json",
+      "invalid_nanika_feature_set",
+      "invalid_nanika_feature_set_id",
+      "invalid_nanika_feature_set_mappings",
+      "invalid_nanika_mapping_id",
+      "invalid_nanika_feature_sets_file",
+      "nanika_feature_set_path_outside_project",
+    ].includes(message) ? 400 : 500;
+
+    sendJson(response, statusCode, {
+      ok: false,
+      error: message,
+      message: "Nanika feature set could not be saved.",
+    });
+  }
+
+  return true;
+}
+
+async function handleDeleteNanikaFeatureSet(request, response) {
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "method_not_allowed" });
+    return true;
+  }
+
+  try {
+    const body = await readRequestJson(request);
+    const featureSetId = assertSafeNanikaFeatureSetId(body.id);
+    const featureSets = await readNanikaFeatureSets();
+    const nextFeatureSets = featureSets.filter((featureSet) => featureSet.id !== featureSetId);
+    const savedPath = await writeNanikaFeatureSets(nextFeatureSets);
+
+    sendJson(response, 200, {
+      ok: true,
+      message: "Nanika feature set deleted.",
+      deletedId: featureSetId,
+      featureSets: nextFeatureSets,
+      path: savedPath,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "delete_nanika_feature_set_failed";
+    const statusCode = [
+      "invalid_json",
+      "invalid_nanika_feature_set_id",
+      "invalid_nanika_feature_sets_file",
+      "nanika_feature_set_path_outside_project",
+    ].includes(message) ? 400 : 500;
+
+    sendJson(response, statusCode, {
+      ok: false,
+      error: message,
+      message: "Nanika feature set could not be deleted.",
+    });
+  }
+
+  return true;
+}
+
 async function handleApiRequest(request, response) {
   const pathname = stripConfiguredBasePath(new URL(request.url, `http://127.0.0.1:${port}`).pathname);
 
@@ -3101,6 +3561,30 @@ async function handleApiRequest(request, response) {
 
   if (pathname === "/api/devtools/save-asset-files") {
     return handleSaveAssetFiles(request, response);
+  }
+
+  if (pathname === "/api/devtools/nanika-mappings") {
+    return handleNanikaMappings(request, response);
+  }
+
+  if (pathname === "/api/devtools/save-nanika-mapping") {
+    return handleSaveNanikaMapping(request, response);
+  }
+
+  if (pathname === "/api/devtools/delete-nanika-mapping") {
+    return handleDeleteNanikaMapping(request, response);
+  }
+
+  if (pathname === "/api/devtools/nanika-feature-sets") {
+    return handleNanikaFeatureSets(request, response);
+  }
+
+  if (pathname === "/api/devtools/save-nanika-feature-set") {
+    return handleSaveNanikaFeatureSet(request, response);
+  }
+
+  if (pathname === "/api/devtools/delete-nanika-feature-set") {
+    return handleDeleteNanikaFeatureSet(request, response);
   }
 
   return false;

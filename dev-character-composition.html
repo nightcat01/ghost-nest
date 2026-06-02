@@ -3,15 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GhostNest Character Set Composer</title>
+    <title>GhostNest 캐릭터 상태 조합</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="asset-lab-shell">
       <header class="asset-lab-header">
         <div>
-          <p class="eyebrow">Character Settings Plugin</p>
-          <h1>Set 조합하기</h1>
+          <p class="eyebrow">캐릭터 설정 플러그인</p>
+          <h1>캐릭터 상태 조합하기</h1>
         </div>
         <a class="asset-lab-back" href="./dev-character.html">캐릭터 설정</a>
       </header>
@@ -32,11 +32,11 @@
           </div>
 
           <div class="asset-lab-section">
-            <h2>1. Expression 랜덤 이미지</h2>
-            <p class="asset-lab-help">표정 이름이 먼저 base 이미지 후보를 고릅니다. Set의 base 이미지는 이 후보 안에 있어야 Layer까지 이어집니다.</p>
+            <h2>1. 표정 랜덤 이미지</h2>
+            <p class="asset-lab-help">표정 이름이 먼저 기본 이미지 후보를 고릅니다. 캐릭터 상태의 기본 이미지는 이 후보 안에 있어야 파츠까지 이어집니다.</p>
             <div class="asset-lab-field-grid">
               <label>
-                Expression
+                표정
                 <select id="expressionSelect">
                   <option value="neutral">neutral</option>
                   <option value="happy">happy</option>
@@ -45,7 +45,7 @@
                 </select>
               </label>
               <label>
-                연결할 base 이미지
+                연결할 기본 이미지
                 <select id="expressionAssetSelect" multiple size="6">
                   <option value="">저장된 에셋을 불러오는 중이에요.</option>
                 </select>
@@ -54,21 +54,21 @@
           </div>
 
           <div class="asset-lab-section">
-            <h2>2. Set 기본 구성</h2>
-            <p class="asset-lab-help">Expression이 선택한 특정 base 이미지에 붙을 조합 단위입니다. Set 아래에 눈, 입, 소품 같은 Layer가 추가됩니다.</p>
+            <h2>2. 캐릭터 상태 기본 구성</h2>
+            <p class="asset-lab-help">표정이 선택한 특정 기본 이미지에 붙을 조합 단위입니다. 캐릭터 상태 아래에 눈, 입, 소품 같은 파츠가 추가됩니다.</p>
             <div class="asset-lab-field-grid">
               <label>
-                Surface
+                캐릭터 상태
                 <select id="surfaceSelect">
                   <option value="">캐릭터를 먼저 선택하세요.</option>
                 </select>
               </label>
               <label id="surfaceIdField">
-                Surface ID
+                상태 ID
                 <input id="surfaceIdInput" type="text" value="0" autocomplete="off" />
               </label>
               <label>
-                Surface expression
+                연결할 표정
                 <select id="surfaceExpressionSelect">
                   <option value="">없음</option>
                   <option value="neutral">neutral</option>
@@ -85,8 +85,8 @@
           </div>
 
           <div class="asset-lab-section">
-            <h2>3. Set Base 이미지</h2>
-            <p class="asset-lab-help">이 Set의 기준 이미지입니다. 위에서 선택한 Surface expression의 랜덤 이미지 후보 중 하나와 같아야 합니다.</p>
+            <h2>3. 상태 기준 이미지</h2>
+            <p class="asset-lab-help">이 캐릭터 상태의 기준 이미지입니다. 위에서 선택한 표정의 랜덤 이미지 후보 중 하나와 같아야 합니다.</p>
             <label>
               저장된 기본 이미지
               <select id="baseAssetSelect">
@@ -101,12 +101,12 @@
 
           <div class="asset-lab-section asset-composition-save-section">
             <h2>4. 저장</h2>
-            <p class="asset-lab-help">Expression 이미지 묶음과 Set 기본 구성을 각각 저장합니다. Layer는 이 Set이 정상 저장된 뒤 Layer 만들기에서 붙입니다.</p>
+                <p class="asset-lab-help">표정 이미지 묶음과 캐릭터 상태 기본 구성을 각각 저장합니다. 파츠는 이 상태가 정상 저장된 뒤 파츠 만들기에서 붙입니다.</p>
             <div class="asset-lab-actions">
-              <button type="button" id="saveSurfaceConfigButton">Set 저장</button>
-              <button type="button" id="saveExpressionButton">Expression 저장</button>
+              <button type="button" id="saveSurfaceConfigButton">캐릭터 상태 저장</button>
+              <button type="button" id="saveExpressionButton">표정 저장</button>
             </div>
-            <p class="asset-lab-status" id="compositionStatus" role="status">Set과 expression을 조합할 준비가 됐어요.</p>
+            <p class="asset-lab-status" id="compositionStatus" role="status">캐릭터 상태와 표정을 조합할 준비가 됐어요.</p>
           </div>
         </section>
 

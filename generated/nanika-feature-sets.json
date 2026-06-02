@@ -1,0 +1,80 @@
+{
+  "featureSets": [
+    {
+      "id": "rine.full-runtime",
+      "name": "Rine 전체 런타임 세트",
+      "mode": "character-specific",
+      "sourceCharacterId": "rine",
+      "mappingIds": [
+        "rine.runtime.ready",
+        "rine.character.click",
+        "rine.character.double-click",
+        "rine.character.touch.head",
+        "rine.character.touch.face",
+        "rine.character.touch.body",
+        "rine.character.idle",
+        "rine.character.random-prompt",
+        "rine.area.hover.runtime-title",
+        "rine.area.hover.event-log",
+        "rine.area.hover.command-menu",
+        "rine.command.hover.fortune",
+        "rine.command.hover.line",
+        "rine.command.hover.hide",
+        "rine.command.line",
+        "rine.command.fortune",
+        "rine.character.right-click.menu",
+        "rine.scene.demo"
+      ]
+    },
+    {
+      "id": "rine.scene.demo-set",
+      "name": "Rine scene 적용 세트",
+      "mode": "character-specific",
+      "sourceCharacterId": "rine",
+      "mappingIds": [
+        "rine.scene.demo"
+      ]
+    },
+    {
+      "id": "generic.character.full-runtime",
+      "name": "캐릭터 미지정 기본 런타임 템플릿",
+      "description": "Rine 전체 런타임 세트를 기반으로 한 캐릭터 미지정 템플릿입니다. 실제 캐릭터를 지정하면 필요한 재료 호환성을 확인합니다.",
+      "mode": "character-template",
+      "sourceCharacterId": "rine",
+      "requirements": [
+        { "kind": "expression", "id": "neutral", "label": "기본 표정", "required": true },
+        { "kind": "expression", "id": "happy", "label": "기쁜 표정", "required": true },
+        { "kind": "expression", "id": "thinking", "label": "생각하는 표정", "required": true },
+        { "kind": "expression", "id": "surprised", "label": "놀란 표정", "required": true },
+        { "kind": "scene", "id": "rine-demo-scene", "label": "기본 scene", "required": false },
+        { "kind": "dialogue", "id": "onMount", "label": "시작 대사", "required": true },
+        { "kind": "dialogue", "id": "onClick", "label": "클릭 대사", "required": true },
+        { "kind": "dialogue", "id": "onIdle", "label": "대기 대사", "required": true },
+        { "kind": "dialogue", "id": "onRandomPrompt", "label": "랜덤 발화 대사", "required": true },
+        { "kind": "hitArea", "id": "head", "label": "머리 터치 영역", "required": false },
+        { "kind": "hitArea", "id": "face", "label": "얼굴 터치 영역", "required": false },
+        { "kind": "hitArea", "id": "body", "label": "몸 터치 영역", "required": false }
+      ],
+      "mappingIds": [
+        "rine.runtime.ready",
+        "rine.character.click",
+        "rine.character.double-click",
+        "rine.character.touch.head",
+        "rine.character.touch.face",
+        "rine.character.touch.body",
+        "rine.character.idle",
+        "rine.character.random-prompt",
+        "rine.area.hover.runtime-title",
+        "rine.area.hover.event-log",
+        "rine.area.hover.command-menu",
+        "rine.command.hover.fortune",
+        "rine.command.hover.line",
+        "rine.command.hover.hide",
+        "rine.command.line",
+        "rine.command.fortune",
+        "rine.character.right-click.menu",
+        "rine.scene.demo"
+      ]
+    }
+  ]
+}

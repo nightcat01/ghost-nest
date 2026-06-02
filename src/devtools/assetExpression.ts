@@ -14,8 +14,9 @@ import {
   readImageFiles,
   saveUploadedAssetFiles,
 } from "./assetUpload.js";
+import { createExpressionLabel } from "./assetTerminology.js";
 import { createAssetOptionLabel, filterAssetFiles } from "./assetSelect.js";
-import type { CharacterExpressionAsset, CharacterVisualSource, RuntimeScene } from "../core/types.js";
+import type { CharacterExpressionAsset } from "../core/types.js";
 
 type ExpressionSaveResponse = {
   ok?: boolean;
@@ -32,7 +33,6 @@ const expressionSelect = requireElement(document.querySelector<HTMLSelectElement
 const customExpressionField = requireElement(document.querySelector<HTMLElement>("#customExpressionField"), "#customExpressionField");
 const customExpressionInput = requireElement(document.querySelector<HTMLInputElement>("#customExpressionInput"), "#customExpressionInput");
 const expressionAssetSelect = requireElement(document.querySelector<HTMLSelectElement>("#expressionAssetSelect"), "#expressionAssetSelect");
-const expressionSceneSelect = requireElement(document.querySelector<HTMLSelectElement>("#expressionSceneSelect"), "#expressionSceneSelect");
 const uploadAssetKindSelect = requireElement(document.querySelector<HTMLSelectElement>("#uploadAssetKindSelect"), "#uploadAssetKindSelect");
 const expressionImageInput = requireElement(document.querySelector<HTMLInputElement>("#expressionImageInput"), "#expressionImageInput");
 const uploadExpressionImagesButton = requireElement(document.querySelector<HTMLButtonElement>("#uploadExpressionImagesButton"), "#uploadExpressionImagesButton");
@@ -43,12 +43,8 @@ const saveExpressionButton = requireElement(document.querySelector<HTMLButtonEle
 const deleteExpressionButton = requireElement(document.querySelector<HTMLButtonElement>("#deleteExpressionButton"), "#deleteExpressionButton");
 
 let existingExpressions: Record<string, CharacterExpressionAsset> = {};
-let existingScenes: Record<string, RuntimeScene> = {};
 let savedAssetFiles: AssetFile[] = [];
 const newExpressionSelectValue = "__new_expression__";
-
-type ExpressionCandidate = string | CharacterVisualSource;
-type SceneVisualSource = Extract<CharacterVisualSource, { type: "scene" }>;
 
 /**
  * Returns the selected asset folder for image uploads.
@@ -56,7 +52,7 @@ type SceneVisualSource = Extract<CharacterVisualSource, { type: "scene" }>;
 function getUploadAssetKind() {
   const selectedKind = uploadAssetKindSelect.value;
 
-  return selectedKind === "base" || selectedKind === "parts" || selectedKind === "scenes"
+  return selectedKind === "base" || selectedKind === "parts"
     ? selectedKind
     : "base";
 }
@@ -69,16 +65,11 @@ function createExpressionSnippet() {
   const assets = Array.from(expressionAssetSelect.selectedOptions)
     .map((option) => option.value)
     .filter(Boolean);
-  const sceneAssets = Array.from(expressionSceneSelect.selectedOptions)
-    .map((option) => option.value)
-    .filter(Boolean)
-    .map((sceneId) => ({ type: "scene", sceneId } satisfies CharacterVisualSource));
-  const candidates: ExpressionCandidate[] = [...assets, ...sceneAssets];
 
   return {
     expression,
-    assets: candidates,
-    value: candidates.length === 1 ? candidates[0] : candidates,
+    assets,
+    value: assets.length === 1 ? assets[0] : assets,
   };
 }
 
@@ -114,7 +105,7 @@ function renderExpressionPreview() {
     const empty = document.createElement("p");
 
     empty.className = "asset-preview-placeholder";
-    empty.textContent = "Expression에 연결할 base 이미지나 Scene 조합을 선택하면 여기에 미리보기가 표시됩니다.";
+    empty.textContent = "표정에 연결할 기본 이미지를 선택하면 여기에 미리보기가 표시됩니다.";
     previewGrid.append(empty);
     return;
   }
@@ -133,74 +124,9 @@ function renderExpressionPreview() {
       image.alt = `${expressionSnippet.expression} 후보 ${index + 1}`;
       pathText.textContent = asset.split("/").pop() ?? asset;
       card.append(title, image, pathText);
-    } else if (asset.type === "scene") {
-      const scenePreview = createScenePreview(asset.sceneId);
-
-      pathText.textContent = `Scene: ${asset.sceneId}`;
-      card.append(title, scenePreview, pathText);
-    } else {
-      const image = document.createElement("img");
-
-      image.src = asset.src;
-      image.alt = `${expressionSnippet.expression} 후보 ${index + 1}`;
-      pathText.textContent = asset.src.split("/").pop() ?? asset.src;
-      card.append(title, image, pathText);
     }
     previewGrid.append(card);
   });
-}
-
-/**
- * Creates a compact visual preview for a saved Scene composition.
- */
-function createScenePreview(sceneId: string) {
-  const scene = existingScenes[sceneId];
-  const stage = document.createElement("div");
-
-  stage.className = "asset-scene-preview asset-set-scene-preview";
-  stage.dataset.sceneId = sceneId;
-
-  if (!scene) {
-    const empty = document.createElement("p");
-
-    empty.textContent = `${sceneId} Scene을 찾지 못했어요.`;
-    stage.append(empty);
-    return stage;
-  }
-
-  scene.layers
-    .filter((layer) => layer.image || layer.color || layer.role === "background")
-    .sort((current, next) => (current.depth ?? 0) - (next.depth ?? 0))
-    .forEach((layer) => {
-      const layerElement = document.createElement("div");
-
-      layerElement.className = "asset-scene-preview-layer";
-      layerElement.style.zIndex = String(layer.depth ?? 0);
-      if (layer.placement) {
-        layerElement.style.left = `${layer.placement.x}%`;
-        layerElement.style.top = `${layer.placement.y}%`;
-        layerElement.style.width = `${layer.placement.width}%`;
-        layerElement.style.height = `${layer.placement.height}%`;
-      } else {
-        layerElement.style.inset = "0";
-      }
-
-      if (layer.color) {
-        layerElement.style.background = layer.color;
-      }
-
-      if (layer.image) {
-        const image = document.createElement("img");
-
-        image.src = layer.image;
-        image.alt = layer.alt ?? layer.id;
-        layerElement.append(image);
-      }
-
-      stage.append(layerElement);
-    });
-
-  return stage;
 }
 
 /**
@@ -230,15 +156,9 @@ function applyExpressionSelection() {
       ? [expressionAsset]
       : [];
   const assetPaths = assetCandidates.filter((asset): asset is string => typeof asset === "string");
-  const sceneIds = assetCandidates
-    .filter((asset): asset is SceneVisualSource => typeof asset !== "string" && asset.type === "scene")
-    .map((asset) => asset.sceneId);
 
   Array.from(expressionAssetSelect.options).forEach((option) => {
     option.selected = assetPaths.includes(option.value);
-  });
-  Array.from(expressionSceneSelect.options).forEach((option) => {
-    option.selected = sceneIds.includes(option.value);
   });
   renderOutputs();
 }
@@ -249,29 +169,11 @@ function applyExpressionSelection() {
 function renderBaseAssetOptions() {
   const baseAssets = filterAssetFiles(savedAssetFiles, ["base"], { includeCommon: false });
 
-  expressionAssetSelect.replaceChildren(new Option(baseAssets.length > 0 ? "base 이미지 선택" : "assets/base 이미지가 없어요.", ""));
+  expressionAssetSelect.replaceChildren(new Option(baseAssets.length > 0 ? "기본 이미지 선택" : "기본 이미지가 없어요.", ""));
   baseAssets.forEach((assetFile) => {
     expressionAssetSelect.append(new Option(createAssetOptionLabel(assetFile), assetFile.path));
   });
   applyExpressionSelection();
-}
-
-/**
- * Renders saved Scene composition options separately from image files.
- */
-function renderSceneOptions() {
-  const currentValue = Array.from(expressionSceneSelect.selectedOptions).map((option) => option.value);
-  const scenes = Object.values(existingScenes).sort((left, right) =>
-    left.id.localeCompare(right.id, undefined, { numeric: true, sensitivity: "base" }),
-  );
-
-  expressionSceneSelect.replaceChildren(new Option(scenes.length > 0 ? "Scene 조합 선택 없음" : "저장된 Scene 조합이 없어요.", ""));
-  scenes.forEach((scene) => {
-    expressionSceneSelect.append(new Option(`${scene.id} / ${scene.layers.length} layer`, scene.id));
-  });
-  Array.from(expressionSceneSelect.options).forEach((option) => {
-    option.selected = currentValue.includes(option.value);
-  });
 }
 
 /**
@@ -282,6 +184,10 @@ function renderExpressionOptions() {
   const currentValue = expressionSelect.value;
 
   Array.from(expressionSelect.options).forEach((option) => {
+    if (fixedExpressions.has(option.value)) {
+      option.textContent = createExpressionLabel(option.value);
+    }
+
     if (!fixedExpressions.has(option.value) && option.value !== newExpressionSelectValue) {
       option.remove();
     }
@@ -291,7 +197,7 @@ function renderExpressionOptions() {
     .filter((expression) => !fixedExpressions.has(expression))
     .sort((left, right) => left.localeCompare(right))
     .forEach((expression) => {
-      expressionSelect.add(new Option(expression, expression), expressionSelect.options.length - 1);
+      expressionSelect.add(new Option(createExpressionLabel(expression), expression), expressionSelect.options.length - 1);
     });
 
   if (currentValue && Array.from(expressionSelect.options).some((option) => option.value === currentValue)) {
@@ -300,7 +206,7 @@ function renderExpressionOptions() {
 }
 
 /**
- * Loads base and scene image files that can be attached to expressions.
+ * Loads base image files that can be attached to expressions.
  */
 async function loadSavedAssetFiles() {
   const characterId = characterSelect.value || "rine";
@@ -316,11 +222,9 @@ async function loadCharacterAssets() {
   const result = await fetchCharacterAssets(characterId);
 
   existingExpressions = result.assets?.expressions ?? {};
-  existingScenes = result.assets?.scenes ?? {};
   renderExpressionOptions();
-  renderSceneOptions();
   await loadSavedAssetFiles();
-  status.textContent = `${characterId} 캐릭터 Expression을 불러왔어요.`;
+  status.textContent = `${characterId} 캐릭터 표정을 불러왔어요.`;
 }
 
 /**
@@ -355,7 +259,7 @@ async function uploadExpressionImages() {
   }
 
   uploadExpressionImagesButton.disabled = true;
-  status.textContent = `${assetKind} 폴더에 이미지 ${files.length}개를 저장하는 중이에요.`;
+  status.textContent = `${assetKind === "base" ? "기본 이미지" : "파츠 이미지"} 폴더에 이미지 ${files.length}개를 저장하는 중이에요.`;
 
   try {
     const images = await readImageFiles(files);
@@ -375,7 +279,7 @@ async function uploadExpressionImages() {
     }
 
     expressionImageInput.value = "";
-    status.textContent = `${assetKind} 폴더에 이미지 ${savedFiles.length}개를 저장했어요.`;
+    status.textContent = `${assetKind === "base" ? "기본 이미지" : "파츠 이미지"} 폴더에 이미지 ${savedFiles.length}개를 저장했어요.`;
   } catch (error) {
     status.textContent = error instanceof Error ? error.message : "이미지 저장 요청에 실패했어요.";
   } finally {
@@ -390,17 +294,17 @@ async function saveExpressionConfig() {
   const expressionSnippet = createExpressionSnippet();
 
   if (expressionSnippet.assets.length === 0) {
-    status.textContent = "Expression에 연결할 이미지를 하나 이상 선택하세요.";
+    status.textContent = "표정에 연결할 기본 이미지를 하나 이상 선택하세요.";
     return;
   }
 
   if (!expressionSnippet.expression) {
-    status.textContent = "Expression 이름을 입력하세요.";
+    status.textContent = "표정 이름을 입력하세요.";
     return;
   }
 
   saveExpressionButton.disabled = true;
-  status.textContent = "Expression을 저장하는 중이에요.";
+  status.textContent = "표정을 저장하는 중이에요.";
 
   try {
     const response = await fetch(createDevtoolsApiPath("/api/devtools/save-character-expression"), {
@@ -415,7 +319,7 @@ async function saveExpressionConfig() {
     const result = await readApiJson<ExpressionSaveResponse>(response);
 
     if (!response.ok || !result.ok) {
-      status.textContent = result.message ?? `Expression 저장 실패: ${result.error ?? response.status}`;
+      status.textContent = result.message ?? `표정 저장 실패: ${result.error ?? response.status}`;
       return;
     }
 
@@ -423,9 +327,9 @@ async function saveExpressionConfig() {
     expressionSelect.value = expressionSnippet.expression;
     customExpressionInput.value = "";
     applyExpressionSelection();
-    status.textContent = `${result.saved?.path ?? "character index.ts"}에 Expression을 저장했어요.`;
+    status.textContent = `${result.saved?.path ?? "character index.ts"}에 표정을 저장했어요.`;
   } catch (error) {
-    status.textContent = error instanceof Error ? error.message : "Expression 저장 요청에 실패했어요.";
+    status.textContent = error instanceof Error ? error.message : "표정 저장 요청에 실패했어요.";
   } finally {
     saveExpressionButton.disabled = false;
     renderOutputs();
@@ -439,18 +343,18 @@ async function deleteExpressionConfig() {
   const expression = getSelectedExpression();
 
   if (!expression || expressionSelect.value === newExpressionSelectValue) {
-    status.textContent = "삭제할 기존 Expression을 선택하세요.";
+    status.textContent = "삭제할 기존 표정을 선택하세요.";
     return;
   }
 
-  const confirmed = window.confirm(`${characterSelect.value || "rine"} 캐릭터의 '${expression}' Expression을 삭제할까요?`);
+  const confirmed = window.confirm(`${characterSelect.value || "rine"} 캐릭터의 '${expression}' 표정을 삭제할까요?`);
 
   if (!confirmed) {
     return;
   }
 
   deleteExpressionButton.disabled = true;
-  status.textContent = "Expression을 삭제하는 중이에요.";
+  status.textContent = "표정을 삭제하는 중이에요.";
 
   try {
     const response = await fetch(createDevtoolsApiPath("/api/devtools/delete-character-expression"), {
@@ -464,15 +368,15 @@ async function deleteExpressionConfig() {
     const result = await readApiJson<ExpressionSaveResponse>(response);
 
     if (!response.ok || !result.ok) {
-      status.textContent = result.message ?? `Expression 삭제 실패: ${result.error ?? response.status}`;
+      status.textContent = result.message ?? `표정 삭제 실패: ${result.error ?? response.status}`;
       return;
     }
 
     expressionSelect.value = "neutral";
     await loadCharacterAssets();
-    status.textContent = `${expression} Expression을 삭제했어요.`;
+    status.textContent = `${expression} 표정을 삭제했어요.`;
   } catch (error) {
-    status.textContent = error instanceof Error ? error.message : "Expression 삭제 요청에 실패했어요.";
+    status.textContent = error instanceof Error ? error.message : "표정 삭제 요청에 실패했어요.";
   } finally {
     renderCustomExpressionField();
   }
@@ -489,7 +393,6 @@ function init() {
   customExpressionInput.addEventListener("input", renderOutputs);
   customExpressionInput.addEventListener("change", renderOutputs);
   expressionAssetSelect.addEventListener("change", renderOutputs);
-  expressionSceneSelect.addEventListener("change", renderOutputs);
   uploadExpressionImagesButton.addEventListener("click", () => {
     void uploadExpressionImages();
   });

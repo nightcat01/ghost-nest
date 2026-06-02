@@ -70,10 +70,15 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
     ...options.speechBalloonSize,
   };
   const maxLogItems = options.maxLogItems ?? defaultMaxLogItems;
-  const elements = getRuntimeElements(options.selectors);
+  const elements = getRuntimeElements(options.selectors, options.root);
+  const hadRuntimeScopeClass = elements.stage.classList.contains("ghostnest-runtime");
+  elements.stage.classList.add("ghostnest-runtime");
   const eventBus = createEventBus();
   const pluginRegistry = new Map(options.plugins?.map((plugin) => [plugin.id, plugin]) ?? []);
-  const rules = [...createDefaultRules(timing), ...(options.rules ?? [])];
+  const rules = [
+    ...(options.includeDefaultRules === false ? [] : createDefaultRules(timing)),
+    ...(options.rules ?? []),
+  ];
   
   const storageAdapter = controls.persistence
     ? options.storageAdapter ?? createLocalStorageAdapter(`ghostNest:${options.character.profile.id}`)
@@ -99,6 +104,7 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
   const sceneRenderer = createSceneRenderer({
     elements,
     scene: characterScene ?? options.scene,
+    initialScene: options.initialScene,
   });
   const characterRenderer = createCharacterRenderer({ elements, character: options.character });
   const diagnostics = createRuntimeDiagnostics({
@@ -108,7 +114,9 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
     actionTimers,
     maxLogItems,
     getLayoutMetrics() {
-      const areaRect = (elements.stage.offsetParent ?? document.documentElement).getBoundingClientRect();
+      const areaRect = (elements.root instanceof Element
+        ? elements.root
+        : elements.stage.offsetParent ?? document.documentElement).getBoundingClientRect();
       const speechRect = elements.speechBalloon?.getBoundingClientRect();
 
       return {
@@ -196,6 +204,18 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
     }
   }
 
+  function resetSpeechScroll({ resetMenu = true } = {}) {
+    if (elements.speechBalloon) {
+      elements.speechBalloon.scrollTop = 0;
+    }
+
+    elements.speechText.scrollTop = 0;
+
+    if (resetMenu && elements.balloonActionMenu) {
+      elements.balloonActionMenu.scrollTop = 0;
+    }
+  }
+
   function renderDialogueChoices(choices: DialogueChoice[]) {
     const menuElement = elements.balloonActionMenu;
 
@@ -219,6 +239,7 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
     });
 
     menuElement.hidden = false;
+    resetSpeechScroll();
   }
 
   function renderSpeech(message: DialogueMessage) {
@@ -227,6 +248,7 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
     dialoguePlayer.stop();
     clearDialogueChoices();
     elements.speechText.textContent = "";
+    resetSpeechScroll();
 
     const script = message.script ?? [
       { type: "text" as const, value: message.text },
@@ -255,9 +277,15 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
   }
 
   function renderPreviewSpeech(message: DialogueMessage) {
+    const menuScrollTop = elements.balloonActionMenu?.scrollTop;
+
     elements.speakerName.textContent = message.speaker;
     dialoguePlayer.stop();
     elements.speechText.textContent = message.text;
+    resetSpeechScroll({ resetMenu: false });
+    if (typeof menuScrollTop === "number" && elements.balloonActionMenu) {
+      elements.balloonActionMenu.scrollTop = menuScrollTop;
+    }
     characterRenderer.setMouthAnimationActive(false);
   }
 
@@ -294,6 +322,9 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
     managementMenu: options.managementMenu,
     navigation: options.navigation,
     speechLayout,
+    defaultRuntimeUiPreferences: {
+      ...(options.balloonTheme ? { balloonTheme: options.balloonTheme } : {}),
+    },
     defaultSpeechBalloonSize: speechBalloonSize,
     controls,
     userPreferences,
@@ -302,6 +333,9 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
     renderPreviewSpeech,
     renderCharacterState,
     applySurface: characterRenderer.applySurface,
+    setScene: sceneRenderer.setScene,
+    addSceneOverlay: sceneRenderer.addSceneOverlay,
+    removeSceneOverlay: sceneRenderer.removeSceneOverlay,
     setLayerAnimationActive: characterRenderer.setLayerAnimationActive,
     applySpeechBalloonSize,
     addLog: diagnostics.addLog,
@@ -375,6 +409,9 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
     dialoguePlayer.stop();
     sceneRenderer.destroy();
     characterRenderer.destroy();
+    if (!hadRuntimeScopeClass) {
+      elements.stage.classList.remove("ghostnest-runtime");
+    }
 
     actionTimers.forEach((timerId) => window.clearTimeout(timerId));
     actionTimers.clear();

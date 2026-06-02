@@ -3,32 +3,348 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GhostNest Nanika Mapping</title>
+    <title>GhostNest 기능 연결 설정</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="asset-lab-shell">
       <header class="asset-lab-header">
         <div>
-          <p class="eyebrow">Nanika Mapping Plugin</p>
-          <h1>기능 연결 확인</h1>
+          <p class="eyebrow">나니카 기능 연결 플러그인</p>
+          <h1>기능 연결 설정</h1>
         </div>
         <a class="asset-lab-back" href="./dev-assets.html">플러그인 목록</a>
       </header>
 
-      <section class="asset-lab-panel">
+      <nav class="nanika-mapping-tabs" aria-label="기능 연결 설정 메뉴">
+        <button type="button" data-view-target="overview" data-active="true">작업판</button>
+        <button type="button" data-view-target="catalog">카탈로그</button>
+      </nav>
+
+      <nav class="nanika-catalog-tabs nanika-view-section" data-view="catalog" aria-label="카탈로그 보기" hidden>
+        <button type="button" data-catalog-target="summary" data-active="true"><strong>요약</strong><span>전체 상태</span></button>
+        <button type="button" data-catalog-target="flow"><strong>흐름</strong><span>실행 줄기</span></button>
+        <button type="button" data-catalog-target="material"><strong>재료</strong><span>재사용 항목</span></button>
+        <button type="button" data-catalog-target="list"><strong>목록</strong><span>캐릭터/기능</span></button>
+      </nav>
+
+      <section class="asset-lab-panel nanika-editor-panel" aria-label="선택 편집기">
+        <div class="asset-lab-section-header">
+          <div>
+            <h2>기능 연결 작업판</h2>
+            <p class="asset-lab-help" id="mappingEditorHelp">런타임에서 실제 캐릭터로 들어가고, 캐릭터가 가진 재료와 이벤트, 액션을 노드로 이어 붙입니다.</p>
+          </div>
+          <div class="asset-lab-button-row">
+            <button class="asset-small-button" id="editorLoadDraftButton" type="button">새 연결로 불러오기</button>
+            <button class="asset-small-button" id="editorAddToFeatureSetButton" type="button">기능 묶음에 추가</button>
+            <button class="asset-small-button" id="editorSaveButton" type="button">저장</button>
+            <button class="asset-small-button" id="editorZoomOutButton" type="button">축소</button>
+            <button class="asset-small-button" id="editorZoomInButton" type="button">확대</button>
+            <button class="asset-small-button" id="editorZoomResetButton" type="button">원래 크기</button>
+            <button class="asset-small-button" id="editorCopyGraphButton" type="button">편집 상태 복사</button>
+          </div>
+        </div>
+        <div class="nanika-editor-stats" id="mappingEditorStats" aria-label="작업판 요약"></div>
+        <div class="nanika-editor-workbench">
+          <div class="nanika-editor-canvas" id="mappingEditorCanvas" aria-live="polite"></div>
+          <aside class="nanika-editor-palette" aria-label="카드 덱">
+            <div class="nanika-editor-mode-menu" aria-label="작업판 모드">
+              <button type="button" data-editor-mode-target="overview" data-active="true"><strong>캐릭터 설정</strong><span>캐릭터 선택/재료</span></button>
+              <button type="button" data-editor-mode-target="create"><strong>새 연결</strong><span>새 실행 흐름</span></button>
+              <button type="button" data-editor-mode-target="saved"><strong>저장 연결</strong><span>수정용 매핑 초안</span></button>
+              <button type="button" data-editor-mode-target="feature-sets"><strong>기능 묶음</strong><span>연결 묶음</span></button>
+            </div>
+            <div class="nanika-editor-palette-tabs" id="mappingPaletteTabs"></div>
+            <div class="nanika-editor-palette-deck" id="mappingPaletteDeck"></div>
+          </aside>
+        </div>
+        <div class="nanika-editor-detail" id="mappingEditorDetail"></div>
+      </section>
+
+      <section class="asset-lab-panel nanika-view-section" data-view="catalog" data-catalog-section="summary" hidden>
         <div class="asset-lab-section">
-          <h2>현재 프리셋</h2>
-          <p class="asset-lab-help">캐릭터, 기능, 이벤트, 액션이 어떤 실행 단위로 묶였는지 확인합니다. 아직은 저장 편집 전의 읽기 전용 확인 화면입니다.</p>
+          <h2>현재 연결 현황</h2>
+          <p class="asset-lab-help">나니카가 가진 캐릭터, 기능, 이벤트, 액션이 어느 정도 연결되어 있는지 먼저 확인합니다.</p>
           <div class="nanika-mapping-summary" id="mappingSummary"></div>
         </div>
       </section>
 
-      <section class="nanika-mapping-layout" aria-label="Nanika mapping catalogs">
+      <section class="asset-lab-panel nanika-view-section" data-view="catalog" data-catalog-section="summary" hidden>
+        <div class="asset-lab-section">
+          <h2>연결 지도</h2>
+          <p class="asset-lab-help">runtime에서 캐릭터, 대사, UI, 플러그인 기능이 실행 규칙으로 어떻게 이어지는지 요약합니다.</p>
+          <div class="nanika-connection-map" id="connectionMap"></div>
+        </div>
+      </section>
+
+      <section class="asset-lab-panel nanika-view-section" data-view="catalog" data-catalog-section="flow" hidden>
+        <div class="asset-lab-section">
+          <h2>흐름 보드</h2>
+          <p class="asset-lab-help">시작점부터 이벤트, 저장된 연결, 실행 액션, 기능 묶음까지 한 줄기처럼 확인합니다.</p>
+          <div class="nanika-flow-board" id="mappingFlowBoard"></div>
+        </div>
+      </section>
+
+      <section class="asset-lab-panel nanika-view-section" data-view="catalog" data-catalog-section="material" hidden>
+        <div class="asset-lab-section">
+          <h2>재료 지도</h2>
+          <p class="asset-lab-help">대사, scene, surface, 플러그인처럼 반복해서 사용할 수 있는 재료와 반드시 연결되어야 하는 입력을 구분합니다.</p>
+          <div class="nanika-material-map" id="materialMap"></div>
+        </div>
+      </section>
+
+      <section class="asset-lab-panel nanika-view-section" data-view="catalog" data-catalog-section="material" hidden>
+        <div class="asset-lab-section">
+          <h2>연결 안 된 항목</h2>
+          <p class="asset-lab-help">아직 실행 규칙에 사용되지 않은 이벤트와 동작입니다. 필요한 항목은 새 연결 만들기에서 연결합니다.</p>
+          <div class="nanika-mapping-summary" id="mappingCoverage"></div>
+        </div>
+      </section>
+
+      <section class="asset-lab-panel nanika-view-section" data-view="catalog" data-catalog-section="list" hidden>
+        <div class="asset-lab-section">
+          <h2>적용된 실행 규칙</h2>
+          <p class="asset-lab-help">현재 preset에 실제로 들어간 실행 규칙입니다. 저장만 된 연결과는 구분됩니다.</p>
+          <div class="nanika-mapping-list nanika-mapping-rule-list" id="mappingList"></div>
+        </div>
+      </section>
+
+      <section class="asset-lab-panel nanika-view-section" data-view="catalog" data-catalog-section="graph" hidden>
+        <div class="asset-lab-section">
+          <div class="asset-lab-section-header">
+            <div>
+              <h2>보조 전체 그래프</h2>
+              <p class="asset-lab-help">작업판에서 다루는 전체 구조를 한 번에 훑어보는 보조 화면입니다. 실제 편집은 위 작업판에서 진행합니다.</p>
+            </div>
+            <div class="asset-lab-button-row">
+              <button class="asset-small-button" id="mappingGraphToggleButton" type="button">그래프 크게 보기</button>
+              <button class="asset-small-button" id="mappingGraphZoomOutButton" type="button">축소</button>
+              <button class="asset-small-button" id="mappingGraphZoomInButton" type="button">확대</button>
+              <button class="asset-small-button" id="mappingGraphResetButton" type="button">원래 크기</button>
+              <button class="asset-small-button" id="copyMermaidButton" type="button">Mermaid 복사</button>
+            </div>
+          </div>
+          <div class="nanika-graph-panel" id="mappingGraphPanel" data-size="normal">
+            <div class="nanika-graph-viewport" id="mappingGraphViewport" aria-label="Nanika connection graph"></div>
+          </div>
+          <details class="nanika-mermaid-source">
+            <summary>Mermaid 코드 보기</summary>
+            <pre id="mappingMermaidPreview"></pre>
+          </details>
+        </div>
+      </section>
+
+      <section class="asset-lab-panel nanika-view-section" data-view="create" hidden>
+        <div class="asset-lab-section">
+          <div class="asset-lab-section-header">
+            <div>
+              <h2>새 기능 연결 만들기</h2>
+              <p class="asset-lab-help">연결의 이름을 정한 뒤, 왼쪽에서 오른쪽으로 대상 이벤트와 실행할 동작 흐름을 구성합니다.</p>
+            </div>
+            <div class="asset-lab-button-row">
+              <button class="asset-small-button" id="saveDraftMappingButton" type="button">연결 저장</button>
+              <button class="asset-small-button" id="copyDraftMappingButton" type="button">연결 JSON 복사</button>
+              <button class="asset-small-button" id="copyRuntimeRuleButton" type="button">실행 규칙 복사</button>
+            </div>
+          </div>
+
+      <section class="nanika-mapping-basic" aria-label="기능 연결 기본 정보">
+            <div class="asset-lab-field-grid">
+              <label>
+                연결 ID
+                <input id="draftMappingIdInput" type="text" value="new.mapping" />
+                <small>실행 규칙 ID로 사용됩니다. 영문, 숫자, -, _, ., : 조합을 권장합니다.</small>
+              </label>
+              <label>
+                이름
+                <input id="draftMappingNameInput" type="text" value="새 연결" />
+                <small>저장 목록에서 구분하기 위한 이름입니다.</small>
+              </label>
+              <label>
+                연결 대상
+                <select id="draftTargetSelect"></select>
+                <small>이 연결이 주로 누구에게 적용되는지 표시합니다. 실행 규칙에는 영향을 주지 않습니다.</small>
+              </label>
+            </div>
+          </section>
+
+          <div class="nanika-step-builder" aria-label="Nanika mapping step builder">
+            <section class="nanika-step-section" data-step="scope">
+              <div class="nanika-step-heading">
+                <span>1</span>
+                <div>
+                  <h3>대상 선택</h3>
+                  <p>어떤 영역에서 발생한 입력을 나니카 동작으로 연결할지 고릅니다.</p>
+                </div>
+              </div>
+              <div class="nanika-step-options" id="draftScopeOptions"></div>
+            </section>
+
+            <section class="nanika-step-section" data-step="event">
+              <div class="nanika-step-heading">
+                <span>2</span>
+                <div>
+                  <h3>이벤트 선택</h3>
+                  <p id="draftEventHelp">시작 영역을 선택하면 연결 가능한 이벤트가 나타납니다.</p>
+                </div>
+              </div>
+              <div class="nanika-step-options" id="draftEventOptions"></div>
+            </section>
+
+            <section class="nanika-step-section" data-step="action-category">
+              <div class="nanika-step-heading">
+                <span>3</span>
+                <div>
+                  <h3>실행 영역 선택</h3>
+                  <p>이 이벤트가 나니카의 어떤 기능을 움직일지 고릅니다.</p>
+                </div>
+              </div>
+              <div class="nanika-step-options" id="draftActionCategoryOptions"></div>
+            </section>
+
+            <section class="nanika-step-section" data-step="action">
+              <div class="nanika-step-heading">
+                <span>4</span>
+                <div>
+                  <h3>액션 선택</h3>
+                  <p id="draftActionHelp">실행 영역을 선택하면 구체적인 액션이 나타납니다.</p>
+                </div>
+              </div>
+              <div class="nanika-step-options" id="draftActionOptions"></div>
+            </section>
+
+            <section class="nanika-step-section" data-step="parameters">
+              <div class="nanika-step-heading">
+                <span>5</span>
+                <div>
+                  <h3>선택 액션 설정</h3>
+                  <p>액션 하나의 값을 입력한 뒤 플로우에 추가합니다.</p>
+                </div>
+              </div>
+              <h3 class="nanika-mapping-subtitle">액션 파라미터</h3>
+              <div class="nanika-mapping-parameter-grid" id="draftActionParameters"></div>
+              <div class="asset-lab-button-row">
+                <button class="asset-small-button" id="addSelectedActionButton" type="button">액션 플로우에 추가</button>
+              </div>
+            </section>
+          </div>
+
+          <div class="nanika-mapping-workspace">
+            <section class="nanika-action-flow-panel" aria-label="Action flow">
+              <div class="asset-lab-section-header">
+                <div>
+                  <h3>액션 플로우</h3>
+                  <p class="asset-lab-help">이 이벤트가 발생했을 때 실행할 액션을 쌓습니다. 여러 액션을 한 덩어리로 묶으면 실행 방식을 정할 수 있습니다.</p>
+                </div>
+                <div class="asset-lab-button-row">
+                  <button class="asset-small-button" id="wrapSequenceButton" type="button" title="현재 플로우의 액션을 위에서 아래 순서대로 실행하는 묶음으로 바꿉니다.">순서대로 실행</button>
+                  <button class="asset-small-button" id="wrapParallelButton" type="button" title="현재 플로우의 액션을 가능한 한 동시에 실행하는 묶음으로 바꿉니다.">동시에 실행</button>
+                  <button class="asset-small-button" id="wrapRandomButton" type="button" title="현재 플로우의 액션 중 하나만 랜덤으로 실행하는 묶음으로 바꿉니다.">랜덤 하나 실행</button>
+                </div>
+              </div>
+              <div class="nanika-action-flow-guide" aria-label="Action group guide">
+                <span><strong>순서</strong> 위에서 아래로 차례대로 실행</span>
+                <span><strong>동시</strong> 여러 액션을 함께 실행</span>
+                <span><strong>랜덤</strong> 등록한 액션 중 하나만 실행</span>
+              </div>
+              <div class="nanika-draft-flow-preview">
+                <h4>현재 연결 흐름</h4>
+                <div id="draftFlowPreview"></div>
+              </div>
+              <div class="nanika-action-flow-list" id="draftActionFlowList"></div>
+            </section>
+
+            <aside class="nanika-mapping-detail" id="mappingDetailPanel" aria-live="polite">
+              <strong>선택 도움말</strong>
+              <p>대상, 이벤트, 실행 영역, 액션에 마우스를 올리거나 클릭하면 설명이 여기에 표시됩니다.</p>
+            </aside>
+          </div>
+        </div>
+        <div class="asset-lab-output-panel">
+          <div class="asset-lab-output-header">
+            <h2>연결 미리보기</h2>
+            <span id="draftMappingStatus">시작 영역을 선택하세요.</span>
+          </div>
+          <pre id="draftMappingPreview"></pre>
+        </div>
+      </section>
+
+      <section class="asset-lab-panel nanika-view-section" data-view="saved" hidden>
+        <div class="asset-lab-section">
+          <div class="asset-lab-section-header">
+            <div>
+              <h2>저장된 기능 연결</h2>
+              <p class="asset-lab-help">저장된 연결을 다시 불러와 수정하거나 삭제할 수 있습니다. 실제 적용은 적용 코드를 확인한 뒤 진행합니다.</p>
+            </div>
+            <button class="asset-small-button" id="refreshSavedMappingsButton" type="button">목록 새로고침</button>
+          </div>
+          <div class="nanika-flow-board" id="savedFlowBoard"></div>
+          <div class="nanika-mapping-list" id="savedMappingList"></div>
+          <p class="asset-lab-status" id="savedMappingStatus">저장된 매핑을 불러오는 중입니다.</p>
+        </div>
+        <div class="asset-lab-output-panel">
+          <div class="asset-lab-output-header">
+            <h2>적용 코드</h2>
+            <button class="asset-small-button" id="copyMappingSnippetButton" type="button">연결 코드 복사</button>
+          </div>
+          <p class="asset-lab-help" id="mappingSnippetHelp">적용할 기능 묶음을 고르면 해당 묶음에 포함된 연결만 실행 규칙으로 생성합니다.</p>
+          <section class="nanika-snippet-feature-set" aria-label="적용할 기능 묶음 선택">
+            <h3>적용할 기능 묶음</h3>
+            <p class="asset-lab-help">외부 사이트나 preset에 붙일 묶음을 선택합니다. 선택한 묶음만 아래 적용 코드에 반영됩니다.</p>
+            <div class="nanika-feature-set-picker" id="snippetFeatureSetPicker"></div>
+          </section>
+          <pre id="mappingSnippetPreview"></pre>
+        </div>
+      </section>
+
+      <section class="asset-lab-panel nanika-view-section" data-view="feature-sets" hidden>
+        <div class="asset-lab-section">
+          <div class="asset-lab-section-header">
+            <div>
+              <h2>기능 묶음</h2>
+              <p class="asset-lab-help">저장된 기능 연결 여러 개를 하나의 재사용 묶음으로 묶습니다. 아직 런타임 자동 적용 전 단계입니다.</p>
+            </div>
+            <div class="asset-lab-button-row">
+              <button class="asset-small-button" id="saveFeatureSetButton" type="button">묶음 저장</button>
+              <button class="asset-small-button" id="refreshFeatureSetsButton" type="button">목록 새로고침</button>
+            </div>
+          </div>
+
+          <div class="asset-lab-field-grid">
+            <label>
+              묶음 ID
+              <input id="featureSetIdInput" type="text" value="new.feature-set" />
+              <small>영문, 숫자, -, _, ., : 조합을 권장합니다.</small>
+            </label>
+            <label>
+              이름
+              <input id="featureSetNameInput" type="text" value="새 기능 묶음" />
+              <small>나중에 preset이나 외부 사이트 적용 시 구분할 이름입니다.</small>
+            </label>
+          </div>
+
+          <h3 class="nanika-mapping-subtitle">묶음에 넣을 저장된 연결</h3>
+          <div class="nanika-feature-set-preview" id="featureSetPreview"></div>
+          <div class="nanika-flow-board" id="featureSetFlowBoard"></div>
+          <div class="nanika-feature-set-picker" id="featureSetMappingPicker"></div>
+          <p class="asset-lab-status" id="featureSetStatus">저장된 기능 연결을 불러오는 중입니다.</p>
+          <div class="nanika-mapping-list" id="featureSetList"></div>
+        </div>
+      </section>
+
+      <section class="nanika-mapping-layout nanika-view-section" data-view="catalog" data-catalog-section="list" aria-label="Nanika mapping catalogs" hidden>
+        <section class="asset-lab-panel" hidden>
+          <div class="asset-lab-section">
+            <h2>재료 지도</h2>
+            <p class="asset-lab-help">카탈로그 항목을 연결 상태와 재사용 가능 여부 기준으로 먼저 확인합니다.</p>
+            <div class="nanika-material-map" id="catalogMaterialMap"></div>
+          </div>
+        </section>
+
         <section class="asset-lab-panel">
           <div class="asset-lab-section">
             <h2>캐릭터</h2>
-            <p class="asset-lab-help">현재 preset에 연결된 캐릭터와 표시 리소스 요약입니다.</p>
+            <p class="asset-lab-help">현재 preset에 연결된 캐릭터 리소스 요약입니다.</p>
             <div class="nanika-mapping-list" id="characterList"></div>
           </div>
         </section>
@@ -36,7 +352,7 @@
         <section class="asset-lab-panel">
           <div class="asset-lab-section">
             <h2>기능 / 플러그인</h2>
-            <p class="asset-lab-help">`call_plugin` 액션으로 연결 가능한 기능 목록입니다.</p>
+            <p class="asset-lab-help">call_plugin 액션으로 연결 가능한 기능 목록입니다.</p>
             <div class="nanika-mapping-list" id="capabilityList"></div>
           </div>
         </section>
@@ -56,14 +372,6 @@
             <div class="nanika-mapping-list" id="actionList"></div>
           </div>
         </section>
-      </section>
-
-      <section class="asset-lab-panel">
-        <div class="asset-lab-section">
-          <h2>현재 매핑</h2>
-          <p class="asset-lab-help">preset에 들어간 rule을 이벤트와 액션 배열 기준으로 보여줍니다.</p>
-          <div class="nanika-mapping-list nanika-mapping-rule-list" id="mappingList"></div>
-        </div>
       </section>
     </main>
     <script type="module" src="./dist/devtools/assetNanikaMapping.js"></script>

@@ -28,6 +28,7 @@ export type NanikaRuntimePreset = {
 export type NanikaRuntimePresetOverrides = Partial<NanikaRuntimePresetOptions> & {
   plugins?: RuntimePlugin[];
   rules?: RuntimeRule[];
+  replaceRules?: RuntimeRule[];
 };
 
 /**
@@ -67,7 +68,7 @@ export function createGhostRuntimeOptionsFromPreset(
   preset: NanikaRuntimePreset,
   overrides: NanikaRuntimePresetOverrides = {},
 ): GhostRuntimeOptions {
-  const { plugins: overridePlugins, rules: overrideRules, ...overrideOptions } = overrides;
+  const { plugins: overridePlugins, rules: overrideRules, replaceRules, ...overrideOptions } = overrides;
   const { plugins: optionPlugins, ...baseOptions } = preset.options;
 
   return {
@@ -75,7 +76,7 @@ export function createGhostRuntimeOptionsFromPreset(
     ...overrideOptions,
     character: preset.character,
     plugins: uniquePluginsById([...(optionPlugins ?? []), ...(preset.plugins ?? []), ...(overridePlugins ?? [])]),
-    rules: [...(preset.rules ?? []), ...(overrideRules ?? [])],
+    rules: replaceRules ?? [...(preset.rules ?? []), ...(overrideRules ?? [])],
   };
 }
 

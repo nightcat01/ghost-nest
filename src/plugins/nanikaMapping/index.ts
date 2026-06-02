@@ -7,13 +7,18 @@ export {
 } from "./capabilityCatalog.js";
 export {
   createCharacterCatalogItem,
+  createCharacterResourceCatalog,
 } from "./characterCatalog.js";
 export {
   getRuntimeEventCatalogItem,
   runtimeEventCatalog,
 } from "./eventCatalog.js";
 export {
+  hostEventCatalog,
+} from "./hostEventCatalog.js";
+export {
   createRuntimeRuleFromMapping,
+  createRuntimeRulesFromFeatureSets,
   createRuntimeRulesFromMappings,
 } from "./mapping.js";
 export {
@@ -43,11 +48,15 @@ export type {
 } from "./capabilityCatalog.js";
 export type {
   CharacterCatalogItem,
+  CharacterResourceCatalog,
+  CharacterResourceCatalogOption,
 } from "./characterCatalog.js";
 export type {
   RuntimeEventCatalogItem,
 } from "./eventCatalog.js";
 export type {
+  NanikaFeatureSet,
+  NanikaFeatureSetRuleResult,
   NanikaMapping,
 } from "./mapping.js";
 export type {

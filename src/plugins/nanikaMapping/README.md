@@ -22,3 +22,17 @@
 - 액션/이벤트/기능을 사람이 고르고 연결하기 위한 설명 데이터와 조립 헬퍼는 이 플러그인에 둔다.
 - 매핑 편집 UI를 만들 때는 이 플러그인의 catalog와 mapping 헬퍼를 사용한다.
 - UI는 여러 카탈로그 파일을 직접 읽기보다 `createNanikaMappingRegistry`를 통해 목록을 받는다.
+
+## Feature Set 적용
+
+저장된 기능 연결을 하나의 재사용 세트로 묶은 뒤 외부 프로젝트에서 runtime rule로 펼칠 수 있다.
+
+```ts
+import { createRuntimeRulesFromFeatureSets } from "ghost-nest";
+
+const result = createRuntimeRulesFromFeatureSets(featureSets, mappings, ["fortune.home"]);
+
+const rules = result.rules;
+```
+
+`warnings`가 있으면 feature set 안에 존재하지 않는 mapping id가 들어간 상태다.

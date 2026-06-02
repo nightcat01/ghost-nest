@@ -17,12 +17,15 @@ Reviewer는 새 기능을 제안하거나 코드를 수정하지 않는다.
 
 - 변경이 요청 범위를 벗어났는지 확인한다.
 - 기존 공통 처리나 helper를 우회했는지 확인한다.
-- core/runtime/plugin/devtools/data 경계 침범을 확인한다.
+- shared core/extension/internal-tool/data 경계 침범을 확인한다.
 - 상태 흐름과 저장 흐름의 회귀 가능성을 확인한다.
 - 기능은 동작하지만 사용자 흐름이 후퇴한 부분을 확인한다.
 - 저장, 삭제, 다음 이동 같은 완료 액션이 작업 종료 지점에서 멀어졌는지 확인한다.
 - 타입은 맞지만 런타임에서 깨질 수 있는 부분을 찾는다.
 - 테스트 누락이나 검증 공백을 지적한다.
+- 구현이 Planner의 완료 조건과 UX 불변조건을 실제로 겨냥하는지 확인한다.
+- "이 변경이 틀렸다면 어디서 틀릴 수 있는가"를 최소 1개 찾는다.
+- check/build 통과가 사용자 시나리오 검증으로 둔갑하지 않았는지 확인한다.
 
 ## 금지 사항
 
@@ -35,6 +38,7 @@ Reviewer는 새 기능을 제안하거나 코드를 수정하지 않는다.
 
 - Findings
 - Risk
+- Failure Search
 - Missing Verification
 - Open Questions
 

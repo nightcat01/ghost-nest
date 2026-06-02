@@ -30,6 +30,10 @@ function getStageGap(elements: RuntimeElements) {
 }
 
 function getLayoutBounds(elements: RuntimeElements) {
+  if (elements.root instanceof Element) {
+    return elements.root.getBoundingClientRect();
+  }
+
   const offsetParent = elements.stage.offsetParent;
 
   if (offsetParent instanceof HTMLElement) {
@@ -123,6 +127,9 @@ export function initFloatingLayout({ elements }: FloatingLayoutOptions) {
 
   resizeObserver?.observe(elements.stage);
   resizeObserver?.observe(elements.sprite);
+  if (elements.root instanceof Element) {
+    resizeObserver?.observe(elements.root);
+  }
   window.addEventListener("resize", scheduleRefresh);
   scheduleRefresh();
 

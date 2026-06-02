@@ -5,15 +5,15 @@ import type {
   RuntimeControlOptions,
   RuntimeAction,
   RuntimeCommandId,
-  RuntimeEventMap,
   RuntimeEventName,
+  RuntimeEventPayload,
 } from "../core/types.js";
 import type { RuntimeElements } from "./domElements.js";
 
 type RuntimeEventEmitter = {
   emit: <TEventName extends RuntimeEventName>(
     eventName: TEventName,
-    payload?: RuntimeEventMap[TEventName],
+    payload?: RuntimeEventPayload<TEventName>,
   ) => void;
 };
 

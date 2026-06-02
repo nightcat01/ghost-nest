@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GhostNest Character Settings</title>
+    <title>GhostNest 캐릭터 설정</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="asset-lab-shell">
       <header class="asset-lab-header">
         <div>
-          <p class="eyebrow">Character Settings Plugin</p>
+          <p class="eyebrow">캐릭터 설정 플러그인</p>
           <h1>캐릭터 제작</h1>
         </div>
         <a class="asset-lab-back" href="./dev-assets.html">플러그인 목록</a>
@@ -36,6 +36,28 @@
               </div>
             </div>
             <p class="asset-lab-status" id="characterHomeStatus" role="status">캐릭터 제작 상태를 확인하는 중이에요.</p>
+            <div class="asset-character-concept-map" aria-label="Character setup concept map">
+              <article>
+                <strong>표정</strong>
+                <span>표정 이름에 기본 이미지 후보를 묶어요. 다음 단계에서 실제 캐릭터 상태의 기준이 됩니다.</span>
+              </article>
+              <article>
+                <strong>캐릭터 상태</strong>
+                <span>표정 후보 중 실제 화면에 표시할 기준 화면을 정해요. 런타임에서 주로 바뀌는 단위입니다.</span>
+              </article>
+              <article>
+                <strong>파츠 움직임</strong>
+                <span>눈깜빡임, 입모양처럼 특정 캐릭터 상태 위에서 움직여요.</span>
+              </article>
+              <article>
+                <strong>무대 조합</strong>
+                <span>배경, 책상, FX를 캐릭터 바깥의 화면 세트로 묶어요. 기본 무대와 오버레이로 쓸 수 있습니다.</span>
+              </article>
+              <article>
+                <strong>기능 연결</strong>
+                <span>위 재료를 나니카 행동에 연결해요.</span>
+              </article>
+            </div>
           </div>
 
           <details class="asset-lab-section asset-lab-advanced">
@@ -85,6 +107,7 @@
             <h2>현재 상태</h2>
             <p class="asset-lab-help">선택한 캐릭터가 어느 단계까지 준비되었는지 보여줍니다. 필요한 단계부터 이어서 작업하세요.</p>
             <div class="asset-character-summary" id="characterSummary" aria-live="polite"></div>
+            <div class="asset-character-readiness-map" id="characterReadinessMap" aria-live="polite"></div>
           </div>
         </section>
 

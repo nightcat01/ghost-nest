@@ -29,6 +29,8 @@ let regionDragState: RegionDragState | null = null;
 
 const recipeSelect = requireElement(document.querySelector<HTMLSelectElement>("#partRecipeSelect"), "#partRecipeSelect");
 const baseImageInput = requireElement(document.querySelector<HTMLInputElement>("#baseImageInput"), "#baseImageInput");
+const cropAdjustSection = requireElement(document.querySelector<HTMLElement>("#cropAdjustSection"), "#cropAdjustSection");
+const cropActionSection = requireElement(document.querySelector<HTMLElement>("#cropActionSection"), "#cropActionSection");
 const preview = requireElement(document.querySelector<HTMLElement>("#cropPreview"), "#cropPreview");
 const status = requireElement(document.querySelector<HTMLElement>("#cropStatus"), "#cropStatus");
 const downloadButton = requireElement(document.querySelector<HTMLButtonElement>("#downloadCropButton"), "#downloadCropButton");
@@ -39,6 +41,17 @@ const regionInputs = {
   width: requireElement(document.querySelector<HTMLInputElement>("#targetRegionWidthInput"), "#targetRegionWidthInput"),
   height: requireElement(document.querySelector<HTMLInputElement>("#targetRegionHeightInput"), "#targetRegionHeightInput"),
 };
+
+/**
+ * Reveals region editing only after a base image is available.
+ */
+function renderCropSteps() {
+  const hasImage = Boolean(baseImage);
+
+  cropAdjustSection.hidden = !hasImage;
+  cropActionSection.hidden = !hasImage;
+  downloadButton.disabled = !hasImage;
+}
 
 /**
  * Reads the current region controls and stores them for the other asset pages.
@@ -180,6 +193,7 @@ function renderPreview() {
     empty.className = "asset-composite-placeholder";
     empty.textContent = "기준 이미지를 선택하면 crop 영역을 확인할 수 있어요.";
     preview.append(empty);
+    renderCropSteps();
     return;
   }
 
@@ -217,6 +231,7 @@ function renderPreview() {
     stage.append(region);
   }
   preview.append(stage);
+  renderCropSteps();
 }
 
 /**

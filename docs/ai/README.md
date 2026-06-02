@@ -32,6 +32,12 @@
 | `project/asset-safety.md` | GhostNest 캐릭터 에셋 저장 안전 기준 |
 | `project/extension-policy.md` | GhostNest 확장/플러그인 배치 기준 |
 
+제품 설계 문서:
+
+| 경로 | 역할 |
+| --- | --- |
+| `../feature-connection-model.md` | 나니카 기능 연결, Feature Set, Action Flow, Preset 제한 설계 |
+
 ## 사용 원칙
 
 - 모든 작업은 `AGENTS.md`를 우선 따른다.

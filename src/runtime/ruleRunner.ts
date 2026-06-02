@@ -3,8 +3,8 @@ import type {
   RuntimeCondition,
   RuntimeControlOptions,
   RuntimeEventHandler,
-  RuntimeEventMap,
   RuntimeEventName,
+  RuntimeEventPayload,
   RuntimeRule,
   RuntimeState,
 } from "../core/types.js";
@@ -26,7 +26,7 @@ type RuleRunnerOptions = {
   setLastEventLabel: (eventName: RuntimeEventName) => void;
 };
 
-function matchesRuleWhen(rule: RuntimeRule, payload: RuntimeEventMap[RuntimeEventName]) {
+function matchesRuleWhen(rule: RuntimeRule, payload: RuntimeEventPayload<RuntimeEventName>) {
   if (!rule.when) {
     return true;
   }
@@ -84,7 +84,7 @@ export function bindRuntimeRuleEvents(options: RuleRunnerOptions) {
 
   function runRules<TEventName extends RuntimeEventName>(
     eventName: TEventName,
-    payload: RuntimeEventMap[TEventName],
+    payload: RuntimeEventPayload<TEventName>,
   ) {
     setLastEventLabel(eventName);
     rules

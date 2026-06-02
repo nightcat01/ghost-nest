@@ -62,7 +62,7 @@ type AssetFilesResponse = {
   files?: AssetFile[];
 };
 type LayerImage = LabImage & { assetPath?: string };
-type AssetSaveKind = "base" | "parts" | "scenes";
+type AssetSaveKind = "base" | "parts";
 type RegionDragMode = "move" | "resize-nw" | "resize-ne" | "resize-se" | "resize-sw";
 type RegionDragState = {
   mode: RegionDragMode;
@@ -169,6 +169,8 @@ const layerConfigFields = requireElement(document.querySelector<HTMLElement>("#l
 const coversBaseField = requireElement(document.querySelector<HTMLElement>("#coversBaseField"), "#coversBaseField");
 const layerStorageSection = requireElement(document.querySelector<HTMLElement>("#layerStorageSection"), "#layerStorageSection");
 const layerPreviewSection = requireElement(document.querySelector<HTMLElement>("#layerPreviewSection"), "#layerPreviewSection");
+const layerEditSection = requireElement(document.querySelector<HTMLElement>("#layerEditSection"), "#layerEditSection");
+const layerControlSection = requireElement(document.querySelector<HTMLElement>("#layerControlSection"), "#layerControlSection");
 const layerOutputSection = requireElement(document.querySelector<HTMLElement>("#layerOutputSection"), "#layerOutputSection");
 const assetSaveKindSelect = requireElement(document.querySelector<HTMLSelectElement>("#assetSaveKindSelect"), "#assetSaveKindSelect");
 const basePathInput = requireElement(document.querySelector<HTMLInputElement>("#basePathInput"), "#basePathInput");
@@ -257,7 +259,7 @@ function createCharacterAssetSaveDirectory(assetSaveKind: AssetSaveKind) {
  * Reads the current folder choice while keeping unknown values on the safer parts path.
  */
 function getAssetSaveKind(): AssetSaveKind {
-  if (assetSaveKindSelect.value === "base" || assetSaveKindSelect.value === "scenes") {
+  if (assetSaveKindSelect.value === "base") {
     return assetSaveKindSelect.value;
   }
 
@@ -272,8 +274,6 @@ function inferAssetSaveKind(settings: StoredLayerSettings | null): AssetSaveKind
 
   return configuredPath.includes("/assets/base") || configuredPath.includes("\\assets\\base")
     ? "base"
-    : configuredPath.includes("/assets/scenes") || configuredPath.includes("\\assets\\scenes")
-      ? "scenes"
     : "parts";
 }
 
@@ -612,25 +612,25 @@ function getTargetSurface() {
  */
 function validateLayerSaveTarget() {
   if (!hasSurfaceSelection()) {
-    return "Layer를 저장할 Set을 먼저 선택하세요.";
+    return "파츠를 저장할 캐릭터 상태를 먼저 선택하세요.";
   }
 
   if (surfaceSelect.value === newSurfaceSelectValue) {
-    return "새 Set에는 바로 Layer를 저장하지 말고, Set 등록에서 expression과 base를 먼저 저장하세요.";
+    return "새 캐릭터 상태에는 바로 파츠를 저장하지 말고, 캐릭터 상태 등록에서 표정과 기본 이미지를 먼저 저장하세요.";
   }
 
   const surface = getTargetSurface();
 
   if (!surface) {
-    return "선택한 Set 정보를 찾지 못했어요. 캐릭터를 다시 불러온 뒤 시도하세요.";
+    return "선택한 캐릭터 상태 정보를 찾지 못했어요. 캐릭터를 다시 불러온 뒤 시도하세요.";
   }
 
   if (!surface.expression) {
-    return "이 Set에는 expression이 연결되어 있지 않아요. Set 등록에서 Expression을 먼저 저장하세요.";
+    return "이 캐릭터 상태에는 표정이 연결되어 있지 않아요. 캐릭터 상태 등록에서 표정을 먼저 저장하세요.";
   }
 
   if (!surface.image) {
-    return "이 Set에는 base 이미지가 없어요. Set 등록에서 Set Base 이미지를 먼저 저장하세요.";
+    return "이 캐릭터 상태에는 기본 이미지가 없어요. 캐릭터 상태 등록에서 기준 이미지를 먼저 저장하세요.";
   }
 
   return null;
@@ -657,8 +657,10 @@ function renderLayerSelectionStep() {
   surfaceSelectField.hidden = !shouldShowSurface;
   layerSelectField.hidden = !shouldShowLayer;
   surfaceIdField.hidden = !shouldShowNewSurfaceInput;
-  layerStorageSection.hidden = !shouldShowLayer;
-  layerPreviewSection.hidden = !shouldShowLayer;
+  layerStorageSection.hidden = !shouldShowLayerDetails;
+  layerEditSection.hidden = !shouldShowLayerDetails;
+  layerControlSection.hidden = !shouldShowLayerDetails;
+  layerPreviewSection.hidden = !shouldShowLayerDetails;
   partRecipeField.hidden = !shouldShowLayerDetails || !shouldShowRecipe;
   saveButton.disabled = !hasLayerSelection();
   deleteButton.disabled = !getSelectedExistingLayer();
@@ -699,11 +701,11 @@ function renderSavedAssetOptions() {
   const baseAssets = filterAssetFiles(savedAssetFiles, ["base"], { includeCommon: false });
   const partAssets = filterAssetFiles(savedAssetFiles, ["part"]);
 
-  baseAssetSelect.replaceChildren(new Option(baseAssets.length > 0 ? "기본 이미지 초기화" : "assets/base 이미지가 없어요.", ""));
+  baseAssetSelect.replaceChildren(new Option(baseAssets.length > 0 ? "기본 이미지 초기화" : "기본 이미지가 없어요.", ""));
   partAssetSelect.replaceChildren();
 
   if (partAssets.length === 0) {
-    partAssetSelect.append(new Option("캐릭터 parts와 공통 parts 이미지가 없어요.", ""));
+    partAssetSelect.append(new Option("캐릭터 파츠와 공통 파츠 이미지가 없어요.", ""));
   } else {
     partAssetSelect.append(new Option("파츠 선택 없음", ""));
   }
@@ -712,8 +714,8 @@ function renderSavedAssetOptions() {
     baseAssetSelect.append(new Option(createAssetOptionLabel(assetFile), assetFile.path));
   });
   appendAssetOptionGroups(partAssetSelect, partAssets, {
-    character: "캐릭터 parts",
-    common: "공통 parts",
+    character: "캐릭터 파츠",
+    common: "공통 파츠",
   });
 }
 
@@ -812,15 +814,15 @@ function appendSelectedPartAssetFrames() {
 async function uploadAssetImages(assetKind: AssetSaveKind, images: LayerImage[]) {
   if (images.length === 0) {
     status.textContent = assetKind === "base"
-      ? "base에 저장할 기준 이미지를 먼저 선택하세요."
-      : `${assetKind}에 저장할 이미지를 먼저 선택하세요.`;
+      ? "기본 이미지로 저장할 이미지를 먼저 선택하세요."
+      : "파츠 이미지로 저장할 이미지를 먼저 선택하세요.";
     return;
   }
 
   const targetButton = assetKind === "base" ? uploadBaseAssetButton : uploadPartAssetsButton;
 
   targetButton.disabled = true;
-  status.textContent = `${assetKind} 폴더에 이미지 ${images.length}개를 저장하는 중이에요.`;
+  status.textContent = `${assetKind === "base" ? "기본 이미지" : "파츠 이미지"} 폴더에 이미지 ${images.length}개를 저장하는 중이에요.`;
 
   try {
     const savedFiles = await saveUploadedAssetFiles(createCharacterAssetSaveDirectory(assetKind), images);
@@ -1080,7 +1082,7 @@ function sortExistingSurfaces(surfaces: ExistingSurface[]) {
  */
 function renderLayerOptionsForSurface() {
   if (!hasSurfaceSelection()) {
-    existingLayerSelect.replaceChildren(new Option("Surface를 먼저 선택하세요.", ""));
+    existingLayerSelect.replaceChildren(new Option("캐릭터 상태를 먼저 선택하세요.", ""));
     return;
   }
 
@@ -1088,14 +1090,14 @@ function renderLayerOptionsForSurface() {
   const surfaceLayers = existingLayers.filter((layer) => layer.surfaceId === surfaceId);
 
   existingLayerSelect.replaceChildren(
-    new Option("Layer 선택", ""),
-    new Option("새 레이어 만들기", newLayerSelectValue),
+    new Option("파츠 선택", ""),
+    new Option("새 파츠 만들기", newLayerSelectValue),
   );
   surfaceLayers.forEach((layer) => {
     const layerIndex = existingLayers.indexOf(layer);
     const frameCount = layer.frames?.length ?? (layer.image ? 1 : 0);
 
-    existingLayerSelect.append(new Option(`${layer.layerId} depth ${getLayerDepth(layer)} (${frameCount} frame)`, String(layerIndex)));
+    existingLayerSelect.append(new Option(`${layer.layerId} / 깊이 ${getLayerDepth(layer)} / ${frameCount}개 프레임`, String(layerIndex)));
   });
 
   if (surfaceLayers.length === 0) {
@@ -1112,8 +1114,8 @@ async function loadCharacterAssets() {
 
   characterIdInput.value = characterId;
   resetCharacterPreviewState();
-  surfaceSelect.replaceChildren(new Option("Surface를 불러오는 중이에요.", ""));
-  existingLayerSelect.replaceChildren(new Option("Surface를 먼저 선택하세요.", ""));
+  surfaceSelect.replaceChildren(new Option("캐릭터 상태를 불러오는 중이에요.", ""));
+  existingLayerSelect.replaceChildren(new Option("캐릭터 상태를 먼저 선택하세요.", ""));
   existingSurfaces = [];
   existingLayers = [];
   renderOutputs();
@@ -1189,14 +1191,14 @@ async function loadCharacterAssets() {
     ));
 
     surfaceSelect.replaceChildren(
-      new Option("Surface 선택", ""),
-      new Option("새 Surface 만들기", newSurfaceSelectValue),
+      new Option("캐릭터 상태 선택", ""),
+      new Option("새 캐릭터 상태 만들기", newSurfaceSelectValue),
     );
     existingSurfaces.forEach((surface) => {
       const labelParts = [
         surface.surfaceId,
-        surface.expression ? `expression ${surface.expression}` : "",
-        `${surface.layerCount} layer`,
+        surface.expression ? `표정 ${surface.expression}` : "",
+        `${surface.layerCount}개 파츠`,
       ].filter(Boolean);
 
       surfaceSelect.append(new Option(labelParts.join(" / "), surface.surfaceId));
@@ -1212,13 +1214,13 @@ async function loadCharacterAssets() {
     restoreSavedAssetSelection();
     restoreLayerSelection();
     renderOutputs();
-    status.textContent = `${characterId} 캐릭터를 불러왔어요. Surface를 선택하세요.`;
+    status.textContent = `${characterId} 캐릭터를 불러왔어요. 캐릭터 상태를 선택하세요.`;
   } catch (error) {
     surfaceSelect.replaceChildren(
-      new Option("Surface를 불러오지 못했어요.", ""),
-      new Option("새 Surface 만들기", newSurfaceSelectValue),
+      new Option("캐릭터 상태를 불러오지 못했어요.", ""),
+      new Option("새 캐릭터 상태 만들기", newSurfaceSelectValue),
     );
-    existingLayerSelect.replaceChildren(new Option("Surface를 먼저 선택하세요.", ""));
+    existingLayerSelect.replaceChildren(new Option("캐릭터 상태를 먼저 선택하세요.", ""));
     renderOutputs();
     status.textContent = error instanceof Error ? error.message : "캐릭터 레이어 정보를 불러오지 못했어요.";
   }
@@ -1313,7 +1315,7 @@ function handleSurfaceSelectionChange() {
 
   if (!hasSurfaceSelection()) {
     baseImage = null;
-    existingLayerSelect.replaceChildren(new Option("Surface를 먼저 선택하세요.", ""));
+    existingLayerSelect.replaceChildren(new Option("캐릭터 상태를 먼저 선택하세요.", ""));
     renderOutputs();
     return;
   }
@@ -1323,7 +1325,7 @@ function handleSurfaceSelectionChange() {
     baseImage = null;
     renderLayerOptionsForSurface();
     renderOutputs();
-    status.textContent = "새 Surface에 추가할 레이어를 설정하세요.";
+    status.textContent = "새 캐릭터 상태에 추가할 파츠를 설정하세요.";
     return;
   }
 
@@ -1333,7 +1335,7 @@ function handleSurfaceSelectionChange() {
   baseImage = surface?.image ? createAssetPathImage(surface.image) : null;
   renderLayerOptionsForSurface();
   renderOutputs();
-  status.textContent = `${surfaceSelect.value} Surface의 Layer를 선택하세요.`;
+  status.textContent = `${surfaceSelect.value} 캐릭터 상태의 파츠를 선택하세요.`;
 }
 
 /**
@@ -1342,7 +1344,7 @@ function handleSurfaceSelectionChange() {
 function startNewLayer() {
   applyNewLayerDefaults();
   renderOutputs();
-  status.textContent = "새 레이어 설정을 만들 준비가 됐어요.";
+  status.textContent = "새 파츠 설정을 만들 준비가 됐어요.";
 }
 
 /**
@@ -1477,7 +1479,7 @@ function renderDeleteResult(deleteTarget: CharacterLayerSaveTarget) {
     surfaceId: deleteTarget.surfaceId,
     layerId: deleteTarget.layerId,
   }, null, 2);
-  layerOutput.textContent = "선택한 Layer 설정이 캐릭터 index.ts에서 삭제됐어요.";
+  layerOutput.textContent = "선택한 파츠 설정이 캐릭터 index.ts에서 삭제됐어요.";
 }
 
 /**
@@ -1498,26 +1500,30 @@ function renderSummary() {
   const currentFrame = isPreviewingBaseFrame
     ? baseImage?.fileName ?? "base"
     : partImages[selectedFrameIndex]?.fileName ?? "선택 없음";
-  const rows: Array<[string, string]> = [
-    ["Surface", snippet.surfaceId],
-    ["Layer", snippet.layerId],
-    ["Frames", `${partImages.length}개`],
-    ["Frame", currentFrame],
-    ["depth", String(snippet.layer.depth ?? getLayerDepth({ layerId: snippet.layerId }))],
-    ["intervalMs", String(snippet.layer.intervalMs)],
-    ["idleIntervalMs", String(snippet.layer.idleIntervalMs ?? 0)],
-    ["coversBase", snippet.layer.coversBase ? "true" : "false"],
-    ["placement", `x ${currentRegion.x}%, y ${currentRegion.y}%, w ${currentRegion.width}%, h ${currentRegion.height}%`],
+  const rows: Array<[string, string, string]> = [
+    ["surface", "캐릭터 상태", snippet.surfaceId],
+    ["layer", "파츠", snippet.layerId],
+    ["frameCount", "프레임 수", `${partImages.length}개`],
+    ["currentFrame", "현재 프레임", currentFrame],
+    ["depth", "깊이", String(snippet.layer.depth ?? getLayerDepth({ layerId: snippet.layerId }))],
+    ["interval", "프레임 간격", `${snippet.layer.intervalMs}ms`],
+    ["idleInterval", "대기 반복 간격", `${snippet.layer.idleIntervalMs ?? 0}ms`],
+    ["coversBase", "기본 이미지 덮기", snippet.layer.coversBase ? "예" : "아니오"],
+    ["placement", "배치", `x ${currentRegion.x}%, y ${currentRegion.y}%, w ${currentRegion.width}%, h ${currentRegion.height}%`],
   ];
 
   layerSummary.replaceChildren();
-  rows.forEach(([label, value]) => {
+  rows.forEach(([key, label, value]) => {
+    const item = document.createElement("div");
     const term = document.createElement("dt");
     const description = document.createElement("dd");
 
+    item.className = "asset-layer-summary-item";
     term.textContent = label;
     description.textContent = value;
-    layerSummary.append(term, description);
+    description.dataset.summaryKey = key;
+    item.append(term, description);
+    layerSummary.append(item);
   });
 }
 
@@ -1525,8 +1531,7 @@ function renderSummary() {
  * Updates only the summary row that changes during frame playback.
  */
 function renderCurrentFrameSummary() {
-  const descriptions = Array.from(layerSummary.querySelectorAll("dd"));
-  const frameDescription = descriptions[3];
+  const frameDescription = layerSummary.querySelector<HTMLElement>("[data-summary-key='currentFrame']");
 
   if (!frameDescription) {
     renderSummary();
@@ -1661,7 +1666,7 @@ function renderPreview() {
     const base = document.createElement("img");
     base.className = "asset-composite-base";
     base.src = baseImage.previewUrl;
-    base.alt = "레이어 기준 이미지";
+    base.alt = "파츠 기준 이미지";
     stage.append(base);
   }
 
@@ -1740,7 +1745,7 @@ async function saveLayerConfig() {
   let savedResult: SaveResponse | null = null;
 
   saveButton.disabled = true;
-  status.textContent = "캐릭터 레이어 설정을 저장하는 중이에요.";
+  status.textContent = "캐릭터 파츠 설정을 저장하는 중이에요.";
 
   try {
     const response = await fetch(createDevtoolsApiPath("/api/devtools/save-character-layer"), {
@@ -1759,7 +1764,7 @@ async function saveLayerConfig() {
       return;
     }
 
-    status.textContent = "캐릭터 index.ts에 레이어 설정을 저장했어요.";
+    status.textContent = "캐릭터 index.ts에 파츠 설정을 저장했어요.";
   } catch (error) {
     status.textContent = error instanceof Error ? error.message : "저장 요청에 실패했어요.";
   } finally {
@@ -1779,19 +1784,19 @@ async function deleteLayerConfig() {
   const existingLayer = getSelectedExistingLayer();
 
   if (!existingLayer) {
-    status.textContent = "삭제할 기존 Layer를 먼저 선택하세요.";
+    status.textContent = "삭제할 기존 파츠를 먼저 선택하세요.";
     return;
   }
 
   const characterId = characterSelect.value || characterIdInput.value;
-  const confirmed = window.confirm(`${characterId} / Surface ${existingLayer.surfaceId} / Layer ${existingLayer.layerId} 설정을 삭제할까요?`);
+  const confirmed = window.confirm(`${characterId} / 캐릭터 상태 ${existingLayer.surfaceId} / 파츠 ${existingLayer.layerId} 설정을 삭제할까요?`);
 
   if (!confirmed) {
     return;
   }
 
   deleteButton.disabled = true;
-  status.textContent = "선택한 Layer 설정을 삭제하는 중이에요.";
+  status.textContent = "선택한 파츠 설정을 삭제하는 중이에요.";
 
   try {
     const response = await fetch(createDevtoolsApiPath("/api/devtools/delete-character-layer"), {
@@ -1967,7 +1972,7 @@ function init() {
     void deleteLayerConfig();
   });
   copyLayerButton.addEventListener("click", () => {
-    void copyText(layerOutput.textContent ?? "", copyLayerButton, "Snippet 복사");
+    void copyText(layerOutput.textContent ?? "", copyLayerButton, "저장 데이터 복사");
   });
   copyManifestButton.addEventListener("click", () => {
     void copyText(manifestOutput.textContent ?? "", copyManifestButton, "Manifest 복사");

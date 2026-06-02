@@ -85,11 +85,32 @@ export const runtimeActionCatalog = [
   {
     type: "surface",
     category: "character",
-    label: "Surface 변경",
-    description: "캐릭터 surface를 변경합니다.",
+    label: "캐릭터 상태 변경",
+    description: "캐릭터가 화면에 보여줄 상태를 변경합니다.",
     parameters: [
-      { name: "id", type: "string", required: true, description: "변경할 surface id입니다." },
-      { name: "startIdleLayers", type: "boolean", description: "surface idle layer 애니메이션을 시작할지 여부입니다." },
+      { name: "id", type: "string", required: true, description: "변경할 캐릭터 상태 id입니다." },
+      { name: "startIdleLayers", type: "boolean", description: "상태에 연결된 대기 파츠 애니메이션을 시작할지 여부입니다." },
+    ],
+  },
+  {
+    type: "scene",
+    category: "character",
+    label: "무대 조합 변경",
+    description: "런타임 배경, 전경, 환경 FX 같은 무대 조합을 변경합니다.",
+    parameters: [
+      { name: "id", type: "string", required: true, description: "변경할 무대 조합 id입니다." },
+    ],
+  },
+  {
+    type: "scene_overlay",
+    category: "character",
+    label: "무대 오버레이 켜기/끄기",
+    description: "기본 무대 위에 무대 조합을 제한된 오버레이로 겹치거나 제거합니다. 기본 동시 제한은 2개입니다.",
+    parameters: [
+      { name: "id", type: "string", required: true, description: "겹쳐 표시할 무대 조합 id입니다." },
+      { name: "slot", type: "string", description: "같은 slot은 새 오버레이로 교체됩니다. 예: weather, emotion, foreground" },
+      { name: "active", type: "boolean", description: "false이면 해당 slot 또는 id의 오버레이를 제거합니다." },
+      { name: "duration", type: "number", description: "자동 제거까지의 시간(ms)입니다." },
     ],
   },
   {
@@ -142,6 +163,33 @@ export const runtimeActionCatalog = [
     parameters: [],
   },
   {
+    type: "run_sequence",
+    category: "flow",
+    label: "순서대로 묶음 실행",
+    description: "여러 액션을 하나의 묶음으로 순서대로 실행합니다.",
+    parameters: [
+      { name: "actions", type: "action-array", required: true, description: "순서대로 실행할 액션 배열입니다." },
+    ],
+  },
+  {
+    type: "run_parallel",
+    category: "flow",
+    label: "동시에 묶음 실행",
+    description: "여러 액션을 동시에 시작합니다. 화면 상태가 충돌하지 않는 가벼운 액션에 사용합니다.",
+    parameters: [
+      { name: "actions", type: "action-array", required: true, description: "동시에 실행할 액션 배열입니다." },
+    ],
+  },
+  {
+    type: "run_random",
+    category: "flow",
+    label: "랜덤으로 하나 실행",
+    description: "여러 액션 후보 중 하나를 골라 실행합니다.",
+    parameters: [
+      { name: "actions", type: "action-array", required: true, description: "랜덤 후보 액션 배열입니다." },
+    ],
+  },
+  {
     type: "play_animation",
     category: "character",
     label: "CSS 애니메이션 재생",
@@ -154,10 +202,10 @@ export const runtimeActionCatalog = [
   {
     type: "play_layer_animation",
     category: "character",
-    label: "Layer 애니메이션 재생",
-    description: "특정 layer 애니메이션을 켜거나 끕니다.",
+    label: "파츠 애니메이션 재생",
+    description: "특정 파츠 애니메이션을 켜거나 끕니다.",
     parameters: [
-      { name: "layerId", type: "string", required: true, description: "대상 layer id입니다." },
+      { name: "layerId", type: "string", required: true, description: "대상 파츠 id입니다." },
       { name: "duration", type: "number", description: "자동 중지까지의 시간(ms)입니다." },
       { name: "active", type: "boolean", description: "명시적으로 켜거나 끌지 여부입니다." },
     ],
