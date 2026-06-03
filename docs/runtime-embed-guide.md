@@ -69,6 +69,99 @@ For devtools, the HTML files are included in the package, but they are not mount
 
 Keep public user pages and developer-only devtools routes separate. In production embeds, prefer `controls.devtools: false` and expose settings only through a protected route owned by the host app.
 
+## Host Routing Map
+
+When GhostNest is installed through npm, it does not create any route in the host app. Fortune Master, or any other host service, should decide which URL is public runtime UI and which URL is protected developer UI.
+
+Use this split as the default:
+
+| Host URL | Purpose | GhostNest piece to connect | Public? | Notes |
+| --- | --- | --- | --- | --- |
+| `/` or a product page such as `/fortune`, `/zodiac` | User-facing Nanika runtime | Import `createGhostRuntimeFromPreset` and mount into a host-owned div | Yes | This is just normal app UI. Do not expose devtools controls here. |
+| `/assets/nanika/characters/:characterId/assets/...` | Character images | Host static files, CDN, or storage | Yes | Runtime image URLs should resolve here. Copy or publish assets from the character workspace. |
+| `/assets/nanika/common/...` | Reusable common parts/scenes | Host static files, CDN, or storage | Yes | Shared props, stage materials, and reusable effects can live here. |
+| `/admin/nanika` or `/dev/nanika` | Developer landing page | Host-owned protected page linking to character/mapping tools | No | Put account, role, or IP checks here. |
+| `/admin/nanika/character` | Character settings tool | Either proxy GhostNest devtools, serve bundled devtools files, or later render exported admin UI | No | Needs write access to the host's chosen character workspace or DB adapter. |
+| `/admin/nanika/mapping` | Mapping editor | Same as above | No | This edits mapping data, not runtime user UI. |
+| `/api/nanika/*` | Host-owned data adapter | Optional DB/file adapter for characters, mappings, feature sets, or runtime profiles | No for writes, maybe yes for reads | Do not point browser devtools writes at `node_modules`. |
+| `/api/devtools/*` | GhostNest dev server API | Only available when using the GhostNest dev server directly or through a protected proxy | No | If the host serves devtools itself, the host must provide/proxy equivalent APIs. |
+
+The main decision is whether Fortune Master wants to use only the runtime or also host the developer tools.
+
+### Runtime-only Route
+
+For normal Fortune Master pages, no GhostNest route is needed. The page renders a mount element and imports the runtime.
+
+```tsx
+import {
+  createCharacterWithAssetBaseUrl,
+  createGhostRuntimeFromPreset,
+  nanikaPreset,
+} from "ghost-nest";
+
+const character = createCharacterWithAssetBaseUrl(nanikaPreset.character, {
+  charactersRootUrl: "/assets/nanika/characters",
+  commonAssetBaseUrl: "/assets/nanika/common",
+});
+
+const preset = {
+  ...nanikaPreset,
+  character,
+};
+
+createGhostRuntimeFromPreset(preset, {
+  root: "#fortuneNanikaRuntime",
+  controls: {
+    devtools: false,
+  },
+});
+```
+
+The host page owns the route, for example `/`, `/zodiac`, or `/result`. Nanika only owns the DOM inside `#fortuneNanikaRuntime`.
+
+### Protected Devtools Route
+
+If Fortune Master wants to open the character settings or mapping editor inside the app, it should create a protected host route first. That route can then choose one of these patterns:
+
+1. Link to a separate local GhostNest dev server during development, for example `http://127.0.0.1:4173/dev-character.html`.
+2. Proxy `/admin/nanika/*` to a GhostNest dev server, keeping the host's admin/IP guard in front.
+3. Serve the bundled `dev-*.html`, `styles.css`, and `dist/devtools/*` files from a protected route, and provide matching `/api/devtools/*` write endpoints.
+4. Use a future framework-specific admin export when one exists.
+
+The important part is that static HTML alone is not enough for editing. Character settings and mapping screens call APIs such as:
+
+- `/api/devtools/characters`
+- `/api/devtools/character-assets`
+- `/api/devtools/character-workspace`
+- `/api/devtools/save-character-layer`
+- `/api/devtools/save-character-scene`
+- `/api/devtools/nanika-mappings`
+- `/api/devtools/save-nanika-mapping`
+
+If the devtools page is served from Fortune Master, those relative API calls go to Fortune Master. Fortune Master must either proxy them to GhostNest's dev server or implement equivalent server routes. If it does neither, saves will fail or return host-specific errors such as workspace-write restrictions.
+
+### Asset URL Rule
+
+Runtime image paths should point at browser-readable URLs, not source workspace paths. In Fortune Master, prefer this shape:
+
+```txt
+public/assets/nanika/characters/rine/assets/base/...
+public/assets/nanika/characters/rine/assets/parts/...
+public/assets/nanika/common/parts/...
+public/assets/nanika/common/scenes/...
+```
+
+Then configure:
+
+```ts
+createCharacterWithAssetBaseUrl(character, {
+  charactersRootUrl: "/assets/nanika/characters",
+  commonAssetBaseUrl: "/assets/nanika/common",
+});
+```
+
+`charactersRootUrl` is the path immediately before the character id. GhostNest will resolve character-owned assets below `/:characterId/assets/...`.
+
 Bundled demo character data still stores source-style asset paths such as `./src/characters/rine/assets/base/...`. A host app should copy the assets it wants to serve into its own public directory and rewrite the character paths before booting the runtime.
 
 ```ts

@@ -11,6 +11,7 @@ import { appendAssetOptionGroups, filterAssetFiles } from "./assetSelect.js";
 import {
   CharacterAssetSaveKind,
   createCharacterAssetSaveDirectory,
+  createCommonAssetSaveDirectory,
   createSavedAssetPaths,
   readImageFiles,
   saveUploadedAssetFiles,
@@ -54,6 +55,11 @@ type SceneDragState = {
   startClientY: number;
   stageRect: DOMRect;
   startPlacement: EditableSceneLayer["placement"];
+};
+type SceneUploadTarget = {
+  assetKind: CharacterAssetSaveKind;
+  directory: string;
+  label: string;
 };
 
 const newSceneSelectValue = "__new_scene__";
@@ -128,8 +134,45 @@ function setScenePreviewSize(size: number) {
 /**
  * Reads the selected folder for Scene page uploads.
  */
-function getSceneUploadAssetKind(): CharacterAssetSaveKind {
-  return sceneUploadAssetKindSelect.value === "parts" ? "parts" : "scenes";
+function getSceneUploadTarget(characterId: string): SceneUploadTarget {
+  const selectedValue = sceneUploadAssetKindSelect.value;
+  const assetKind: CharacterAssetSaveKind = selectedValue.endsWith("parts") || selectedValue === "parts"
+    ? "parts"
+    : "scenes";
+  const isCommonAsset = selectedValue.startsWith("common-");
+
+  return {
+    assetKind,
+    directory: isCommonAsset
+      ? createCommonAssetSaveDirectory(assetKind)
+      : createCharacterAssetSaveDirectory(characterId, assetKind),
+    label: `${isCommonAsset ? "공통" : characterId} ${assetKind}`,
+  };
+}
+
+/**
+ * Normalizes saved paths before matching them against freshly loaded select options.
+ */
+function normalizeAssetPathForMatch(path: string) {
+  return path.replaceAll("\\", "/").replace(/^\.\//, "");
+}
+
+/**
+ * Selects the newly saved asset from a select after the list has been reloaded.
+ */
+function selectSavedAssetOption(select: HTMLSelectElement, savedPaths: string[]) {
+  const normalizedSavedPaths = new Set(savedPaths.map(normalizeAssetPathForMatch));
+  const matchedOption = Array.from(select.options).find((option) =>
+    normalizedSavedPaths.has(normalizeAssetPathForMatch(option.value)),
+  );
+
+  if (!matchedOption) {
+    return false;
+  }
+
+  select.value = matchedOption.value;
+
+  return true;
 }
 
 /**
@@ -736,8 +779,8 @@ async function loadSavedAssetFiles() {
  */
 async function uploadSceneImages() {
   const files = Array.from(sceneImageInput.files ?? []);
-  const assetKind = getSceneUploadAssetKind();
   const characterId = characterSelect.value || "rine";
+  const uploadTarget = getSceneUploadTarget(characterId);
 
   if (files.length === 0) {
     status.textContent = "저장할 무대 재료 이미지를 먼저 선택하세요.";
@@ -745,27 +788,31 @@ async function uploadSceneImages() {
   }
 
   uploadSceneImagesButton.disabled = true;
-  status.textContent = `${assetKind} 폴더에 이미지 ${files.length}개를 저장하는 중이에요.`;
+  status.textContent = `${uploadTarget.label} 폴더에 이미지 ${files.length}개를 저장하는 중이에요.`;
 
   try {
     const savedFiles = await saveUploadedAssetFiles(
-      createCharacterAssetSaveDirectory(characterId, assetKind),
+      uploadTarget.directory,
       await readImageFiles(files),
     );
     const savedPaths = createSavedAssetPaths(savedFiles);
 
     await loadSavedAssetFiles();
 
-    if (assetKind === "scenes") {
-      backgroundAssetSelect.value = savedPaths[0] ?? backgroundAssetSelect.value;
+    let selectedFromList = false;
+
+    if (uploadTarget.assetKind === "scenes") {
+      selectedFromList = selectSavedAssetOption(backgroundAssetSelect, savedPaths);
     } else {
-      propAssetSelect.value = savedPaths[0] ?? propAssetSelect.value;
-      effectAssetSelect.value = savedPaths[0] ?? effectAssetSelect.value;
+      selectedFromList = selectSavedAssetOption(propAssetSelect, savedPaths);
+      selectSavedAssetOption(effectAssetSelect, savedPaths);
     }
 
     sceneImageInput.value = "";
     renderOutputs();
-    status.textContent = `${assetKind} 폴더에 이미지 ${savedFiles.length}개를 저장했어요.`;
+    status.textContent = selectedFromList
+      ? `${uploadTarget.label} 폴더에 이미지 ${savedFiles.length}개를 저장하고 목록에서 선택했어요.`
+      : `${uploadTarget.label} 폴더에 이미지 ${savedFiles.length}개를 저장했지만 현재 목록에서 같은 경로를 찾지 못했어요. 작업 경로와 브라우저 경로 설정을 확인하세요.`;
   } catch (error) {
     status.textContent = error instanceof Error ? error.message : "무대 재료 이미지 저장 요청에 실패했어요.";
   } finally {

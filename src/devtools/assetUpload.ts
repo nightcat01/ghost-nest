@@ -34,6 +34,13 @@ export function createCharacterAssetSaveDirectory(characterId: string, assetKind
 }
 
 /**
+ * Builds the project save directory for shared common assets.
+ */
+export function createCommonAssetSaveDirectory(assetKind: CharacterAssetSaveKind) {
+  return `src/assets/common/${assetKind}`;
+}
+
+/**
  * Builds a browser-facing asset path prefix for one character asset bucket.
  */
 export async function createCharacterAssetBrowserBasePath(characterId: string, assetKind: CharacterAssetSaveKind) {
