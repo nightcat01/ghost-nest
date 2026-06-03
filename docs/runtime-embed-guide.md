@@ -11,7 +11,7 @@ Use this roadmap when embedding Nanika into a host site such as Fortune Master.
 | 1 | Runtime mount boundary | `root` limits selector lookup to a host-owned mount area. |
 | 2 | CSS isolation and theme inheritance | Runtime styles are scoped under `.ghostnest-runtime`; host themes can override `--ghostnest-*` variables. |
 | 3 | Initial runtime state | `initialScene`, `initialSurface`, `initialExpression`, speech layout, speech size, and sprite size can be passed per page. |
-| 4 | Speech layout variants | `runtimeSpeechPresets.floatingCompact` and `runtimeSpeechPresets.dialogueOverlay` cover compact balloons and bottom dialogue overlays. |
+| 4 | Speech layout variants | `runtimeSpeechPresets.floatingCompact`, `runtimeSpeechPresets.dialogueOverlay`, and `runtimeSpeechPresets.fortuneEmbed` cover compact balloons, bottom dialogue overlays, and host-page embeds. |
 | 5 | Host event input API | Host pages can call `runtime.emit("event:name", payload)`. |
 | 6 | Feature mapping structure | Mapping catalogs show character, plugins, runtime events, host event examples, actions, and current rules. |
 | 7 | Real embed sample | `dev-fortune-embed.html` demonstrates a mobile Fortune Master style host page. |
@@ -46,11 +46,34 @@ import {
 } from "ghost-nest";
 ```
 
+## Host Route Ownership
+
+GhostNest does not automatically register pages, routes, or menus inside a consuming app. The host application decides where Nanika appears and which URL serves developer tools.
+
+Use one of these integration shapes:
+
+| Shape | Who owns the URL | When to use |
+| --- | --- | --- |
+| Runtime library import | Host app | Production pages that render Nanika inside an existing screen. |
+| Bundled static devtools | Host app or a separate GhostNest dev server | Internal developer tools, asset setup, mapping setup, or character setup. |
+| Framework-specific admin component | Host app | Future React/Next integration where the host route renders exported admin components. |
+
+For a normal product page, import the runtime and mount it into a host-owned element. The host keeps routing, authentication, page layout, and app CSS. Nanika only renders inside the configured runtime root.
+
+For devtools, the HTML files are included in the package, but they are not mounted into the host app automatically. A host app can choose one of these approaches:
+
+1. Run GhostNest's dev server separately while developing.
+2. Serve selected devtools HTML/CSS/JS files from a protected host route.
+3. Proxy a protected host route to a GhostNest devtools server.
+4. Use future exported admin components when a framework-specific integration exists.
+
+Keep public user pages and developer-only devtools routes separate. In production embeds, prefer `controls.devtools: false` and expose settings only through a protected route owned by the host app.
+
 Bundled demo character data still stores source-style asset paths such as `./src/characters/rine/assets/base/...`. A host app should copy the assets it wants to serve into its own public directory and rewrite the character paths before booting the runtime.
 
 ```ts
 const fortuneCharacter = createCharacterWithAssetBaseUrl(nanikaPreset.character, {
-  characterAssetBaseUrl: "/assets/nanika/characters",
+  charactersRootUrl: "/assets/nanika/characters",
   commonAssetBaseUrl: "/assets/nanika/common",
 });
 
@@ -63,6 +86,8 @@ const runtime = createGhostRuntimeFromPreset(fortunePreset, {
   root: "#fortuneNanikaRuntime",
 });
 ```
+
+`charactersRootUrl` points to the folder just before each character id. The older `characterAssetBaseUrl` option is still accepted as a backward-compatible alias.
 
 For Fortune Master, a practical first pass is to copy `src/characters/rine/assets/**` into `public/assets/nanika/characters/rine/assets/**`. Later, production characters can provide their own character definitions and use the same key/preset mapping flow.
 
@@ -236,6 +261,27 @@ createGhostRuntimeFromPreset(preset, {
     ...runtimeSpeechPresets.dialogueOverlay.size,
     dialogueMaxHeight: "min(22vh, 150px)",
   },
+});
+```
+
+For Fortune-style fixed top embeds, use `fortuneEmbed`. It keeps the dialogue box compact and anchors it to one side of the runtime stage so lower host content stays visible.
+
+```ts
+createGhostRuntimeFromPreset(preset, {
+  speechLayout: runtimeSpeechPresets.fortuneEmbed.layout,
+  speechBalloonSize: runtimeSpeechPresets.fortuneEmbed.size,
+});
+```
+
+Override `overlayAnchor` when the host page needs the compact overlay on another side.
+
+```ts
+createGhostRuntimeFromPreset(preset, {
+  speechLayout: {
+    ...runtimeSpeechPresets.fortuneEmbed.layout,
+    overlayAnchor: "left",
+  },
+  speechBalloonSize: runtimeSpeechPresets.fortuneEmbed.size,
 });
 ```
 

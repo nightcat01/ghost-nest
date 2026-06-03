@@ -428,6 +428,39 @@ function assertSafeNanikaFeatureSetId(id) {
   return safeId;
 }
 
+function assertSafeNanikaResourceId(id) {
+  const safeId = String(id ?? "").trim();
+
+  if (!/^[a-zA-Z0-9_.:-]{1,128}$/.test(safeId)) {
+    throw new Error("invalid_nanika_resource_id");
+  }
+
+  return safeId;
+}
+
+function normalizeNanikaFeatureRequirement(requirement) {
+  if (!requirement || typeof requirement !== "object" || Array.isArray(requirement)) {
+    throw new Error("invalid_nanika_feature_requirement");
+  }
+
+  const kind = String(requirement.kind ?? "").trim();
+  const allowedKinds = new Set(["expression", "surface", "scene", "layer", "dialogue", "hitArea"]);
+
+  if (!allowedKinds.has(kind)) {
+    throw new Error("invalid_nanika_feature_requirement_kind");
+  }
+
+  const id = assertSafeNanikaResourceId(requirement.id);
+  const label = String(requirement.label ?? "").trim();
+
+  return {
+    kind,
+    id,
+    ...(label ? { label } : {}),
+    ...(typeof requirement.required === "boolean" ? { required: requirement.required } : {}),
+  };
+}
+
 function normalizeNanikaAction(action) {
   if (!action || typeof action !== "object" || Array.isArray(action)) {
     throw new Error("invalid_nanika_mapping_action");
@@ -526,6 +559,19 @@ function normalizeNanikaFeatureSet(featureSet) {
 
   if (description) {
     normalized.description = description;
+  }
+
+  if (featureSet.mode === "character-specific" || featureSet.mode === "character-template") {
+    normalized.mode = featureSet.mode;
+  }
+
+  const sourceCharacterId = String(featureSet.sourceCharacterId ?? "").trim();
+  if (sourceCharacterId) {
+    normalized.sourceCharacterId = safeFileName(sourceCharacterId);
+  }
+
+  if (Array.isArray(featureSet.requirements)) {
+    normalized.requirements = featureSet.requirements.map(normalizeNanikaFeatureRequirement);
   }
 
   return normalized;

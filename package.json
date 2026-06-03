@@ -31,6 +31,7 @@
     "server.cjs",
     "styles.css",
     "docs/runtime-embed-guide.md",
+    "docs/nanika-postgres",
     "ASSET_GENERATOR_SETUP.md",
     "README.md"
   ],

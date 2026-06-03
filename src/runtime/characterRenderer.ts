@@ -185,6 +185,10 @@ function preloadImage(src: string) {
   });
 }
 
+type SurfaceImageSourceOptions = {
+  includeAnimatedLayers?: boolean;
+};
+
 /**
  * Creates the DOM renderer for character expressions, surfaces, and layer animations.
  * This module owns visual state only; actions and rules decide when the state changes.
@@ -250,9 +254,14 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
     });
   }
 
-  function getSurfaceImageSources(surface: CharacterSurface) {
+  function getSurfaceImageSources(surface: CharacterSurface, options: SurfaceImageSourceOptions = {}) {
+    const includeAnimatedLayers = options.includeAnimatedLayers ?? true;
     const layerImages = Object.values(surface.layers ?? {}).flatMap((layer) => {
       if (!layer) {
+        return [];
+      }
+
+      if (!includeAnimatedLayers && (layer.coversBase || layer.idleIntervalMs)) {
         return [];
       }
 
@@ -262,7 +271,7 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
       ];
     });
 
-    if (surface.mouthImages) {
+    if (includeAnimatedLayers && surface.mouthImages) {
       layerImages.push(surface.mouthImages.closed, surface.mouthImages.open);
     }
 
@@ -343,8 +352,12 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
   /**
    * Warms image cache and waits for decoding before a visible surface swap.
    */
-  async function preloadSurfaceImages(surface: CharacterSurface) {
-    await Promise.all(Array.from(new Set(getSurfaceImageSources(surface))).map(preloadImage));
+  async function preloadSurfaceImages(surface: CharacterSurface, options: SurfaceImageSourceOptions = {}) {
+    await Promise.all(Array.from(new Set(getSurfaceImageSources(surface, options))).map(preloadImage));
+  }
+
+  function warmSurfaceImages(surface: CharacterSurface) {
+    void preloadSurfaceImages(surface, { includeAnimatedLayers: true });
   }
 
   function renderStaticPartLayers(surface: CharacterSurface) {
@@ -386,13 +399,20 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
   async function applySurfaceDefinitionWhenReady(surface: CharacterSurface) {
     const token = ++surfaceApplyToken;
 
-    await preloadSurfaceImages(surface);
+    if (!currentSurface && !currentVisualSource) {
+      applySurfaceDefinition(surface);
+      warmSurfaceImages(surface);
+      return true;
+    }
+
+    await preloadSurfaceImages(surface, { includeAnimatedLayers: false });
 
     if (token !== surfaceApplyToken) {
       return false;
     }
 
     applySurfaceDefinition(surface);
+    warmSurfaceImages(surface);
     return true;
   }
 

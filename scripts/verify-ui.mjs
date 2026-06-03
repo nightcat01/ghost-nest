@@ -455,6 +455,10 @@ async function verifyMappingEditor(page) {
     hasFeatureSetPicker: Boolean(document.querySelector("#featureSetMappingPicker")),
     hasFeatureSetPreview: Boolean(document.querySelector("#featureSetPreview")),
     hasFeatureSetFlowBoard: Boolean(document.querySelector("#featureSetFlowBoard")),
+    hasFeatureSetClonePanel: Boolean(document.querySelector("#featureSetCloneSourceSelect") && document.querySelector("#featureSetCloneCharacterSelect")),
+    featureSetCloneSourceCount: document.querySelectorAll("#featureSetCloneSourceSelect option").length,
+    featureSetCloneCharacterCount: document.querySelectorAll("#featureSetCloneCharacterSelect option").length,
+    featureSetClonePreviewText: document.querySelector("#featureSetClonePreview")?.textContent?.trim() ?? "",
     featureSetOptionHasDescription: Boolean(document.querySelector("#featureSetMappingPicker .nanika-feature-set-option small")),
     featureSetContainArrowCount: document.querySelectorAll("#featureSetList .nanika-result-flow[data-relation='contains'] .nanika-result-flow-arrow").length,
     editorShowsFeatureSet: document.querySelector("#mappingEditorCanvas .nanika-paint-node[data-kind='feature-set']") !== null,
@@ -905,6 +909,8 @@ async function verifyFortuneEmbed(page) {
       const screenRect = screen?.getBoundingClientRect();
       const mountRect = mount?.getBoundingClientRect();
       const stageRect = stage?.getBoundingClientRect();
+      const speech = mount?.querySelector(".fortune-nanika-speech");
+      const speechRect = speech?.getBoundingClientRect();
 
       return {
         title: document.title,
@@ -924,8 +930,24 @@ async function verifyFortuneEmbed(page) {
         sceneLayerCount: mount?.querySelectorAll(".scene-layer-root .scene-layer").length ?? 0,
         bootText: document.querySelector("#fortuneRuntimeStatus")?.textContent?.trim() ?? "",
         sceneId: stage?.getAttribute("data-scene-id") ?? "",
+        speechAnchor: stage?.getAttribute("data-speech-anchor") ?? "",
+        speechLayout: stage?.getAttribute("data-speech-layout") ?? "",
+        speechPlacement: stage?.getAttribute("data-speech-placement") ?? "",
         surfaceId: mount?.querySelector(".fortune-nanika-sprite")?.getAttribute("data-surface-id") ?? "",
         speechText: mount?.querySelector(".fortune-nanika-text")?.textContent?.trim() ?? "",
+        speechWithinStage: Boolean(
+          stageRect
+          && speechRect
+          && speechRect.left >= stageRect.left - 1
+          && speechRect.right <= stageRect.right + 1
+          && speechRect.top >= stageRect.top - 1
+          && speechRect.bottom <= stageRect.bottom + 1,
+        ),
+        speechAnchoredRight: Boolean(
+          stageRect
+          && speechRect
+          && Math.abs(stageRect.right - speechRect.right) <= 2,
+        ),
         bodyClassName: document.body.className,
         overflowX: document.documentElement.scrollWidth > window.innerWidth,
         mountWithinScreen: Boolean(
@@ -1415,6 +1437,10 @@ async function main() {
       assertMetric(mapping.featureSetMetrics.hasFeatureSetPicker, "Feature set picker is missing.");
       assertMetric(mapping.featureSetMetrics.hasFeatureSetPreview, "Feature set preview is missing.");
       assertMetric(mapping.featureSetMetrics.hasFeatureSetFlowBoard, "Feature set flow board is missing.");
+      assertMetric(mapping.featureSetMetrics.hasFeatureSetClonePanel, "Feature set clone panel is missing.");
+      assertMetric(mapping.featureSetMetrics.featureSetCloneSourceCount > 0, "Feature set clone source list is empty.");
+      assertMetric(mapping.featureSetMetrics.featureSetCloneCharacterCount > 0, "Feature set clone character list is empty.");
+      assertMetric(mapping.featureSetMetrics.featureSetClonePreviewText.length > 0, "Feature set clone preview is empty.");
       assertMetric(mapping.featureSetMetrics.featureSetOptionHasDescription, "Feature set mapping options are missing readable descriptions.");
       assertMetric(mapping.featureSetMetrics.featureSetContainArrowCount === 0, "Feature set contains view should not render sequence arrows.");
       assertMetric(mapping.featureSetMetrics.editorShowsFeatureSet, "Feature set selection did not render in the shared editor.");
@@ -1515,6 +1541,11 @@ async function main() {
       assertMetric(fortuneEmbed.initial.hasStage, "Fortune embed stage is missing.");
       assertMetric(fortuneEmbed.initial.hasSprite, "Fortune embed sprite is missing.");
       assertMetric(fortuneEmbed.initial.hasSpeechBalloon, "Fortune embed speech balloon is missing.");
+      assertMetric(fortuneEmbed.initial.speechLayout === "dialogue-box", "Fortune embed should use the dialogue-box layout.");
+      assertMetric(fortuneEmbed.initial.speechPlacement === "overlay-bottom", "Fortune embed should use the bottom overlay placement.");
+      assertMetric(fortuneEmbed.initial.speechAnchor === "right", "Fortune embed should anchor the dialogue overlay to the right.");
+      assertMetric(fortuneEmbed.initial.speechWithinStage, "Fortune embed speech balloon escaped the stage boundary.");
+      assertMetric(fortuneEmbed.initial.speechAnchoredRight, "Fortune embed speech balloon is not visually anchored to the right.");
       assertMetric(fortuneEmbed.initial.runtimeRootCount === 1, "Fortune embed should create exactly one runtime root.");
       assertMetric(fortuneEmbed.initial.runtimeRootOutsideCount === 0, "Fortune embed runtime root escaped the mount boundary.");
       assertMetric(fortuneEmbed.initial.stageOutsideCount === 0, "Fortune embed stage escaped the mount boundary.");

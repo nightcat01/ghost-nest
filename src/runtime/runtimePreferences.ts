@@ -91,7 +91,15 @@ export function readStoredRuntimeUiPreferences(value: unknown): RuntimeUiPrefere
       speechLayout.placement = value.speechLayout.placement;
     }
 
-    if (speechLayout.mode || speechLayout.placement) {
+    if (
+      value.speechLayout.overlayAnchor === "left" ||
+      value.speechLayout.overlayAnchor === "right" ||
+      value.speechLayout.overlayAnchor === "center"
+    ) {
+      speechLayout.overlayAnchor = value.speechLayout.overlayAnchor;
+    }
+
+    if (speechLayout.mode || speechLayout.placement || speechLayout.overlayAnchor) {
       preferences.speechLayout = speechLayout;
     }
   }

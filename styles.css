@@ -506,6 +506,11 @@ body.fortune-embed-page {
   --ghostnest-speech-dialogue-line: rgba(255, 255, 255, 0.2);
   --ghostnest-speech-shadow: 0 16px 38px rgba(0, 0, 0, 0.34);
   --ghostnest-speech-dialogue-shadow: 0 16px 38px rgba(0, 0, 0, 0.34);
+  --ghostnest-fortune-prompt-color: rgba(255, 250, 240, 0.94);
+  --ghostnest-fortune-prompt-bg: rgba(9, 8, 23, 0.72);
+  --ghostnest-fortune-prompt-border: rgba(245, 220, 155, 0.2);
+  --ghostnest-fortune-prompt-accent-rgb: 245, 220, 155;
+  --ghostnest-fortune-prompt-cursor: #f5dc9b;
 }
 
 .fortune-nanika-mount .fortune-nanika-stage {
@@ -521,16 +526,13 @@ body.fortune-embed-page {
 }
 
 .fortune-nanika-mount .fortune-nanika-speech {
-  width: calc(100% - 32px);
   align-self: end;
-  margin: 0 auto 16px;
-  padding: 12px 14px;
-  border-radius: 8px;
-  backdrop-filter: blur(10px);
+  margin: 0 0 16px;
+  padding: 12px 16px;
 }
 
 .fortune-nanika-mount .fortune-nanika-speech span {
-  margin-bottom: 4px;
+  margin-bottom: 0;
   color: #ffe59a;
   font-size: 0.84rem;
 }
@@ -782,8 +784,18 @@ body.fortune-embed-page {
 .ghostnest-runtime.character-stage[data-speech-layout="dialogue-box"][data-speech-placement="overlay-bottom"] .speech-balloon {
   grid-area: stack;
   align-self: end;
-  justify-self: stretch;
+  width: var(--speech-dialogue-width, min(100%, var(--runtime-area-width, 430px)));
+  max-width: var(--speech-dialogue-max-width, 430px);
+  justify-self: center;
   z-index: 30;
+}
+
+.ghostnest-runtime.character-stage[data-speech-layout="dialogue-box"][data-speech-placement="overlay-bottom"][data-speech-anchor="left"] .speech-balloon {
+  justify-self: start;
+}
+
+.ghostnest-runtime.character-stage[data-speech-layout="dialogue-box"][data-speech-placement="overlay-bottom"][data-speech-anchor="right"] .speech-balloon {
+  justify-self: end;
 }
 
 .ghostnest-runtime .speech-balloon::-webkit-scrollbar {
@@ -816,21 +828,39 @@ body.fortune-embed-page {
 }
 
 .ghostnest-runtime.character-stage[data-balloon-theme="fortune_prompt"] .speech-balloon {
-  border-color: rgba(255, 232, 176, 0.42);
-  border-radius: 6px;
-  color: #fff8df;
-  background: linear-gradient(180deg, rgba(26, 24, 38, 0.58), rgba(17, 15, 28, 0.5));
+  display: flex;
+  align-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  column-gap: 4px;
+  row-gap: 0;
+  border-color: var(--ghostnest-fortune-prompt-border, rgba(245, 220, 155, 0.18));
+  border-radius: var(--ghostnest-fortune-prompt-radius, 16px);
+  color: var(--ghostnest-fortune-prompt-color, rgba(255, 250, 240, 0.94));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.025)),
+    var(--ghostnest-fortune-prompt-bg, rgba(9, 8, 23, 0.72));
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    inset 0 0 0 1px rgba(255, 232, 176, 0.12),
-    0 12px 30px rgba(8, 6, 18, 0.2);
-  backdrop-filter: blur(6px);
+    0 16px 34px rgba(0, 0, 0, 0.34),
+    0 0 24px rgba(var(--ghostnest-fortune-prompt-accent-rgb, 245, 220, 155), 0.16),
+    inset 0 1px 0 rgba(255, 250, 240, 0.08);
+  backdrop-filter: blur(var(--ghostnest-fortune-prompt-blur, 14px));
+  -webkit-backdrop-filter: blur(var(--ghostnest-fortune-prompt-blur, 14px));
+  transition:
+    background 420ms ease,
+    background-color 420ms ease,
+    border-color 420ms ease,
+    box-shadow 420ms ease,
+    color 420ms ease,
+    text-shadow 420ms ease,
+    opacity 240ms ease,
+    filter 420ms ease;
 }
 
 .ghostnest-runtime.character-stage[data-balloon-theme="fortune_prompt"][data-speech-layout="dialogue-box"] .speech-balloon {
   min-height: var(--speech-dialogue-min-height, 70px);
   padding: 12px 16px;
-  border-color: rgba(255, 232, 176, 0.46);
+  border-color: var(--ghostnest-fortune-prompt-border, rgba(245, 220, 155, 0.18));
 }
 
 .ghostnest-runtime.character-stage[data-balloon-theme="fortune_prompt"][data-speech-layout="dialogue-box"] .balloon-action-menu {
@@ -838,24 +868,53 @@ body.fortune-embed-page {
 }
 
 .ghostnest-runtime.character-stage[data-balloon-theme="fortune_prompt"] .speech-balloon span {
-  display: inline;
-  margin: 0 4px 0 0;
-  color: #ffe7a6;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  color: var(--ghostnest-fortune-prompt-cursor, #f5dc9b);
+  background: transparent;
   font-size: 0.9rem;
   font-weight: 900;
+  line-height: 1.48;
+  vertical-align: middle;
+}
+
+.ghostnest-runtime.character-stage[data-balloon-theme="fortune_prompt"] .speech-balloon span::after {
+  content: ":";
 }
 
 .ghostnest-runtime.character-stage[data-balloon-theme="fortune_prompt"] .speech-balloon p {
-  display: inline;
-  color: #fff8df;
+  flex: 1 1 0;
+  min-width: min(12rem, 100%);
+  color: var(--ghostnest-fortune-prompt-color, rgba(255, 250, 240, 0.94));
   font-size: 0.92rem;
   font-weight: 800;
   line-height: 1.48;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
 }
 
+.ghostnest-runtime.character-stage[data-balloon-theme="fortune_prompt"][data-state="talking"] .speech-balloon p::after {
+  content: "";
+  display: inline-block;
+  width: 0.55em;
+  height: 1em;
+  margin-left: 0.15rem;
+  transform: translateY(0.16em);
+  border-right: 2px solid var(--ghostnest-fortune-prompt-cursor, #f5dc9b);
+  animation: ghostnest-fortune-prompt-cursor-blink 0.72s steps(1) infinite;
+}
+
+@keyframes ghostnest-fortune-prompt-cursor-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
 .ghostnest-runtime.character-stage[data-balloon-theme="fortune_prompt"][data-speech-layout="dialogue-box"] .speech-balloon p {
-  display: block;
+  min-width: 0;
 }
 
 .ghostnest-runtime .speech-balloon span {
@@ -3302,6 +3361,24 @@ body.fortune-embed-page {
   background: rgba(255, 255, 255, 0.34);
 }
 
+.nanika-feature-set-clone-panel {
+  display: grid;
+  gap: 12px;
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid rgba(50, 119, 108, 0.16);
+  border-radius: 8px;
+  background: rgba(50, 119, 108, 0.05);
+}
+
+.nanika-feature-set-clone-panel .asset-lab-section-header {
+  margin-bottom: 0;
+}
+
+.nanika-feature-set-clone-panel .asset-lab-field-grid {
+  margin-top: 0;
+}
+
 .nanika-draft-flow-preview h4 {
   margin: 0;
   color: var(--ink);
@@ -5251,7 +5328,6 @@ body.fortune-embed-page {
   }
 
   .fortune-nanika-mount .fortune-nanika-speech {
-    width: calc(100% - 28px);
     margin-bottom: 14px;
   }
 
@@ -5311,6 +5387,12 @@ body.fortune-embed-page {
   .ghostnest-runtime .speech-balloon {
     width: min(var(--speech-balloon-mobile-width, 100%), var(--speech-balloon-max-width, 340px));
     max-height: var(--speech-balloon-mobile-max-height, min(280px, var(--floating-content-max-height, calc(100vh - var(--character-sprite-mobile-height, 232px) - 76px))));
+  }
+
+  .ghostnest-runtime.character-stage[data-speech-layout="dialogue-box"] .speech-balloon {
+    width: var(--speech-dialogue-width, min(100%, var(--runtime-area-width, 430px)));
+    max-width: var(--speech-dialogue-max-width, 430px);
+    max-height: var(--speech-balloon-mobile-max-height, var(--speech-dialogue-max-height, 128px));
   }
 
   .ghostnest-runtime .balloon-action-menu {

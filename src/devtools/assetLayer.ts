@@ -278,7 +278,7 @@ function inferAssetSaveKind(settings: StoredLayerSettings | null): AssetSaveKind
 }
 
 /**
- * Applies the selected character asset folder to both editable path fields.
+ * Applies the selected character asset folder to the readonly path summary fields.
  */
 async function syncAssetSavePathsFromKind() {
   const assetSaveKind = getAssetSaveKind();
@@ -355,8 +355,6 @@ function saveLayerSettings() {
     idleIntervalMs: Number(idleIntervalInput.value),
     coversBase: coversBaseInput.checked,
     assetSaveKind: getAssetSaveKind(),
-    basePath: basePathInput.value,
-    saveDirectory: saveDirectoryInput.value,
     partAssetPaths: partImages.map((image) => image.assetPath).filter((assetPath): assetPath is string => Boolean(assetPath)),
     previewSize: getPreviewSize(),
     ...(baseAssetPath ? { baseAssetPath } : {}),
@@ -392,12 +390,7 @@ function loadLayerSettings() {
     idleIntervalInput.value = String(settings.idleIntervalMs ?? Number(idleIntervalInput.value) ?? 0);
     coversBaseInput.checked = settings.coversBase ?? coversBaseInput.checked;
     assetSaveKindSelect.value = settings.assetSaveKind ?? inferAssetSaveKind(settings);
-    if (settings.basePath) {
-      basePathInput.value = settings.basePath;
-    } else {
-      void syncAssetSavePathsFromKind();
-    }
-    saveDirectoryInput.value = settings.saveDirectory ?? createCharacterAssetSaveDirectory(getAssetSaveKind());
+    void syncAssetSavePathsFromKind();
     previewSizeInput.value = String(clampPreviewSize(settings.previewSize ?? Number(previewSizeInput.value) ?? 760));
   } catch {
     // 저장된 개발도구 설정이 깨져도 페이지 사용은 계속 가능해야 합니다.
@@ -1239,9 +1232,7 @@ async function loadCharacters() {
     });
 
     if (selectedCharacterId) {
-      if (!storedLayerSettings?.basePath && !storedLayerSettings?.saveDirectory) {
-        void syncAssetSavePathsFromKind();
-      }
+      void syncAssetSavePathsFromKind();
       await loadCharacterAssets();
       return;
     }
@@ -1936,8 +1927,6 @@ function init() {
     renderOutputs();
   });
   [
-    basePathInput,
-    saveDirectoryInput,
     surfaceIdInput,
     layerIdSelect,
     customLayerIdInput,

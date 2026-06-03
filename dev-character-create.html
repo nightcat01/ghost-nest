@@ -57,6 +57,31 @@
             </div>
           </div>
 
+          <div class="asset-lab-section">
+            <h2>에셋 공개 경로</h2>
+            <p class="asset-lab-help">캐릭터별 assets 폴더와 공통 assets 폴더를 브라우저에서 불러올 기준 경로입니다. 파츠와 장면 조합 화면은 이 값을 기준으로 경로를 확인합니다.</p>
+            <div class="asset-lab-field-grid">
+              <label>
+                캐릭터 assets 기준 경로
+                <input id="charactersRootUrlInput" type="text" placeholder="/assets/nanika/characters" autocomplete="off" />
+              </label>
+              <label>
+                공통 assets 기준 경로
+                <input id="commonAssetsRootUrlInput" type="text" placeholder="/assets/nanika/common" autocomplete="off" />
+              </label>
+            </div>
+            <div class="asset-step-result-map" id="assetPathPreview" aria-label="Asset path preview">
+              <article>
+                <strong>캐릭터 이미지</strong>
+                <span>캐릭터 ID를 입력하면 실제 base/parts 경로가 표시됩니다.</span>
+              </article>
+              <article>
+                <strong>공통 이미지</strong>
+                <span>공통 소품과 무대 조합 재료가 참조할 경로입니다.</span>
+              </article>
+            </div>
+          </div>
+
           <div class="asset-lab-section asset-composition-save-section">
             <h2>생성</h2>
             <p class="asset-lab-help">src/characters 아래에 profile.ts, lines.ts, index.ts와 기본 이미지, 파츠 이미지 폴더를 만듭니다.</p>

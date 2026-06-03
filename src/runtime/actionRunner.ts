@@ -129,6 +129,7 @@ export function createActionRunner(context: ActionRunnerContext) {
   const defaultSpeechLayout: Required<SpeechLayoutOptions> = {
     mode: speechLayout?.mode ?? "floating",
     placement: speechLayout?.placement ?? "below-character",
+    overlayAnchor: speechLayout?.overlayAnchor ?? "center",
   };
   const runtimeUiPreferences: RuntimeUiPreferences = {
     ...defaultRuntimeUiPreferences,
@@ -219,6 +220,7 @@ export function createActionRunner(context: ActionRunnerContext) {
   function applySpeechLayout(layout: SpeechLayoutOptions | undefined) {
     elements.stage.dataset.speechLayout = layout?.mode ?? defaultSpeechLayout.mode;
     elements.stage.dataset.speechPlacement = layout?.placement ?? defaultSpeechLayout.placement;
+    elements.stage.dataset.speechAnchor = layout?.overlayAnchor ?? defaultSpeechLayout.overlayAnchor;
   }
 
   function applyCharacterPosition(position: RuntimeUiPreferences["characterPosition"]) {
@@ -707,6 +709,7 @@ export function createActionRunner(context: ActionRunnerContext) {
     runtimeUiPreferences.speechLayout = {
       mode: a.mode ?? runtimeUiPreferences.speechLayout?.mode ?? defaultSpeechLayout.mode,
       placement: a.placement ?? runtimeUiPreferences.speechLayout?.placement ?? defaultSpeechLayout.placement,
+      overlayAnchor: a.overlayAnchor ?? runtimeUiPreferences.speechLayout?.overlayAnchor ?? defaultSpeechLayout.overlayAnchor,
     };
     applySpeechLayout(runtimeUiPreferences.speechLayout);
     await saveRuntimeUiPreferences();

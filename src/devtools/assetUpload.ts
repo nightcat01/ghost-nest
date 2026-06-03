@@ -44,6 +44,16 @@ export async function createCharacterAssetBrowserBasePath(characterId: string, a
 }
 
 /**
+ * Builds a browser-facing asset path prefix for shared common assets.
+ */
+export async function createCommonAssetBrowserBasePath(assetKind?: CharacterAssetSaveKind) {
+  const workspace = await getCachedCharacterWorkspace();
+  const commonPrefix = workspace.browserCommonPrefix.replaceAll("\\", "/").replace(/\/$/, "");
+
+  return assetKind ? `${commonPrefix}/${assetKind}/` : `${commonPrefix}/`;
+}
+
+/**
  * Returns whether an image came from a browser upload and can be written to disk.
  */
 export function isUploadImage(image: LabImage | null | undefined): image is LabImage {

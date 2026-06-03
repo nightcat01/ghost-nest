@@ -366,6 +366,7 @@ export type BuiltinRuntimeAction =
       type: "change_speech_layout";
       mode?: SpeechLayoutOptions["mode"];
       placement?: SpeechLayoutOptions["placement"];
+      overlayAnchor?: SpeechLayoutOptions["overlayAnchor"];
     }
   | {
       type: "set_speech_balloon_size";
@@ -581,6 +582,7 @@ export type SpeechTypingOptions = {
 export type SpeechLayoutOptions = {
   mode?: "floating" | "dialogue-box";
   placement?: "below-character" | "overlay-bottom";
+  overlayAnchor?: "left" | "right" | "center";
 };
 
 export type SpeechBalloonSizeOptions = {

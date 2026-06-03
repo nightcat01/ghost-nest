@@ -355,6 +355,7 @@ export const runtimeActionCatalog = [
     parameters: [
       { name: "mode", type: "string", description: "floating 또는 dialogue-box입니다." },
       { name: "placement", type: "string", description: "below-character 또는 overlay-bottom입니다." },
+      { name: "overlayAnchor", type: "string", description: "overlay-bottom에서 left, right, center 중 말풍선 정렬을 고릅니다." },
     ],
   },
   {

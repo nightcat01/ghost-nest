@@ -10,6 +10,7 @@ import type {
 } from "./types.js";
 
 export type CharacterAssetBaseUrlOptions = {
+  charactersRootUrl?: string;
   characterAssetBaseUrl?: string;
   commonAssetBaseUrl?: string;
   sourceCharacterPrefix?: string;
@@ -44,9 +45,10 @@ function rewriteAssetUrl(value: string, options: CharacterAssetBaseUrlOptions) {
   const normalizedValue = normalizeAssetPath(value);
   const sourceCharacterPrefix = normalizeAssetPath(options.sourceCharacterPrefix ?? "./src/characters/");
   const sourceCommonPrefix = normalizeAssetPath(options.sourceCommonPrefix ?? "./src/assets/common/");
+  const characterBaseUrl = options.charactersRootUrl ?? options.characterAssetBaseUrl;
 
-  if (options.characterAssetBaseUrl && normalizedValue.startsWith(sourceCharacterPrefix)) {
-    return joinAssetUrl(options.characterAssetBaseUrl, normalizedValue.slice(sourceCharacterPrefix.length));
+  if (characterBaseUrl && normalizedValue.startsWith(sourceCharacterPrefix)) {
+    return joinAssetUrl(characterBaseUrl, normalizedValue.slice(sourceCharacterPrefix.length));
   }
 
   if (options.commonAssetBaseUrl && normalizedValue.startsWith(sourceCommonPrefix)) {

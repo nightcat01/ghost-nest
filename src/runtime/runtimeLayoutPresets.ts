@@ -39,4 +39,22 @@ export const runtimeSpeechPresets = {
       mobileActionMenuMaxHeight: "96px",
     },
   },
+  fortuneEmbed: {
+    layout: {
+      mode: "dialogue-box",
+      placement: "overlay-bottom",
+      overlayAnchor: "right",
+    },
+    size: {
+      stageWidth: "min(100%, var(--runtime-area-width, 430px))",
+      dialogueWidth: "min(72%, 320px)",
+      dialogueMaxWidth: "320px",
+      dialogueHeight: "clamp(74px, 13vh, 112px)",
+      dialogueMinHeight: "74px",
+      dialogueMaxHeight: "clamp(74px, 13vh, 112px)",
+      mobileMaxHeight: "clamp(72px, 15vh, 108px)",
+      actionMenuMaxHeight: "88px",
+      mobileActionMenuMaxHeight: "88px",
+    },
+  },
 } satisfies Record<string, RuntimeSpeechPreset>;

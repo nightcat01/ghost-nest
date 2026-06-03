@@ -16,7 +16,7 @@ import type {
 } from "./core/types.js";
 
 const runtimeRootSelector = "#fortuneNanikaRuntime";
-const fortuneSpeechPreset = runtimeSpeechPresets.dialogueOverlay;
+const fortuneSpeechPreset = runtimeSpeechPresets.fortuneEmbed;
 const runtimeStatus = document.querySelector<HTMLElement>("#fortuneRuntimeStatus");
 let runtimeBootCount = 0;
 

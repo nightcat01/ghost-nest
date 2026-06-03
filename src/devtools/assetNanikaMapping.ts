@@ -4,7 +4,14 @@ import {
   defaultNanikaCommonKeys,
 } from "../plugins/nanikaMapping/index.js";
 import { nanikaPreset } from "../ghost/preset.js";
-import { createDevtoolsApiPath, readApiJson, type DevApiResponse } from "./assetApi.js";
+import {
+  createDevtoolsApiPath,
+  fetchCharacterAssets,
+  fetchCharacterList,
+  readApiJson,
+  type CharacterAssetsResponse,
+  type DevApiResponse,
+} from "./assetApi.js";
 import { requireElement } from "./assetShared.js";
 import type { RuntimeAction, RuntimeControlOptions, RuntimeRule } from "../core/types.js";
 import type {
@@ -518,6 +525,8 @@ let draftActionFlow: RuntimeAction[] = [];
 let savedMappings: NanikaMapping[] = [];
 let savedMappingsLoaded = false;
 let savedFeatureSets: NanikaFeatureSet[] = [];
+let availableCharacterIds: string[] = [registry.character.id];
+let featureSetClonePreviewRequestId = 0;
 let selectedSnippetFeatureSetIds = new Set<string>();
 let mappingGraphZoom = 1;
 let mappingGraphExpanded = false;
@@ -631,6 +640,12 @@ const saveFeatureSetButton = requireElement(document.querySelector<HTMLButtonEle
 const refreshFeatureSetsButton = requireElement(document.querySelector<HTMLButtonElement>("#refreshFeatureSetsButton"), "#refreshFeatureSetsButton");
 const featureSetIdInput = requireElement(document.querySelector<HTMLInputElement>("#featureSetIdInput"), "#featureSetIdInput");
 const featureSetNameInput = requireElement(document.querySelector<HTMLInputElement>("#featureSetNameInput"), "#featureSetNameInput");
+const featureSetCloneSourceSelect = requireElement(document.querySelector<HTMLSelectElement>("#featureSetCloneSourceSelect"), "#featureSetCloneSourceSelect");
+const featureSetCloneCharacterSelect = requireElement(document.querySelector<HTMLSelectElement>("#featureSetCloneCharacterSelect"), "#featureSetCloneCharacterSelect");
+const featureSetCloneIdInput = requireElement(document.querySelector<HTMLInputElement>("#featureSetCloneIdInput"), "#featureSetCloneIdInput");
+const featureSetCloneNameInput = requireElement(document.querySelector<HTMLInputElement>("#featureSetCloneNameInput"), "#featureSetCloneNameInput");
+const saveFeatureSetCloneButton = requireElement(document.querySelector<HTMLButtonElement>("#saveFeatureSetCloneButton"), "#saveFeatureSetCloneButton");
+const featureSetClonePreview = requireElement(document.querySelector<HTMLElement>("#featureSetClonePreview"), "#featureSetClonePreview");
 const featureSetPreview = requireElement(document.querySelector<HTMLElement>("#featureSetPreview"), "#featureSetPreview");
 const featureSetMappingPicker = requireElement(document.querySelector<HTMLElement>("#featureSetMappingPicker"), "#featureSetMappingPicker");
 const featureSetFlowBoard = requireElement(document.querySelector<HTMLElement>("#featureSetFlowBoard"), "#featureSetFlowBoard");
@@ -3282,6 +3297,221 @@ function createMappingGraphColumns(): GraphColumn[] {
   ];
 }
 
+function createSafeFeatureSetIdPart(value: string) {
+  return value
+    .trim()
+    .replace(/[^a-zA-Z0-9_.:-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    || "character";
+}
+
+function getFeatureSetCloneSources() {
+  return getFeatureSetsForDisplay();
+}
+
+function getSelectedFeatureSetCloneSource() {
+  return getFeatureSetCloneSources().find((featureSet) => featureSet.id === featureSetCloneSourceSelect.value);
+}
+
+function createDefaultFeatureSetCloneId(source: NanikaFeatureSet, characterId: string) {
+  const sourceTail = source.id
+    .replace(/^generic\.character\./, "")
+    .replace(/^rine\./, "");
+
+  return `${createSafeFeatureSetIdPart(characterId)}.${createSafeFeatureSetIdPart(sourceTail || source.id)}`;
+}
+
+function createDefaultFeatureSetCloneName(source: NanikaFeatureSet, characterId: string) {
+  return `${characterId} - ${source.name ?? source.id}`;
+}
+
+function hasFeatureRequirementInAssets(
+  requirement: NonNullable<NanikaFeatureSet["requirements"]>[number],
+  assetsResult: CharacterAssetsResponse,
+) {
+  const assets = assetsResult.assets ?? {};
+
+  if (requirement.kind === "expression") {
+    return Boolean(assets.expressions?.[requirement.id]);
+  }
+
+  if (requirement.kind === "surface") {
+    return Boolean(assets.surfaces?.[requirement.id]);
+  }
+
+  if (requirement.kind === "scene") {
+    return Boolean(assets.scenes?.[requirement.id]) || (requirement.id === "default" && Boolean(assets.defaultScene));
+  }
+
+  if (requirement.kind === "layer") {
+    return Object.values(assets.surfaces ?? {})
+      .some((surface) => Boolean(surface.layers?.[requirement.id]));
+  }
+
+  if (requirement.kind === "hitArea") {
+    return Boolean((assets as { hitAreas?: Record<string, unknown> }).hitAreas?.[requirement.id]);
+  }
+
+  return true;
+}
+
+function getTargetFeatureSetMissingRequirements(featureSet: NanikaFeatureSet, assetsResult: CharacterAssetsResponse) {
+  return (featureSet.requirements ?? [])
+    .filter((requirement) => requirement.required !== false)
+    .filter((requirement) => !hasFeatureRequirementInAssets(requirement, assetsResult))
+    .map((requirement) => `${getRequirementKindLabel(requirement.kind)}: ${requirement.label ?? requirement.id}`);
+}
+
+function syncFeatureSetCloneDefaults() {
+  const source = getSelectedFeatureSetCloneSource();
+  const characterId = featureSetCloneCharacterSelect.value;
+
+  if (!source || !characterId) {
+    return;
+  }
+
+  if (!featureSetCloneIdInput.value.trim() || featureSetCloneIdInput.dataset.auto === "true") {
+    featureSetCloneIdInput.value = createDefaultFeatureSetCloneId(source, characterId);
+    featureSetCloneIdInput.dataset.auto = "true";
+  }
+
+  if (!featureSetCloneNameInput.value.trim() || featureSetCloneNameInput.dataset.auto === "true") {
+    featureSetCloneNameInput.value = createDefaultFeatureSetCloneName(source, characterId);
+    featureSetCloneNameInput.dataset.auto = "true";
+  }
+}
+
+function renderFeatureSetCloneControls() {
+  const sources = getFeatureSetCloneSources();
+  const currentSourceId = featureSetCloneSourceSelect.value;
+  const currentCharacterId = featureSetCloneCharacterSelect.value;
+
+  featureSetCloneSourceSelect.replaceChildren(...sources.map((featureSet) => (
+    new Option(`${featureSet.name ?? featureSet.id} (${featureSet.mappingIds.length})`, featureSet.id)
+  )));
+  if (sources.some((featureSet) => featureSet.id === currentSourceId)) {
+    featureSetCloneSourceSelect.value = currentSourceId;
+  }
+
+  const characterIds = Array.from(new Set([registry.character.id, ...availableCharacterIds])).filter(Boolean);
+  featureSetCloneCharacterSelect.replaceChildren(...characterIds.map((characterId) => new Option(characterId, characterId)));
+  if (characterIds.includes(currentCharacterId)) {
+    featureSetCloneCharacterSelect.value = currentCharacterId;
+  }
+
+  syncFeatureSetCloneDefaults();
+  void renderFeatureSetClonePreview();
+}
+
+async function renderFeatureSetClonePreview() {
+  const requestId = ++featureSetClonePreviewRequestId;
+  const source = getSelectedFeatureSetCloneSource();
+  const characterId = featureSetCloneCharacterSelect.value;
+
+  if (!source || !characterId) {
+    featureSetClonePreview.replaceChildren(createCard("복제할 묶음 없음", "원본 기능 묶음과 대상 캐릭터를 먼저 선택하세요."));
+    return;
+  }
+
+  syncFeatureSetCloneDefaults();
+  featureSetClonePreview.replaceChildren(createCard("복제 미리보기", `${source.name ?? source.id} 묶음을 ${characterId} 캐릭터용으로 확인하는 중입니다.`, [
+    `새 ID: ${featureSetCloneIdInput.value.trim()}`,
+    `연결 ${source.mappingIds.length}개`,
+  ]));
+
+  try {
+    const assetsResult = await fetchCharacterAssets(characterId);
+
+    if (requestId !== featureSetClonePreviewRequestId) {
+      return;
+    }
+
+    const missing = getTargetFeatureSetMissingRequirements(source, assetsResult);
+    const card = createCard(
+      `${featureSetCloneNameInput.value.trim() || createDefaultFeatureSetCloneName(source, characterId)}`,
+      missing.length === 0
+        ? "대상 캐릭터에서 필수 재료를 찾았습니다. 같은 action id를 쓰는 연결은 그대로 재사용할 수 있어요."
+        : "대상 캐릭터에 없는 필수 재료가 있습니다. 저장은 가능하지만 실행 전에 캐릭터 설정이나 공통 key를 확인하세요.",
+      [
+        `원본: ${source.id}`,
+        `대상 캐릭터: ${characterId}`,
+        `새 ID: ${featureSetCloneIdInput.value.trim()}`,
+        `연결 ${source.mappingIds.length}개`,
+        ...(missing.length > 0 ? missing.slice(0, 6).map((item) => `미연결: ${item}`) : ["필수 재료 확인됨"]),
+      ],
+    );
+    card.append(createFeatureSetFlow(source));
+    featureSetClonePreview.replaceChildren(card);
+  } catch (error) {
+    if (requestId !== featureSetClonePreviewRequestId) {
+      return;
+    }
+
+    featureSetClonePreview.replaceChildren(createCard(
+      "대상 캐릭터 확인 실패",
+      error instanceof Error ? error.message : "대상 캐릭터 자산을 불러오지 못했습니다.",
+    ));
+  }
+}
+
+async function loadFeatureSetCloneCharacters() {
+  try {
+    availableCharacterIds = await fetchCharacterList();
+  } catch {
+    availableCharacterIds = [registry.character.id];
+  }
+
+  renderFeatureSetCloneControls();
+}
+
+async function saveClonedFeatureSet() {
+  const source = getSelectedFeatureSetCloneSource();
+  const characterId = featureSetCloneCharacterSelect.value.trim();
+  const cloneId = featureSetCloneIdInput.value.trim();
+  const cloneName = featureSetCloneNameInput.value.trim();
+
+  if (!source || !characterId || !cloneId) {
+    featureSetStatus.textContent = "복제할 기능 묶음, 대상 캐릭터, 새 ID를 먼저 확인하세요.";
+    featureSetStatus.dataset.state = "warning";
+    return;
+  }
+
+  const featureSet: NanikaFeatureSet = {
+    id: cloneId,
+    name: cloneName || createDefaultFeatureSetCloneName(source, characterId),
+    description: source.description ?? `${source.name ?? source.id} 묶음을 ${characterId} 캐릭터용으로 복제했습니다.`,
+    mode: "character-specific",
+    sourceCharacterId: characterId,
+    ...(source.requirements ? { requirements: source.requirements } : {}),
+    mappingIds: source.mappingIds,
+  };
+
+  try {
+    const response = await fetch(createDevtoolsApiPath("/api/devtools/save-nanika-feature-set"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ featureSet }),
+    });
+    const result = await readApiJson<NanikaFeatureSetsResponse>(response);
+
+    if (!response.ok || !result.ok) {
+      throw new Error(result.message ?? result.error ?? "기능 묶음 복제본을 저장하지 못했어요.");
+    }
+
+    savedFeatureSets = result.featureSets ?? [];
+    featureSetIdInput.value = featureSet.id;
+    featureSetNameInput.value = featureSet.name ?? featureSet.id;
+    renderFeatureSets(result.path);
+    refreshOverview();
+    selectFeatureSetInEditor(featureSet);
+    featureSetStatus.textContent = `${featureSet.id} 기능 묶음 복제본을 저장했어요.`;
+    featureSetStatus.dataset.state = "ready";
+  } catch (error) {
+    featureSetStatus.textContent = error instanceof Error ? error.message : "기능 묶음 복제본을 저장하지 못했어요.";
+    featureSetStatus.dataset.state = "warning";
+  }
+}
+
 function renderMappingGraph() {
   const canvas = document.createElement("div");
   canvas.className = "nanika-graph-canvas";
@@ -4644,6 +4874,7 @@ function renderFeatureSetDraftPreview() {
 function renderFeatureSets(savedPath?: string) {
   renderSnippetFeatureSetPicker();
   const displayFeatureSets = getFeatureSetsForDisplay();
+  renderFeatureSetCloneControls();
   renderFlowBoard(featureSetFlowBoard, createMappingFlowBoardColumns(savedMappings, displayFeatureSets));
   renderMappingGraph();
   const featureSetMappingIds = new Set(displayFeatureSets.flatMap((featureSet) => featureSet.mappingIds));
@@ -4877,6 +5108,29 @@ function initDraftBuilder() {
   });
   featureSetIdInput.addEventListener("input", renderFeatureSetDraftPreview);
   featureSetNameInput.addEventListener("input", renderFeatureSetDraftPreview);
+  featureSetCloneSourceSelect.addEventListener("change", () => {
+    featureSetCloneIdInput.dataset.auto = "true";
+    featureSetCloneNameInput.dataset.auto = "true";
+    syncFeatureSetCloneDefaults();
+    void renderFeatureSetClonePreview();
+  });
+  featureSetCloneCharacterSelect.addEventListener("change", () => {
+    featureSetCloneIdInput.dataset.auto = "true";
+    featureSetCloneNameInput.dataset.auto = "true";
+    syncFeatureSetCloneDefaults();
+    void renderFeatureSetClonePreview();
+  });
+  featureSetCloneIdInput.addEventListener("input", () => {
+    featureSetCloneIdInput.dataset.auto = "false";
+    void renderFeatureSetClonePreview();
+  });
+  featureSetCloneNameInput.addEventListener("input", () => {
+    featureSetCloneNameInput.dataset.auto = "false";
+    void renderFeatureSetClonePreview();
+  });
+  saveFeatureSetCloneButton.addEventListener("click", () => {
+    void saveClonedFeatureSet();
+  });
   refreshFeatureSetsButton.addEventListener("click", () => {
     void loadFeatureSets();
   });
@@ -4884,6 +5138,7 @@ function initDraftBuilder() {
   renderStepBuilder();
   renderFeatureSetMappingPicker();
   renderFeatureSets();
+  void loadFeatureSetCloneCharacters();
 }
 
 function renderSummary() {

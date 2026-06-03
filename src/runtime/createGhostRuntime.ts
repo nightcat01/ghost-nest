@@ -64,6 +64,7 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
   const speechLayout = {
     mode: options.speechLayout?.mode ?? "floating",
     placement: options.speechLayout?.placement ?? "below-character",
+    overlayAnchor: options.speechLayout?.overlayAnchor ?? "center",
   };
   const speechBalloonSize = {
     ...defaultSpeechBalloonSize,
@@ -202,6 +203,7 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
   applySpeechBalloonSize();
   elements.stage.dataset.speechLayout = speechLayout.mode;
   elements.stage.dataset.speechPlacement = speechLayout.placement;
+  elements.stage.dataset.speechAnchor = speechLayout.overlayAnchor;
   if (controls.floatingLayout) {
     cleanupCallbacks.push(initFloatingLayout({ elements }));
   }
