@@ -92,6 +92,9 @@ const effectPlacementInputs = {
   height: requireElement(document.querySelector<HTMLInputElement>("#effectHeightInput"), "#effectHeightInput"),
 } satisfies ScenePlacementInputs;
 const preview = requireElement(document.querySelector<HTMLElement>("#scenePreview"), "#scenePreview");
+const scenePreviewSizeInput = requireElement(document.querySelector<HTMLInputElement>("#scenePreviewSizeInput"), "#scenePreviewSizeInput");
+const scenePreviewZoomOutButton = requireElement(document.querySelector<HTMLButtonElement>("#scenePreviewZoomOutButton"), "#scenePreviewZoomOutButton");
+const scenePreviewZoomInButton = requireElement(document.querySelector<HTMLButtonElement>("#scenePreviewZoomInButton"), "#scenePreviewZoomInButton");
 const output = requireElement(document.querySelector<HTMLElement>("#sceneOutput"), "#sceneOutput");
 const status = requireElement(document.querySelector<HTMLElement>("#sceneStatus"), "#sceneStatus");
 const saveButton = requireElement(document.querySelector<HTMLButtonElement>("#saveSceneButton"), "#saveSceneButton");
@@ -104,6 +107,23 @@ let existingDefaultScene = "";
 let propLayers: EditableSceneLayer[] = [];
 let effectLayers: EditableSceneLayer[] = [];
 let sceneDragState: SceneDragState | null = null;
+let scenePreviewSize = 760;
+
+/**
+ * Keeps the scene workbench size inside a usable editing range.
+ */
+function clampPreviewSize(value: number) {
+  return Math.min(1400, Math.max(480, Math.round(value / 20) * 20));
+}
+
+/**
+ * Applies the scene workbench size without changing layer placement data.
+ */
+function setScenePreviewSize(size: number) {
+  scenePreviewSize = clampPreviewSize(size);
+  scenePreviewSizeInput.value = String(scenePreviewSize);
+  preview.style.setProperty("--asset-scene-preview-width", `${scenePreviewSize}px`);
+}
 
 /**
  * Reads the selected folder for Scene page uploads.
@@ -949,8 +969,18 @@ function wireEditableLayerControls() {
  * Wires the Scene settings page.
  */
 function init() {
+  setScenePreviewSize(Number(scenePreviewSizeInput.value) || scenePreviewSize);
   characterSelect.addEventListener("change", () => {
     void loadCharacterAssets();
+  });
+  scenePreviewSizeInput.addEventListener("input", () => {
+    setScenePreviewSize(Number(scenePreviewSizeInput.value));
+  });
+  scenePreviewZoomOutButton.addEventListener("click", () => {
+    setScenePreviewSize(scenePreviewSize - 120);
+  });
+  scenePreviewZoomInButton.addEventListener("click", () => {
+    setScenePreviewSize(scenePreviewSize + 120);
   });
   sceneSelect.addEventListener("change", applySceneSelection);
   [

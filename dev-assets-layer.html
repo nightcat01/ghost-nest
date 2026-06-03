@@ -221,7 +221,7 @@
               </div>
               <div>
                 <h3>작업판 크기</h3>
-                <div class="asset-preview-zoom-controls" aria-label="작업판 확대 조절">
+                <div class="asset-preview-zoom-controls asset-workbench-zoom-controls" aria-label="작업판 확대 조절">
                   <button type="button" id="previewZoomOutButton">축소</button>
                   <label>
                     크기
@@ -250,6 +250,14 @@
             <span>상태 기준 이미지</span>
             <span>파츠 프레임</span>
             <span>위치/크기</span>
+          </div>
+          <div class="asset-preview-zoom-controls asset-workbench-zoom-controls" aria-label="작업판 확대 조절">
+            <button type="button" id="workbenchPreviewZoomOutButton">축소</button>
+            <label>
+              크기
+              <input id="workbenchPreviewSizeInput" type="range" min="480" max="1400" step="20" value="760" />
+            </label>
+            <button type="button" id="workbenchPreviewZoomInButton">확대</button>
           </div>
           <div class="asset-layer-preview-layout">
             <div class="asset-composite-preview" id="layerPreview" aria-live="polite"></div>

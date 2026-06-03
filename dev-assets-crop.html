@@ -29,6 +29,12 @@
             <h2>1. 이미지 선택</h2>
             <p class="asset-lab-help">어느 종류의 파츠를 만들지 고른 뒤, 기준 이미지를 선택합니다. 이미지를 고르면 영역 조정 단계가 열립니다.</p>
             <label>
+              캐릭터
+              <select id="characterSelect">
+                <option value="">캐릭터를 불러오는 중...</option>
+              </select>
+            </label>
+            <label>
               파츠 종류
               <select id="partRecipeSelect" name="partRecipe">
                 <option value="eyeBlink">눈 깜빡임</option>
@@ -38,6 +44,12 @@
             </label>
             <label>
               기준 이미지
+              <select id="savedBaseImageSelect">
+                <option value="">저장된 base 이미지 불러오는 중...</option>
+              </select>
+              <select id="savedPartRegionSelect">
+                <option value="">저장된 파츠 영역 불러오는 중...</option>
+              </select>
               <input id="baseImageInput" type="file" accept="image/*" />
             </label>
           </div>
@@ -75,6 +87,15 @@
         <section class="asset-lab-panel asset-lab-output-panel asset-workbench-panel">
           <div class="asset-lab-output-header">
             <h2>영역 작업판</h2>
+          </div>
+          <div class="asset-preview-zoom-controls asset-workbench-zoom-controls" aria-label="Crop preview size">
+            <button type="button" id="cropPreviewZoomOutButton">축소</button>
+            <label>
+              크기
+              <input id="cropPreviewSizeInput" type="range" min="360" max="1100" step="20" value="680" />
+            </label>
+            <button type="button" id="cropPreviewZoomInButton">확대</button>
+            <button type="button" id="cropPreviewResetButton">원래 크기</button>
           </div>
           <div class="asset-composite-preview" id="cropPreview" aria-live="polite"></div>
         </section>

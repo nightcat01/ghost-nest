@@ -213,6 +213,14 @@
             <span>캐릭터 자리</span>
             <span>소품 / FX</span>
           </div>
+          <div class="asset-preview-zoom-controls asset-workbench-zoom-controls" aria-label="작업판 확대 조절">
+            <button type="button" id="scenePreviewZoomOutButton">축소</button>
+            <label>
+              크기
+              <input id="scenePreviewSizeInput" type="range" min="480" max="1400" step="20" value="760" />
+            </label>
+            <button type="button" id="scenePreviewZoomInButton">확대</button>
+          </div>
           <div class="asset-scene-preview" id="scenePreview" aria-live="polite"></div>
           <div class="asset-scene-summary">
             <h2>현재 무대 작업</h2>

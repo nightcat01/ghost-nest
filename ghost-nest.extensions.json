@@ -4,6 +4,7 @@
       "enabled": true,
       "devServer": {
         "allowLocalhost": true,
+        "basePath": "",
         "allowedIps": []
       },
       "workspace": {

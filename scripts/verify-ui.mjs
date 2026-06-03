@@ -616,6 +616,9 @@ async function verifySceneEditor(page) {
     uncheckedSceneLabelDoesNotShowDefault: !defaultMetrics.selectedOptionLabel.includes("default"),
     hasWorkbenchTitle: document.querySelector(".asset-scene-tool-grid .asset-lab-output-header h2")?.textContent?.trim() === "무대 작업판",
     hasWorkbenchGuide: document.querySelectorAll(".asset-scene-tool-grid .asset-workbench-guide span").length >= 3,
+    hasWorkbenchZoomControls: Boolean(document.querySelector("#scenePreviewZoomOutButton"))
+      && Boolean(document.querySelector("#scenePreviewSizeInput"))
+      && Boolean(document.querySelector("#scenePreviewZoomInButton")),
     previewHasNoSaveActions: document.querySelectorAll(".asset-scene-summary [data-scene-action-proxy]").length === 0,
     previewPanelOnRight: (() => {
       const formPanel = document.querySelector(".asset-scene-tool-grid > .asset-lab-panel")?.getBoundingClientRect();
@@ -682,9 +685,9 @@ async function verifyLayerEditor(page) {
       hasWorkbenchTitle: document.querySelector("#layerPreviewSection .asset-lab-output-header h2")?.textContent?.trim() === "파츠 작업판",
       hasWorkbenchGuide: document.querySelectorAll("#layerPreviewSection .asset-workbench-guide span").length >= 3,
       hasPlaybackControls: document.querySelectorAll(".asset-layer-playback-controls button").length === 3,
-      hasZoomControls: Boolean(document.querySelector("#previewZoomOutButton"))
-        && Boolean(document.querySelector("#previewSizeInput"))
-        && Boolean(document.querySelector("#previewZoomInButton")),
+      hasZoomControls: Boolean(document.querySelector("#layerPreviewSection #workbenchPreviewZoomOutButton"))
+        && Boolean(document.querySelector("#layerPreviewSection #workbenchPreviewSizeInput"))
+        && Boolean(document.querySelector("#layerPreviewSection #workbenchPreviewZoomInButton")),
       hasSaveActions: Boolean(document.querySelector("#saveLayerConfigButton"))
         && Boolean(document.querySelector("#deleteLayerConfigButton")),
       hasStepwiseReveal: document.querySelector("#layerEditSection")?.hidden === false
@@ -696,7 +699,9 @@ async function verifyLayerEditor(page) {
         && controlSection.left >= formPanel.left
         && editSection.right <= formPanel.right + 1
         && controlSection.right <= formPanel.right + 1),
-      previewPanelHasNoControls: document.querySelectorAll("#layerPreviewSection button, #layerPreviewSection select, #layerPreviewSection input").length === 0,
+      previewPanelHasNoFormControls: document.querySelectorAll("#layerPreviewSection select, #layerPreviewSection textarea").length === 0
+        && Array.from(document.querySelectorAll("#layerPreviewSection button, #layerPreviewSection input"))
+          .every((control) => Boolean(control.closest(".asset-workbench-zoom-controls"))),
       overflowX: document.documentElement.scrollWidth > window.innerWidth,
     };
   });
@@ -1505,6 +1510,7 @@ async function main() {
       assertMetric(sceneEditor.metrics.hasDeleteButton, "Scene delete button is missing.");
       assertMetric(sceneEditor.metrics.hasWorkbenchTitle, "Scene editor should label the right panel as a workbench.");
       assertMetric(sceneEditor.metrics.hasWorkbenchGuide, "Scene editor workbench guide is missing.");
+      assertMetric(sceneEditor.metrics.hasWorkbenchZoomControls, "Scene editor workbench zoom controls are missing.");
       assertMetric(sceneEditor.metrics.previewHasNoSaveActions, "Scene preview panel should stay focused on preview instead of duplicating save/delete actions.");
       assertMetric(sceneEditor.metrics.previewPanelOnRight, "Scene preview panel should sit to the right on desktop.");
       assertMetric(sceneEditor.metrics.previewHasStableArea, "Scene preview area is too small.");
@@ -1526,7 +1532,7 @@ async function main() {
       assertMetric(layerEditor.metrics.previewOnRight, "Layer editor preview panel should sit to the right on desktop.");
       assertMetric(layerEditor.metrics.previewHasStableArea, "Layer editor preview area is too small.");
       assertMetric(layerEditor.metrics.controlsOnLeft, "Layer editor controls should stay in the left settings flow.");
-      assertMetric(layerEditor.metrics.previewPanelHasNoControls, "Layer editor preview panel should not contain form or action controls.");
+      assertMetric(layerEditor.metrics.previewPanelHasNoFormControls, "Layer editor preview panel should not contain form or save/delete controls beyond workbench zoom.");
       assertMetric(!layerEditor.metrics.overflowX, "Layer editor has horizontal overflow.");
       assertTextFit(cropEditor.textFit, "Crop editor");
       assertMetric(cropEditor.initialStepMetrics.adjustHiddenBeforeImage, "Crop editor region controls should stay hidden before selecting an image.");

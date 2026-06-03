@@ -4429,8 +4429,10 @@ body.fortune-embed-page {
 
 .asset-scene-preview {
   position: relative;
+  width: min(100%, var(--asset-scene-preview-width, 760px));
   max-height: min(76vh, 760px);
   min-height: 520px;
+  margin-inline: auto;
   overflow: hidden;
   border: 1px solid rgba(38, 35, 31, 0.12);
   border-radius: 8px;
@@ -4693,6 +4695,18 @@ body.fortune-embed-page {
   border-color: var(--accent);
   background: rgba(50, 119, 108, 0.1);
   outline: none;
+}
+
+.asset-workbench-zoom-controls {
+  width: 100%;
+  display: inline-flex;
+  flex-wrap: nowrap;
+  justify-content: end;
+}
+
+.asset-workbench-zoom-controls label {
+  min-width: 0;
+  flex: 1 1 160px;
 }
 
 .asset-lab-output-header {
@@ -5089,11 +5103,7 @@ body.fortune-embed-page {
 }
 
 .asset-layer-control-section .asset-preview-zoom-controls {
-  width: 100%;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  justify-content: stretch;
-  margin: 0;
+  display: none;
 }
 
 .asset-layer-control-section .asset-preview-zoom-controls button {
@@ -5542,6 +5552,11 @@ body.fortune-embed-page {
     position: static;
     justify-content: start;
     margin: 8px 0 12px;
+  }
+
+  .asset-workbench-zoom-controls {
+    flex-wrap: wrap;
+    justify-content: start;
   }
 
   .asset-character-home-hero .asset-lab-field-grid {

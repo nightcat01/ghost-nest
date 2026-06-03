@@ -209,6 +209,9 @@ const nextFrameButton = requireElement(document.querySelector<HTMLButtonElement>
 const previewSizeInput = requireElement(document.querySelector<HTMLInputElement>("#previewSizeInput"), "#previewSizeInput");
 const previewZoomOutButton = requireElement(document.querySelector<HTMLButtonElement>("#previewZoomOutButton"), "#previewZoomOutButton");
 const previewZoomInButton = requireElement(document.querySelector<HTMLButtonElement>("#previewZoomInButton"), "#previewZoomInButton");
+const workbenchPreviewSizeInput = requireElement(document.querySelector<HTMLInputElement>("#workbenchPreviewSizeInput"), "#workbenchPreviewSizeInput");
+const workbenchPreviewZoomOutButton = requireElement(document.querySelector<HTMLButtonElement>("#workbenchPreviewZoomOutButton"), "#workbenchPreviewZoomOutButton");
+const workbenchPreviewZoomInButton = requireElement(document.querySelector<HTMLButtonElement>("#workbenchPreviewZoomInButton"), "#workbenchPreviewZoomInButton");
 const regionOverlayVisibleInput = requireElement(document.querySelector<HTMLInputElement>("#regionOverlayVisibleInput"), "#regionOverlayVisibleInput");
 const regionInputs = {
   x: requireElement(document.querySelector<HTMLInputElement>("#targetRegionXInput"), "#targetRegionXInput"),
@@ -305,7 +308,10 @@ function getPreviewSize() {
  * Applies a preview zoom size and refreshes the current stage.
  */
 function setPreviewSize(size: number) {
-  previewSizeInput.value = String(clampPreviewSize(size));
+  const nextSize = String(clampPreviewSize(size));
+
+  previewSizeInput.value = nextSize;
+  workbenchPreviewSizeInput.value = nextSize;
   updatePreviewSize();
   saveLayerSettings();
 }
@@ -392,6 +398,7 @@ function loadLayerSettings() {
     assetSaveKindSelect.value = settings.assetSaveKind ?? inferAssetSaveKind(settings);
     void syncAssetSavePathsFromKind();
     previewSizeInput.value = String(clampPreviewSize(settings.previewSize ?? Number(previewSizeInput.value) ?? 760));
+    workbenchPreviewSizeInput.value = previewSizeInput.value;
   } catch {
     // 저장된 개발도구 설정이 깨져도 페이지 사용은 계속 가능해야 합니다.
   }
@@ -1916,10 +1923,19 @@ function init() {
   previewSizeInput.addEventListener("input", () => {
     setPreviewSize(getPreviewSize());
   });
+  workbenchPreviewSizeInput.addEventListener("input", () => {
+    setPreviewSize(Number(workbenchPreviewSizeInput.value));
+  });
   previewZoomOutButton.addEventListener("click", () => {
     setPreviewSize(getPreviewSize() - 120);
   });
   previewZoomInButton.addEventListener("click", () => {
+    setPreviewSize(getPreviewSize() + 120);
+  });
+  workbenchPreviewZoomOutButton.addEventListener("click", () => {
+    setPreviewSize(getPreviewSize() - 120);
+  });
+  workbenchPreviewZoomInButton.addEventListener("click", () => {
     setPreviewSize(getPreviewSize() + 120);
   });
   assetSaveKindSelect.addEventListener("change", () => {
