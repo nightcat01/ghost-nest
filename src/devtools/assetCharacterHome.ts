@@ -11,6 +11,7 @@ import {
   saveCharacterWorkspace,
 } from "./assetApi.js";
 import { populateCharacterSelect } from "./assetCharacterSelect.js";
+import { defaultNanikaCommonKeys, type NanikaCommonKeyDefinition } from "../plugins/nanikaMapping/index.js";
 
 type CharacterProgress = {
   characterId: string;
@@ -38,6 +39,7 @@ type StepConfig = {
 const characterSelect = requireElement(document.querySelector<HTMLSelectElement>("#characterSelect"), "#characterSelect");
 const summary = requireElement(document.querySelector<HTMLElement>("#characterSummary"), "#characterSummary");
 const readinessMap = requireElement(document.querySelector<HTMLElement>("#characterReadinessMap"), "#characterReadinessMap");
+const commonKeyRegistry = requireElement(document.querySelector<HTMLElement>("#commonKeyRegistry"), "#commonKeyRegistry");
 const stepList = requireElement(document.querySelector<HTMLElement>("#characterStepList"), "#characterStepList");
 const status = requireElement(document.querySelector<HTMLElement>("#characterHomeStatus"), "#characterHomeStatus");
 const deleteCharacterButton = requireElement(document.querySelector<HTMLButtonElement>("#deleteCharacterButton"), "#deleteCharacterButton");
@@ -236,6 +238,110 @@ function renderReadinessMap(progress: CharacterProgress) {
 }
 
 /**
+ * Reads the part after the common role namespace.
+ */
+function getCommonKeyTargetId(key: string) {
+  const [, ...parts] = key.split(".");
+
+  return parts.join(".");
+}
+
+/**
+ * Finds a likely character resource that can satisfy one shared Nanika role key.
+ */
+function findCommonKeyBinding(key: NanikaCommonKeyDefinition, assetsResult?: CharacterAssetsResponse) {
+  const assets = assetsResult?.assets ?? {};
+  const targetId = getCommonKeyTargetId(key.key);
+  const lastSegment = targetId.split(".").filter(Boolean).at(-1) ?? targetId;
+
+  if (key.kind === "expression" && assets.expressions?.[targetId]) {
+    return targetId;
+  }
+
+  if (key.kind === "surface" && assets.surfaces?.[targetId]) {
+    return targetId;
+  }
+
+  if (key.kind === "scene") {
+    if (targetId === "default" && assets.defaultScene) {
+      return assets.defaultScene;
+    }
+
+    if (assets.scenes?.[targetId]) {
+      return targetId;
+    }
+  }
+
+  if (key.kind === "layer") {
+    const layerCandidates = [targetId, lastSegment, targetId.split(".")[0]]
+      .filter((candidate): candidate is string => typeof candidate === "string" && candidate.length > 0);
+    const layerIds = new Set(
+      Object.values(assets.surfaces ?? {})
+        .flatMap((surface) => Object.keys(surface.layers ?? {})),
+    );
+
+    return layerCandidates.find((candidate) => layerIds.has(candidate));
+  }
+
+  if (key.kind === "hitArea") {
+    const hitAreas = (assets as { hitAreas?: Record<string, unknown> }).hitAreas ?? {};
+
+    if (hitAreas[targetId]) {
+      return targetId;
+    }
+
+    if (hitAreas[lastSegment]) {
+      return lastSegment;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Creates one card that explains whether a shared role key is connected for this character.
+ */
+function createCommonKeyCard(key: NanikaCommonKeyDefinition, assetsResult?: CharacterAssetsResponse) {
+  const card = document.createElement("article");
+  const title = document.createElement("strong");
+  const keyText = document.createElement("code");
+  const detail = document.createElement("span");
+  const binding = findCommonKeyBinding(key, assetsResult);
+
+  card.className = "asset-common-key-card";
+  card.dataset.kind = key.kind;
+  card.dataset.state = binding ? "bound" : key.required ? "missing" : "optional";
+  title.textContent = key.label;
+  keyText.textContent = key.key;
+  detail.textContent = binding
+    ? `연결 대상: ${binding}`
+    : key.required
+      ? "필수 역할이지만 아직 연결할 재료를 찾지 못했어요."
+      : "선택 역할입니다. 필요할 때 같은 key로 연결하면 됩니다.";
+  card.append(title, keyText, detail);
+
+  return card;
+}
+
+/**
+ * Renders shared role keys so character resources can be matched across pages and profiles.
+ */
+function renderCommonKeyRegistry(assetsResult?: CharacterAssetsResponse) {
+  const heading = document.createElement("div");
+  const title = document.createElement("h3");
+  const help = document.createElement("p");
+  const cards = document.createElement("div");
+
+  heading.className = "asset-common-key-heading";
+  title.textContent = "공통 역할 key";
+  help.textContent = "파일명은 달라도 같은 역할 key를 쓰면 런타임 프로필과 매핑 세트가 캐릭터별 재료를 찾아갈 수 있어요.";
+  cards.className = "asset-common-key-grid";
+  cards.replaceChildren(...defaultNanikaCommonKeys.map((key) => createCommonKeyCard(key, assetsResult)));
+  heading.append(title, help);
+  commonKeyRegistry.replaceChildren(heading, cards);
+}
+
+/**
  * Finds the first required step that still needs work.
  */
 function findNextRequiredStep(progress: CharacterProgress) {
@@ -391,6 +497,7 @@ async function loadCharacterProgress(characterId: string) {
   if (!characterId) {
     renderSummary(emptyProgress);
     renderReadinessMap(emptyProgress);
+    renderCommonKeyRegistry();
     renderSteps(emptyProgress);
     renderCharacterActions();
     status.textContent = "먼저 캐릭터를 만들거나 선택하세요. 캐릭터가 있어야 표정, 상태, 파츠, 무대 조합을 진행할 수 있습니다.";
@@ -409,6 +516,7 @@ async function loadCharacterProgress(characterId: string) {
 
   renderSummary(progress);
   renderReadinessMap(progress);
+  renderCommonKeyRegistry(assetsResult);
   renderSteps(progress);
   renderCharacterActions();
   status.textContent = nextStep
@@ -426,6 +534,7 @@ async function loadCharacters() {
     if (!selectedCharacterId) {
       renderSummary(emptyProgress);
       renderReadinessMap(emptyProgress);
+      renderCommonKeyRegistry();
       renderSteps(emptyProgress);
       renderCharacterActions();
       status.textContent = "캐릭터가 없습니다. 새 캐릭터 만들기에서 시작하세요.";
@@ -436,6 +545,7 @@ async function loadCharacters() {
   } catch (error) {
     renderSummary(emptyProgress);
     renderReadinessMap(emptyProgress);
+    renderCommonKeyRegistry();
     renderSteps(emptyProgress);
     renderCharacterActions();
     status.textContent = error instanceof Error ? error.message : "캐릭터 목록을 불러오지 못했습니다.";
@@ -522,6 +632,7 @@ function init() {
   });
   renderSummary(emptyProgress);
   renderReadinessMap(emptyProgress);
+  renderCommonKeyRegistry();
   renderSteps(emptyProgress);
   renderCharacterActions();
   void loadWorkspace();

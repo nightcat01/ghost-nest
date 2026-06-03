@@ -1,6 +1,7 @@
 import {
   createNanikaMappingRegistry,
   createRuntimeRuleFromMapping,
+  defaultNanikaCommonKeys,
 } from "../plugins/nanikaMapping/index.js";
 import { nanikaPreset } from "../ghost/preset.js";
 import { createDevtoolsApiPath, readApiJson, type DevApiResponse } from "./assetApi.js";
@@ -217,6 +218,17 @@ type ResourceGroupPaletteItem = PaletteItem & {
   options: readonly ParameterOption[];
 };
 
+type RuntimeProfileOverviewCard = {
+  id: string;
+  name: string;
+  description: string;
+  match: string;
+  characterId: string;
+  initial: string[];
+  featureSetIds: string[];
+  controls: string[];
+};
+
 const registry = createNanikaMappingRegistry(nanikaPreset);
 const canvasStateStorageKey = "ghostNest.nanikaMapping.canvasState.v1";
 const jsonParameterTypes = new Set([
@@ -428,6 +440,29 @@ const genericFeatureRequirements = [
   { kind: "hitArea", id: "body", label: "몸 터치 영역", required: false },
 ] satisfies NonNullable<NanikaFeatureSet["requirements"]>;
 
+const runtimeProfileOverviewCards: RuntimeProfileOverviewCard[] = [
+  {
+    id: "fortune.home.rine",
+    name: "포춘마스터 홈",
+    description: "홈 화면에서 리네를 안내 캐릭터로 시작하는 런타임 프로필입니다.",
+    match: "pageId: home",
+    characterId: "rine",
+    initial: ["surface: 0", "scene: desk-room-default"],
+    featureSetIds: ["fortune-home-core"],
+    controls: ["hover", "drag", "managementMenu"],
+  },
+  {
+    id: "fortune.zodiac.rine",
+    name: "포춘마스터 별자리",
+    description: "별자리 선택 화면에서 다른 시작 상태와 대사를 쓰는 런타임 프로필입니다.",
+    match: "pageId: zodiac",
+    characterId: "rine",
+    initial: ["surface: 8", "scene: desk-room-default"],
+    featureSetIds: ["fortune-zodiac-core"],
+    controls: ["hover off", "drag off", "managementMenu off"],
+  },
+];
+
 const runtimeStateOptions: ParameterOption[] = [
   { id: "idle", label: "대기 상태", description: "저장 키: idle" },
   { id: "speaking", label: "말하는 중", description: "저장 키: speaking" },
@@ -543,6 +578,7 @@ let lastDraftResult: DraftMappingResult = {
 };
 
 const summary = requireElement(document.querySelector<HTMLElement>("#mappingSummary"), "#mappingSummary");
+const runtimeProfileOverview = requireElement(document.querySelector<HTMLElement>("#runtimeProfileOverview"), "#runtimeProfileOverview");
 const connectionMap = requireElement(document.querySelector<HTMLElement>("#connectionMap"), "#connectionMap");
 const mappingFlowBoard = requireElement(document.querySelector<HTMLElement>("#mappingFlowBoard"), "#mappingFlowBoard");
 const materialMap = requireElement(document.querySelector<HTMLElement>("#materialMap"), "#materialMap");
@@ -990,6 +1026,46 @@ function createFlowBoardColumn(column: FlowBoardColumn) {
 
 function renderFlowBoard(target: HTMLElement, columns: FlowBoardColumn[]) {
   target.replaceChildren(...columns.map(createFlowBoardColumn));
+}
+
+function createProfileOverviewCard(profile: RuntimeProfileOverviewCard) {
+  const card = document.createElement("article");
+  const heading = document.createElement("h3");
+  const description = document.createElement("p");
+  const meta = document.createElement("div");
+  const knownFeatureSetIds = new Set(savedFeatureSets.map((featureSet) => featureSet.id));
+  const featureStatus = profile.featureSetIds.length === 0
+    ? "feature set 없음"
+    : profile.featureSetIds.every((featureSetId) => knownFeatureSetIds.has(featureSetId))
+      ? "feature set 저장됨"
+      : "feature set 초안/코드 기준";
+
+  card.className = "nanika-runtime-profile-card";
+  card.dataset.profileId = profile.id;
+  heading.textContent = profile.name;
+  description.textContent = profile.description;
+  meta.className = "nanika-mapping-meta";
+  [
+    profile.id,
+    profile.match,
+    `character: ${profile.characterId}`,
+    ...profile.initial,
+    featureStatus,
+    `common keys: ${defaultNanikaCommonKeys.length}`,
+    ...profile.controls.map((control) => `control: ${control}`),
+  ].forEach((item) => {
+    const pill = document.createElement("span");
+
+    pill.textContent = item;
+    meta.append(pill);
+  });
+  card.append(heading, description, meta);
+
+  return card;
+}
+
+function renderRuntimeProfileOverview() {
+  runtimeProfileOverview.replaceChildren(...runtimeProfileOverviewCards.map(createProfileOverviewCard));
 }
 
 function createEditorMeta(meta: readonly string[] = []) {
@@ -3578,6 +3654,7 @@ function refreshOverview() {
   const configuredMappings = getConfiguredMappings();
 
   renderMaterialMaps();
+  renderRuntimeProfileOverview();
   renderSummary();
   renderConnectionMap();
   renderFlowBoard(mappingFlowBoard, createMappingFlowBoardColumns(configuredMappings, savedFeatureSets));

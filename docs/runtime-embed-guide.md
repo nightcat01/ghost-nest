@@ -109,6 +109,65 @@ runtime.emit("fortune:menu:selected", { menu: "zodiac" });
 runtime.emit("fortune:zodiac:selected", { zodiac: "aries" });
 ```
 
+## Runtime Profiles
+
+When one character is reused across multiple host pages, keep page behavior in a runtime profile instead of scattering options across page code.
+
+A runtime profile answers:
+
+- Whether Nanika should run on this page or URL.
+- Which character profile should be active.
+- Which feature sets or mappings should be loaded.
+- Which initial scene, surface, or expression should be shown.
+- Which runtime behaviors should be enabled, such as hover, random prompts, management menus, persistence, and character movement.
+
+```ts
+import {
+  createGhostRuntimeFromPreset,
+  createNanikaRuntimeProfileOptions,
+} from "ghost-nest";
+
+const profile = {
+  id: "fortune.home.rine",
+  match: { pageId: "home", urlPattern: "*" },
+  initial: { scene: "desk-room" },
+  controls: {
+    commandHoverDescription: false,
+    areaHoverDescription: false,
+    randomPrompt: false,
+    managementMenu: false,
+    persistence: false,
+  },
+  preferenceStorage: {
+    runtimeUi: "preset",
+    managementMenu: "disabled",
+  },
+  featureSetIds: ["fortune.home"],
+  characterProfiles: [
+    {
+      characterId: "rine",
+      initial: { surface: "0" },
+    },
+  ],
+};
+
+const result = createNanikaRuntimeProfileOptions({
+  profile,
+  context: { pageId: "home", url: location.pathname },
+  featureSets,
+  mappings,
+  characterId: preset.character.profile.id,
+});
+
+const runtime = createGhostRuntimeFromPreset(preset, {
+  root: "#fortuneNanikaRuntime",
+  selectors,
+  ...result.overrides,
+});
+```
+
+Use runtime profile conditions for page-level decisions. Use runtime rule conditions only after a profile has already been selected.
+
 ## Theme And CSS
 
 - Runtime CSS is scoped under `.ghostnest-runtime`.

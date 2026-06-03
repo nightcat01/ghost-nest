@@ -1,11 +1,16 @@
 import { nanikaPreset } from "./ghost/preset.js";
-import { createGhostRuntimeFromPreset } from "./plugins/nanikaMapping/index.js";
+import {
+  createGhostRuntimeFromPreset,
+  createNanikaRuntimeProfileOptions,
+  type NanikaFeatureSet,
+  type NanikaMapping,
+  type NanikaRuntimeProfile,
+} from "./plugins/nanikaMapping/index.js";
 import { runtimeSpeechPresets } from "./runtime/runtimeLayoutPresets.js";
 import type {
   CharacterSpriteSizeOptions,
   GhostRuntime,
   RuntimeEventName,
-  RuntimeRule,
   SpeechBalloonSizeOptions,
   SpeechLayoutOptions,
 } from "./core/types.js";
@@ -15,48 +20,88 @@ const fortuneSpeechPreset = runtimeSpeechPresets.dialogueOverlay;
 const runtimeStatus = document.querySelector<HTMLElement>("#fortuneRuntimeStatus");
 let runtimeBootCount = 0;
 
-type FortuneRuntimePageState = {
-  event: RuntimeEventName;
-  initialScene: string;
-  initialSurface?: string;
-  speechLayout: SpeechLayoutOptions;
-  speechBalloonSize: Partial<SpeechBalloonSizeOptions>;
-  spriteSize: Partial<CharacterSpriteSizeOptions>;
+type FortuneRuntimeProfile = NanikaRuntimeProfile & {
+  bootEvent: RuntimeEventName;
 };
 
-const fortuneRuntimePageStates: Record<string, FortuneRuntimePageState> = {
+const fortuneRuntimeControls = {
+  devtools: false,
+  diagnostics: false,
+  hitboxEditor: false,
+  debugHitAreas: false,
+  managementMenu: false,
+  commandButtons: false,
+  commandHoverDescription: false,
+  areaHoverDescription: false,
+  randomPrompt: false,
+  persistence: false,
+};
+
+const fortuneRuntimeSizing = {
+  speechLayout: fortuneSpeechPreset.layout satisfies SpeechLayoutOptions,
+  speechBalloonSize: fortuneSpeechPreset.size satisfies Partial<SpeechBalloonSizeOptions>,
+  spriteSize: {
+    desktopWidth: "250px",
+    desktopHeight: "340px",
+    mobileWidth: "210px",
+    mobileHeight: "286px",
+  } satisfies Partial<CharacterSpriteSizeOptions>,
+};
+
+const fortuneRuntimeProfiles: Record<string, FortuneRuntimeProfile> = {
   home: {
-    event: "fortune:home:open",
-    initialScene: "desk-room",
-    speechLayout: fortuneSpeechPreset.layout,
-    speechBalloonSize: fortuneSpeechPreset.size,
-    spriteSize: {
-      desktopWidth: "250px",
-      desktopHeight: "340px",
-      mobileWidth: "210px",
-      mobileHeight: "286px",
+    id: "fortune.home.rine",
+    name: "Fortune home / Rine",
+    bootEvent: "fortune:home:open",
+    match: { pageId: "home", urlPattern: "*" },
+    initial: { scene: "desk-room" },
+    controls: fortuneRuntimeControls,
+    preferenceStorage: {
+      runtimeUi: "preset",
+      managementMenu: "disabled",
     },
+    balloonTheme: "fortune_prompt",
+    includeDefaultRules: false,
+    featureSetIds: ["fortune.home"],
+    ...fortuneRuntimeSizing,
+    characterProfiles: [
+      {
+        characterId: "rine",
+        initial: { surface: "0" },
+      },
+    ],
   },
   zodiac: {
-    event: "fortune:zodiac:open",
-    initialScene: "desk-room",
-    initialSurface: "8",
-    speechLayout: fortuneSpeechPreset.layout,
+    id: "fortune.zodiac.rine",
+    name: "Fortune zodiac / Rine",
+    bootEvent: "fortune:zodiac:open",
+    match: { pageId: "zodiac", urlPattern: "*" },
+    initial: { scene: "desk-room" },
+    controls: fortuneRuntimeControls,
+    preferenceStorage: {
+      runtimeUi: "preset",
+      managementMenu: "disabled",
+    },
+    balloonTheme: "fortune_prompt",
+    includeDefaultRules: false,
+    featureSetIds: ["fortune.zodiac"],
+    speechLayout: fortuneRuntimeSizing.speechLayout,
     speechBalloonSize: {
       ...fortuneSpeechPreset.size,
       dialogueMaxHeight: "min(20vh, 132px)",
     },
-    spriteSize: {
-      desktopWidth: "250px",
-      desktopHeight: "340px",
-      mobileWidth: "210px",
-      mobileHeight: "286px",
-    },
+    spriteSize: fortuneRuntimeSizing.spriteSize,
+    characterProfiles: [
+      {
+        characterId: "rine",
+        initial: { surface: "8" },
+      },
+    ],
   },
-} satisfies Record<string, FortuneRuntimePageState>;
-const defaultFortuneRuntimePageState = fortuneRuntimePageStates.home!;
+};
+const defaultFortuneRuntimePageId = "home";
 
-const fortuneEmbedRules = [
+const fortuneEmbedMappings = [
   {
     id: "fortune-home-open",
     event: "fortune:home:open",
@@ -90,7 +135,20 @@ const fortuneEmbedRules = [
       { type: "speak_text", text: "해당 메뉴로 이어갈 수 있어요. 실제 서비스에서는 여기서 페이지 기능과 연결하면 됩니다." },
     ],
   },
-] satisfies RuntimeRule[];
+] satisfies NanikaMapping[];
+
+const fortuneEmbedFeatureSets = [
+  {
+    id: "fortune.home",
+    name: "Fortune home basics",
+    mappingIds: ["fortune-home-open", "fortune-menu-selected", "fortune-zodiac-selected"],
+  },
+  {
+    id: "fortune.zodiac",
+    name: "Fortune zodiac basics",
+    mappingIds: ["fortune-zodiac-open", "fortune-menu-selected", "fortune-zodiac-selected"],
+  },
+] satisfies NanikaFeatureSet[];
 
 type FortuneEmbedWindow = Window & {
   __fortuneNanikaRuntime__?: GhostRuntime;
@@ -98,12 +156,20 @@ type FortuneEmbedWindow = Window & {
 
 const fortuneWindow = window as FortuneEmbedWindow;
 
-function createFortuneRuntime(pageState: FortuneRuntimePageState = defaultFortuneRuntimePageState) {
+function createFortuneRuntime(pageId = defaultFortuneRuntimePageId) {
   fortuneWindow.__fortuneNanikaRuntime__?.destroy();
   runtimeBootCount += 1;
-  const initialSurfaceOption = pageState.initialSurface
-    ? { initialSurface: pageState.initialSurface }
-    : {};
+  const profile = fortuneRuntimeProfiles[pageId] ?? fortuneRuntimeProfiles[defaultFortuneRuntimePageId]!;
+  const profileResult = createNanikaRuntimeProfileOptions({
+    profile,
+    context: {
+      pageId,
+      url: window.location.pathname,
+    },
+    featureSets: fortuneEmbedFeatureSets,
+    mappings: fortuneEmbedMappings,
+    characterId: nanikaPreset.character.profile.id,
+  });
 
   fortuneWindow.__fortuneNanikaRuntime__ = createGhostRuntimeFromPreset(nanikaPreset, {
     root: runtimeRootSelector,
@@ -119,27 +185,10 @@ function createFortuneRuntime(pageState: FortuneRuntimePageState = defaultFortun
       menuButtons: "[data-fortune-command]",
       observeAreas: "[data-fortune-observe]",
     },
-    controls: {
-      devtools: false,
-      diagnostics: false,
-      hitboxEditor: false,
-      debugHitAreas: false,
-      managementMenu: false,
-      commandButtons: false,
-      commandHoverDescription: false,
-      areaHoverDescription: false,
-      persistence: false,
-    },
-    balloonTheme: "fortune_prompt",
-    speechLayout: pageState.speechLayout,
-    initialScene: pageState.initialScene,
-    ...initialSurfaceOption,
-    speechBalloonSize: pageState.speechBalloonSize,
-    spriteSize: pageState.spriteSize,
-    rules: fortuneEmbedRules,
+    ...(profileResult.overrides ?? {}),
   });
 
-  fortuneWindow.__fortuneNanikaRuntime__.emit(pageState.event);
+  fortuneWindow.__fortuneNanikaRuntime__.emit(profile.bootEvent);
   if (runtimeStatus) {
     runtimeStatus.textContent = `ready #${runtimeBootCount}`;
   }
@@ -151,11 +200,11 @@ function emitFortuneEvent(eventName: RuntimeEventName, payload?: Record<string, 
 
 document.querySelectorAll<HTMLElement>("[data-fortune-event]").forEach((element) => {
   element.addEventListener("click", () => {
-    const pageState = element.dataset.fortunePage ? fortuneRuntimePageStates[element.dataset.fortunePage] : null;
+    const pageId = element.dataset.fortunePage;
     const eventName = element.dataset.fortuneEvent;
 
-    if (pageState) {
-      createFortuneRuntime(pageState);
+    if (pageId) {
+      createFortuneRuntime(pageId);
       return;
     }
 

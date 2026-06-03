@@ -1992,6 +1992,83 @@ body.fortune-embed-page {
   line-height: 1.42;
 }
 
+.asset-common-key-registry {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.asset-common-key-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.asset-common-key-heading h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
+.asset-common-key-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.asset-common-key-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.asset-common-key-card {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid rgba(38, 35, 31, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.asset-common-key-card[data-state="bound"] {
+  border-color: rgba(50, 119, 108, 0.28);
+  background: rgba(50, 119, 108, 0.08);
+}
+
+.asset-common-key-card[data-state="missing"] {
+  border-color: rgba(178, 81, 52, 0.28);
+  background: rgba(178, 81, 52, 0.06);
+}
+
+.asset-common-key-card[data-state="optional"] {
+  border-style: dashed;
+}
+
+.asset-common-key-card strong {
+  color: var(--ink);
+  font-size: 0.82rem;
+}
+
+.asset-common-key-card code {
+  width: fit-content;
+  max-width: 100%;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: rgba(50, 119, 108, 0.08);
+  color: var(--accent-strong);
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+.asset-common-key-card span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .asset-workspace-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2987,6 +3064,37 @@ body.fortune-embed-page {
 
 .nanika-mapping-summary {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.nanika-runtime-profile-overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.nanika-runtime-profile-card {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(50, 119, 108, 0.18);
+  border-radius: 8px;
+  background: rgba(50, 119, 108, 0.06);
+}
+
+.nanika-runtime-profile-card h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.94rem;
+}
+
+.nanika-runtime-profile-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .nanika-material-map {
@@ -5348,6 +5456,11 @@ body.fortune-embed-page {
   }
 
   .asset-character-concept-map {
+    grid-template-columns: 1fr;
+  }
+
+  .asset-common-key-grid,
+  .nanika-runtime-profile-overview {
     grid-template-columns: 1fr;
   }
 

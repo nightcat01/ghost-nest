@@ -30,6 +30,11 @@ export {
   defineNanikaRuntimePreset,
 } from "./preset.js";
 export {
+  createNanikaRuntimeProfileOptions,
+  defaultNanikaCommonKeys,
+  matchesNanikaProfileMatch,
+} from "./profile.js";
+export {
   createNanikaMappingMenuItem,
   nanikaMappingExtension,
   nanikaMappingExtensionConfig,
@@ -67,6 +72,19 @@ export type {
   NanikaRuntimePresetOptions,
   NanikaRuntimePresetOverrides,
 } from "./preset.js";
+export type {
+  NanikaCharacterProfile,
+  NanikaCommonKeyDefinition,
+  NanikaCommonKeyKind,
+  NanikaProfileContext,
+  NanikaProfileInitialState,
+  NanikaProfileMatch,
+  NanikaProfileRuntimeOptions,
+  NanikaRuntimeProfile,
+  NanikaRuntimeProfileOptionsInput,
+  NanikaRuntimeProfileOptionsResult,
+  NanikaSlotBinding,
+} from "./profile.js";
 export type {
   NanikaMappingExtensionConfig,
 } from "./extension.js";

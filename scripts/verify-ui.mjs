@@ -177,6 +177,8 @@ async function verifyMappingEditor(page) {
     initialCanvasEdgeCount: document.querySelectorAll("#mappingEditorCanvas .nanika-paint-edges path[marker-end]").length,
     initialStatsCount: document.querySelectorAll("#mappingEditorStats span").length,
     initialZoomText: document.querySelector("#mappingEditorStats")?.textContent ?? "",
+    runtimeProfileCardCount: document.querySelectorAll("#runtimeProfileOverview .nanika-runtime-profile-card").length,
+    runtimeProfileText: document.querySelector("#runtimeProfileOverview")?.textContent ?? "",
     hasFlowBoard: Boolean(document.querySelector("#mappingFlowBoard")),
     overviewAuxGraphVisible: Boolean(document.querySelector("#mappingGraphPanel")?.offsetParent),
     flowBoardColumnCount: document.querySelectorAll("#mappingFlowBoard .nanika-flow-board-column").length,
@@ -786,6 +788,12 @@ async function verifyCharacterEditors(page) {
       hasReadinessMap: name === "dev-character.html"
         ? document.querySelectorAll(".asset-character-readiness-map article").length >= 7
         : true,
+      hasCommonKeyRegistry: name === "dev-character.html"
+        ? document.querySelectorAll("#commonKeyRegistry .asset-common-key-card").length >= 10
+        : true,
+      hasBoundCommonKey: name === "dev-character.html"
+        ? document.querySelectorAll("#commonKeyRegistry .asset-common-key-card[data-state='bound']").length > 0
+        : true,
       hasResultMap: [
         "dev-character-create.html",
         "dev-character-expression.html",
@@ -1290,6 +1298,9 @@ async function main() {
       assertMetric(mapping.overviewMetrics.initialCanvasEdgeCount > 0, "Default editor canvas edges do not render arrow markers.");
       assertMetric(mapping.overviewMetrics.initialStatsCount >= 6, "Editor summary stats are missing.");
       assertMetric(mapping.overviewMetrics.initialZoomText.includes("100%"), "Editor summary stats do not show zoom state.");
+      assertMetric(mapping.overviewMetrics.runtimeProfileCardCount >= 2, "Runtime profile overview cards are missing.");
+      assertMetric(mapping.overviewMetrics.runtimeProfileText.includes("fortune.home.rine"), "Runtime profile overview does not show the home profile.");
+      assertMetric(mapping.overviewMetrics.runtimeProfileText.includes("fortune.zodiac.rine"), "Runtime profile overview does not show the zodiac profile.");
       assertMetric(!mapping.overviewMetrics.overviewAuxGraphVisible, "Auxiliary graph should not be visible on the main editor workspace.");
       assertMetric(mapping.editorZoomMetrics.zoomText.includes("110%"), "Editor zoom-in control did not update summary zoom state.");
       assertMetric(mapping.editorZoomMetrics.canvasWidth > mapping.editorZoomMetrics.viewportWidth * 0.95, "Editor zoom-in control did not scale the canvas.");
@@ -1469,6 +1480,8 @@ async function main() {
         assertMetric(editor.hasProductionLanes, `${editor.page} is missing production lanes.`);
         assertMetric(editor.hasLockedOrNextStep, `${editor.page} does not show locked/next/complete step guidance.`);
         assertMetric(editor.hasReadinessMap, `${editor.page} is missing the character readiness map.`);
+        assertMetric(editor.hasCommonKeyRegistry, `${editor.page} is missing the common role key registry.`);
+        assertMetric(editor.hasBoundCommonKey, `${editor.page} does not show any bound common role key.`);
         assertMetric(editor.hasResultMap, `${editor.page} is missing the step result map.`);
         if (editor.page === "dev-character-expression.html") {
           assertMetric(editor.expressionPickerMetrics?.hasChoiceGrid, "Expression editor image choice grid is missing.");
