@@ -44,6 +44,7 @@
     "dev": "node server.cjs",
     "check": "tsc --noEmit",
     "verify:ui": "node scripts/verify-ui.mjs",
+    "prepare": "npm run build",
     "prepublishOnly": "npm run check && npm run build"
   },
   "devDependencies": {

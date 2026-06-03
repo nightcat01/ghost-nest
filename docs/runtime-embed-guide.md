@@ -28,6 +28,44 @@ Use this roadmap when embedding Nanika into a host site such as Fortune Master.
 - Treat the host page as the layout owner. Nanika should not create runtime nodes outside the mount.
 - When a page already has a design system, set theme variables on the mount instead of importing host-global reset styles from Nanika.
 
+## GitHub Package Install
+
+GhostNest can be installed directly from GitHub while it is still private or pre-release.
+
+```bash
+npm install github:nightcat01/ghost-nest
+```
+
+The package builds `dist` during GitHub dependency installation through `prepare`. Host apps can import runtime APIs from the package root.
+
+```ts
+import {
+  createCharacterWithAssetBaseUrl,
+  createGhostRuntimeFromPreset,
+  nanikaPreset,
+} from "ghost-nest";
+```
+
+Bundled demo character data still stores source-style asset paths such as `./src/characters/rine/assets/base/...`. A host app should copy the assets it wants to serve into its own public directory and rewrite the character paths before booting the runtime.
+
+```ts
+const fortuneCharacter = createCharacterWithAssetBaseUrl(nanikaPreset.character, {
+  characterAssetBaseUrl: "/assets/nanika/characters",
+  commonAssetBaseUrl: "/assets/nanika/common",
+});
+
+const fortunePreset = {
+  ...nanikaPreset,
+  character: fortuneCharacter,
+};
+
+const runtime = createGhostRuntimeFromPreset(fortunePreset, {
+  root: "#fortuneNanikaRuntime",
+});
+```
+
+For Fortune Master, a practical first pass is to copy `src/characters/rine/assets/**` into `public/assets/nanika/characters/rine/assets/**`. Later, production characters can provide their own character definitions and use the same key/preset mapping flow.
+
 ```ts
 const runtime = createGhostRuntimeFromPreset(preset, {
   root: "#fortuneNanikaRuntime",
