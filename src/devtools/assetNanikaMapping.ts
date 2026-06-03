@@ -105,6 +105,7 @@ type MermaidRelationMode = "execution" | "reference";
 type GraphNodeKind =
   | "runtime"
   | "character"
+  | "condition"
   | "config"
   | "resource-group"
   | "resource"
@@ -150,6 +151,7 @@ type EditorSelection =
 type CanvasNodeKind =
   | "runtime"
   | "character"
+  | "condition"
   | "config"
   | "resource-group"
   | "target"
@@ -201,7 +203,7 @@ type CanvasState = {
   extraEdges: CanvasEdge[];
 };
 
-type PaletteCategoryId = "characters" | "saved" | "events" | "actions" | "feature-sets" | "resources";
+type PaletteCategoryId = "characters" | "conditions" | "saved" | "events" | "actions" | "feature-sets" | "resources";
 
 type PaletteItem = {
   id: string;
@@ -469,6 +471,44 @@ const runtimeProfileOverviewCards: RuntimeProfileOverviewCard[] = [
     controls: ["hover off", "drag off", "managementMenu off"],
   },
 ];
+
+function createRuntimeConditionPaletteItems(): PaletteItem[] {
+  return runtimeProfileOverviewCards.map((profile) => ({
+    id: `runtime-condition:${profile.id}`,
+    kind: "condition",
+    title: `${profile.name} 런타임 조건`,
+    description: `${profile.match} 조건에서 이 런타임 프로필을 사용합니다.`,
+    meta: [
+      "scope: runtime",
+      profile.id,
+      profile.match,
+      `character: ${profile.characterId}`,
+      ...profile.initial,
+    ],
+  }));
+}
+
+function createCharacterConditionPaletteItems(): PaletteItem[] {
+  return runtimeProfileOverviewCards.map((profile) => ({
+    id: `character-condition:${profile.id}`,
+    kind: "condition",
+    title: `${profile.name} 캐릭터 조건`,
+    description: `${profile.characterId} 캐릭터가 ${profile.match} 조건에서 쓸 시작 상태와 기능 묶음입니다.`,
+    meta: [
+      "scope: character",
+      profile.id,
+      profile.match,
+      ...profile.initial,
+      ...profile.featureSetIds.map((featureSetId) => `feature set: ${featureSetId}`),
+    ],
+  }));
+}
+
+function getConditionScopeFromMeta(meta: readonly string[] = []) {
+  const scopeMeta = meta.find((item) => item.startsWith("scope: "));
+
+  return scopeMeta?.slice("scope: ".length) ?? "";
+}
 
 const runtimeStateOptions: ParameterOption[] = [
   { id: "idle", label: "대기 상태", description: "저장 키: idle" },
@@ -1402,6 +1442,48 @@ function createCharacterCanvasGraph(): CanvasGraph {
   };
 
   const groups = getCharacterResourceGroupPaletteItems();
+  runtimeProfileOverviewCards.forEach((profile, index) => {
+    const runtimeConditionId = `runtime-condition:${profile.id}`;
+    const characterConditionId = `character-condition:${profile.id}`;
+    const conditionY = 40 + (index * 360);
+
+    graph.nodes.push(
+      createCanvasNode(runtimeConditionId, "condition", `${profile.name} 런타임 조건`, profile.match, 32, conditionY, [
+        "scope: runtime",
+        profile.id,
+        profile.match,
+      ]),
+      createCanvasNode(characterConditionId, "condition", `${profile.name} 캐릭터 조건`, `${profile.characterId} 캐릭터 시작 설정`, 32, 760 + (index * 220), [
+        "scope: character",
+        ...profile.initial,
+        ...profile.featureSetIds.map((featureSetId) => `feature set: ${featureSetId}`),
+      ]),
+    );
+    graph.edges.push(
+      {
+        id: `runtime->${runtimeConditionId}`,
+        from: "runtime",
+        to: runtimeConditionId,
+        relation: "contains",
+        label: "조건",
+      },
+      {
+        id: `${runtimeConditionId}->character`,
+        from: runtimeConditionId,
+        to: "character",
+        relation: "contains",
+        label: "대상",
+      },
+      {
+        id: `character->${characterConditionId}`,
+        from: "character",
+        to: characterConditionId,
+        relation: "references",
+        label: "조건",
+      },
+    );
+  });
+
   let groupY = 40;
   groups.forEach((group) => {
     const groupId = `group:${group.id}`;
@@ -1986,11 +2068,15 @@ function getAllowedCanvasNextSteps(kind: CanvasNodeKind) {
 
 function getPreferredPaletteCategoryForKind(kind: CanvasNodeKind): PaletteCategoryId {
   if (kind === "runtime") {
-    return "characters";
+    return "conditions";
   }
 
   if (kind === "character") {
-    return "resources";
+    return "conditions";
+  }
+
+  if (kind === "condition") {
+    return "characters";
   }
 
   if (kind === "event" || kind === "feature-set") {
@@ -2086,6 +2172,22 @@ function getPendingConnectionSourceNode() {
 function getCanvasRelation(from: CanvasNodeKind, to: CanvasNodeKind): CanvasEdge["relation"] | null {
   if (from === "runtime" && to === "character") {
     return "contains";
+  }
+
+  if (from === "runtime" && to === "condition") {
+    return "contains";
+  }
+
+  if (from === "condition" && to === "character") {
+    return "contains";
+  }
+
+  if (from === "condition" && (to === "event" || to === "mapping")) {
+    return "executes";
+  }
+
+  if (from === "character" && to === "condition") {
+    return "references";
   }
 
   if (from === "character" && (to === "resource-group" || to === "event")) {
@@ -2276,6 +2378,13 @@ function getPaletteItems(category: PaletteCategoryId): PaletteItem[] {
     }];
   }
 
+  if (category === "conditions") {
+    return [
+      ...createRuntimeConditionPaletteItems(),
+      ...createCharacterConditionPaletteItems(),
+    ];
+  }
+
   if (category === "saved") {
     return savedMappings.map((mapping) => ({
       id: mapping.id,
@@ -2363,6 +2472,18 @@ function isPaletteItemAllowedForPending(item: PaletteItem) {
     return false;
   }
 
+  if (item.kind === "condition") {
+    const conditionScope = getConditionScopeFromMeta(item.meta);
+
+    if (source.kind === "runtime") {
+      return conditionScope === "runtime";
+    }
+
+    if (source.kind === "character") {
+      return conditionScope === "character";
+    }
+  }
+
   if (source.kind === "resource-group" && item.kind === "resource") {
     const resourceKind = getCanvasNodeResourceKind(source);
 
@@ -2402,6 +2523,7 @@ function renderEditorPalette() {
   }
 
   const baseCategories: PaletteCategory[] = [
+    { id: "conditions", label: "조건" },
     { id: "characters", label: "캐릭터" },
     { id: "saved", label: "저장 연결" },
     { id: "events", label: "이벤트" },

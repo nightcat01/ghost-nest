@@ -173,6 +173,7 @@ async function verifyMappingEditor(page) {
     editorHelpText: document.querySelector("#mappingEditorHelp")?.textContent?.trim() ?? "",
     initialCharacterCanvas: document.querySelector("#mappingEditorCanvas .nanika-paint-node[data-kind='character']")?.textContent?.includes("리네") ?? false,
     initialRuntimeCanvas: Boolean(document.querySelector("#mappingEditorCanvas .nanika-paint-node[data-kind='runtime']")),
+    initialConditionNodeCount: document.querySelectorAll("#mappingEditorCanvas .nanika-paint-node[data-kind='condition']").length,
     initialResourceGroupCount: document.querySelectorAll("#mappingEditorCanvas .nanika-paint-node[data-kind='resource-group']").length,
     initialCanvasEdgeCount: document.querySelectorAll("#mappingEditorCanvas .nanika-paint-edges path[marker-end]").length,
     initialStatsCount: document.querySelectorAll("#mappingEditorStats span").length,
@@ -235,6 +236,27 @@ async function verifyMappingEditor(page) {
   }));
   await page.locator("#editorZoomResetButton").click();
   await page.locator("#mappingPaletteTabs button").first().click();
+  const conditionPaletteMetrics = await page.evaluate(() => ({
+    hasConditionTab: Array.from(document.querySelectorAll("#mappingPaletteTabs button"))
+      .some((button) => button.textContent?.trim().length > 0)
+      && Boolean(document.querySelector("#mappingPaletteDeck .nanika-palette-card[data-kind='condition']")),
+    conditionCardCount: document.querySelectorAll("#mappingPaletteDeck .nanika-palette-card[data-kind='condition']").length,
+    runtimeConditionCardCount: Array.from(document.querySelectorAll("#mappingPaletteDeck .nanika-palette-card[data-kind='condition']"))
+      .filter((card) => card.textContent?.includes("scope: runtime")).length,
+    characterConditionCardCount: Array.from(document.querySelectorAll("#mappingPaletteDeck .nanika-palette-card[data-kind='condition']"))
+      .filter((card) => card.textContent?.includes("scope: character")).length,
+  }));
+  await page.locator("#mappingEditorCanvas .nanika-paint-node[data-kind='runtime']").first().click();
+  await page.locator("#mappingEditorCanvas .nanika-node-popover .asset-small-button").first().click();
+  const runtimeConditionPathMetrics = await page.evaluate(() => ({
+    activePaletteText: document.querySelector("#mappingPaletteTabs button[data-active='true']")?.textContent?.trim() ?? "",
+    visibleConditionScopes: Array.from(document.querySelectorAll("#mappingPaletteDeck .nanika-palette-card[data-kind='condition']"))
+      .map((card) => card.textContent ?? "")
+      .filter(Boolean)
+      .map((text) => (text.includes("scope: runtime") ? "runtime" : text.includes("scope: character") ? "character" : "unknown")),
+  }));
+  await page.locator("#mappingPaletteDeck .nanika-palette-card[data-kind='condition']").first().click();
+  await page.locator("#mappingPaletteTabs button").nth(1).click();
   const characterPaletteMetrics = await page.evaluate(() => ({
     hasCharacterTab: Array.from(document.querySelectorAll("#mappingPaletteTabs button"))
       .some((button) => button.textContent?.trim() === "캐릭터"),
@@ -248,6 +270,14 @@ async function verifyMappingEditor(page) {
   }));
   await page.locator("#mappingEditorCanvas .nanika-paint-node[data-kind='character']").first().click();
   await page.locator("#mappingEditorCanvas .nanika-node-popover .asset-small-button").first().click();
+  const characterConditionPathMetrics = await page.evaluate(() => ({
+    activePaletteText: document.querySelector("#mappingPaletteTabs button[data-active='true']")?.textContent?.trim() ?? "",
+    visibleConditionScopes: Array.from(document.querySelectorAll("#mappingPaletteDeck .nanika-palette-card[data-kind='condition']"))
+      .map((card) => card.textContent ?? "")
+      .filter(Boolean)
+      .map((text) => (text.includes("scope: character") ? "character" : text.includes("scope: runtime") ? "runtime" : "unknown")),
+  }));
+  await page.locator("#mappingPaletteTabs button").last().click();
   const characterSceneGroupPathMetrics = await page.evaluate(() => ({
     hasCharacterPopover: Boolean(document.querySelector("#mappingEditorCanvas .nanika-node-popover")),
     activePaletteText: document.querySelector("#mappingPaletteTabs button[data-active='true']")?.textContent?.trim() ?? "",
@@ -488,12 +518,15 @@ async function verifyMappingEditor(page) {
     overviewMetrics,
     overviewTextFit,
     editorZoomMetrics,
+    conditionPaletteMetrics,
+    runtimeConditionPathMetrics,
     defaultDeleteMetrics: {
       ...defaultDeleteMetrics,
       deleteButtonWasEnabled: defaultNodeDeleteButtonEnabled,
     },
     characterPaletteMetrics,
     characterSelectionMetrics,
+    characterConditionPathMetrics,
     characterSceneGroupPathMetrics,
     characterSceneGroupConnectMetrics,
     sceneGroupFilterMetrics,
@@ -1316,6 +1349,7 @@ async function main() {
       assertMetric(mapping.overviewMetrics.hasEditorPanel, "Shared mapping editor panel is missing.");
       assertMetric(mapping.overviewMetrics.initialRuntimeCanvas, "Default editor canvas does not start from runtime.");
       assertMetric(mapping.overviewMetrics.initialCharacterCanvas, "Default editor canvas does not show the actual Rine character.");
+      assertMetric(mapping.overviewMetrics.initialConditionNodeCount >= 2, "Default editor canvas does not show runtime/character condition cards.");
       assertMetric(mapping.overviewMetrics.initialResourceGroupCount >= 4, "Default editor canvas does not split character resources into groups.");
       assertMetric(mapping.overviewMetrics.initialCanvasEdgeCount > 0, "Default editor canvas edges do not render arrow markers.");
       assertMetric(mapping.overviewMetrics.initialStatsCount >= 6, "Editor summary stats are missing.");
@@ -1329,10 +1363,18 @@ async function main() {
       assertMetric(mapping.defaultDeleteMetrics.deleteButtonWasEnabled, "Existing/default canvas cards should be deletable.");
       assertMetric(mapping.defaultDeleteMetrics.nodeRemoved, "Deleting an existing/default canvas card did not remove it from the board.");
       assertMetric(mapping.defaultDeleteMetrics.removedGroupMissing, "Deleted default canvas card is still visible.");
+      assertMetric(mapping.conditionPaletteMetrics.hasConditionTab, "Condition card deck tab is missing.");
+      assertMetric(mapping.conditionPaletteMetrics.conditionCardCount >= 2, "Condition card deck does not list runtime/character conditions.");
+      assertMetric(mapping.conditionPaletteMetrics.runtimeConditionCardCount > 0, "Condition card deck does not show runtime conditions.");
+      assertMetric(mapping.conditionPaletteMetrics.characterConditionCardCount > 0, "Condition card deck does not show character conditions.");
+      assertMetric(mapping.runtimeConditionPathMetrics.visibleConditionScopes.length > 0, "Starting from runtime does not show condition cards.");
+      assertMetric(mapping.runtimeConditionPathMetrics.visibleConditionScopes.every((scope) => scope === "runtime"), "Runtime connection path should show only runtime conditions.");
       assertMetric(mapping.characterPaletteMetrics.hasCharacterTab, "Character selection category is missing from the card deck.");
       assertMetric(mapping.characterPaletteMetrics.characterCardCount >= 1, "Character selection cards are missing from the editor deck.");
       assertMetric(mapping.characterSelectionMetrics.hasCharacterCanvasNode, "Selecting a character did not keep the character graph visible.");
       assertMetric(mapping.characterSelectionMetrics.characterNodeSelected, "Selected character was not highlighted on the editor canvas.");
+      assertMetric(mapping.characterConditionPathMetrics.visibleConditionScopes.length > 0, "Starting from character does not show condition cards.");
+      assertMetric(mapping.characterConditionPathMetrics.visibleConditionScopes.every((scope) => scope === "character"), "Character connection path should show only character conditions.");
       assertMetric(mapping.characterSceneGroupPathMetrics.hasCharacterPopover, "Character card did not open a connection popover.");
       assertMetric(mapping.characterSceneGroupPathMetrics.sceneGroupCardCount > 0, "Starting from the character card did not show the scene resource group.");
       assertMetric(mapping.characterSceneGroupPathMetrics.visibleGroupKinds.includes("scene"), "Character connection path did not expose stage/scene composition resources.");

@@ -20,6 +20,7 @@ const characterToneInput = requireElement(document.querySelector<HTMLInputElemen
 const charactersRootUrlInput = requireElement(document.querySelector<HTMLInputElement>("#charactersRootUrlInput"), "#charactersRootUrlInput");
 const commonAssetsRootUrlInput = requireElement(document.querySelector<HTMLInputElement>("#commonAssetsRootUrlInput"), "#commonAssetsRootUrlInput");
 const assetPathPreview = requireElement(document.querySelector<HTMLElement>("#assetPathPreview"), "#assetPathPreview");
+const saveAssetPathButton = requireElement(document.querySelector<HTMLButtonElement>("#saveAssetPathButton"), "#saveAssetPathButton");
 const createButton = requireElement(document.querySelector<HTMLButtonElement>("#createCharacterButton"), "#createCharacterButton");
 const status = requireElement(document.querySelector<HTMLElement>("#characterCreateStatus"), "#characterCreateStatus");
 const output = requireElement(document.querySelector<HTMLElement>("#characterCreateOutput"), "#characterCreateOutput");
@@ -192,8 +193,26 @@ async function saveWorkspaceSettings() {
   workspaceSettings = await saveCharacterWorkspace(createWorkspacePayload());
   charactersRootUrlInput.value = workspaceSettings.browserSourcePrefix;
   commonAssetsRootUrlInput.value = workspaceSettings.browserCommonPrefix;
+  renderOutput();
 
   return workspaceSettings;
+}
+
+/**
+ * Saves only the browser-facing image path settings.
+ */
+async function saveAssetPathSettings() {
+  saveAssetPathButton.disabled = true;
+  status.textContent = "이미지 경로를 저장하는 중이에요.";
+
+  try {
+    await saveWorkspaceSettings();
+    status.textContent = "이미지 경로를 저장했어요.";
+  } catch (error) {
+    status.textContent = error instanceof Error ? error.message : "이미지 경로 저장에 실패했어요.";
+  } finally {
+    saveAssetPathButton.disabled = false;
+  }
 }
 
 /**
@@ -259,6 +278,9 @@ function init() {
   });
   createButton.addEventListener("click", () => {
     void createCharacter();
+  });
+  saveAssetPathButton.addEventListener("click", () => {
+    void saveAssetPathSettings();
   });
   renderOutput();
   void loadWorkspaceSettings();

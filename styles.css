@@ -3819,6 +3819,20 @@ body.fortune-embed-page {
   border-bottom: 1px solid rgba(38, 35, 31, 0.1);
 }
 
+.asset-lab-section:has(#saveAssetPathButton) {
+  position: relative;
+}
+
+.asset-lab-section:has(#saveAssetPathButton) > h2 {
+  padding-inline-end: min(180px, 40%);
+}
+
+.asset-lab-section:has(#saveAssetPathButton) > .asset-lab-actions {
+  position: absolute;
+  inset-block-start: 16px;
+  inset-inline-end: 16px;
+}
+
 .asset-lab-section-header {
   min-width: 0;
   display: grid;
@@ -5518,6 +5532,16 @@ body.fortune-embed-page {
 
   .asset-lab-section-header .asset-lab-actions {
     justify-content: start;
+  }
+
+  .asset-lab-section:has(#saveAssetPathButton) > h2 {
+    padding-inline-end: 0;
+  }
+
+  .asset-lab-section:has(#saveAssetPathButton) > .asset-lab-actions {
+    position: static;
+    justify-content: start;
+    margin: 8px 0 12px;
   }
 
   .asset-character-home-hero .asset-lab-field-grid {
