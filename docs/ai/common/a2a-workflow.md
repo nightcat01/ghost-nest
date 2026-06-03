@@ -1,5 +1,27 @@
 # A2A Workflow
 
+## Common/Project Separation Rule
+
+Common harness documents must stay project-agnostic.
+
+- Do not add product names, repository-specific paths, domain object names, UI page names, generated file names, or project-only workflows to `docs/ai/common/*` or generic `docs/ai/roles/*`.
+- Put project-specific nouns, data models, screen names, execution names, asset names, and save/load details in `docs/ai/project/*`.
+- When a rule is useful everywhere, describe it as a general invariant. When it needs examples from one project, move those examples to the project harness.
+- Before changing harness files, classify each new rule as `common`, `role`, or `project`. If the same paragraph contains both general and project-specific rules, split it.
+
+## User Path Coverage Rule
+
+For normal or risky work, especially UI, settings, mapping, workflow, save/delete, or generated-data changes, the A2A flow must verify the user's actual path, not only the internal implementation.
+
+- Planner defines the latest user-facing path before implementation starts.
+- Worker implements against that path and records any assumptions.
+- Reviewer checks whether the implementation answers the latest user complaint rather than an older or narrower symptom.
+- UX Checker verifies discoverability from the user's starting point when a screen or interaction is involved.
+- Tester runs or explicitly marks the concrete path as unverified.
+- Final reports separate `verified paths` from `unverified paths`.
+
+If a path cannot be verified because tooling is unavailable, report it as a remaining risk instead of treating static checks as completion.
+
 이 문서는 역할 기반 AI 작업 흐름의 공통 운영 기준이다.
 
 ## 목표

@@ -25,6 +25,8 @@ Use this roadmap when embedding Nanika into a host site such as Fortune Master.
 - Pass `root` to runtime options so selectors are resolved inside that root only.
 - Keep host UI buttons and cards outside Nanika unless they are part of the character UI.
 - Send host interactions into Nanika with `runtime.emit(...)`.
+- Treat the host page as the layout owner. Nanika should not create runtime nodes outside the mount.
+- When a page already has a design system, set theme variables on the mount instead of importing host-global reset styles from Nanika.
 
 ```ts
 const runtime = createGhostRuntimeFromPreset(preset, {
@@ -69,6 +71,44 @@ Map those events to Nanika rules:
 }
 ```
 
+## Page-Specific Startup
+
+Use runtime creation options for values that must be true as soon as Nanika appears on a page.
+
+Good candidates:
+
+- `initialScene` for the page background or stage composition.
+- `initialSurface` for the starting character pose/state.
+- `initialExpression` for simple image-based characters.
+- `speechLayout` and `speechBalloonSize` for page-specific speech placement.
+- `controls.persistence: false` when the host page must ignore developer-tool localStorage settings.
+
+```ts
+const pageState = {
+  initialScene: "desk-room",
+  initialSurface: "8",
+};
+
+const runtime = createGhostRuntimeFromPreset(preset, {
+  root: "#fortuneNanikaRuntime",
+  initialScene: pageState.initialScene,
+  initialSurface: pageState.initialSurface,
+  controls: {
+    persistence: false,
+    devtools: false,
+    management: false,
+    diagnostics: false,
+  },
+});
+```
+
+After creation, use mapped host events for state changes that happen because the user acted.
+
+```ts
+runtime.emit("fortune:menu:selected", { menu: "zodiac" });
+runtime.emit("fortune:zodiac:selected", { zodiac: "aries" });
+```
+
 ## Theme And CSS
 
 - Runtime CSS is scoped under `.ghostnest-runtime`.
@@ -109,6 +149,21 @@ When a host route changes, either emit a page event or destroy and recreate the 
 - Prefer `runtime.emit("page:open")` when the mount area stays alive.
 - Use `runtime.destroy()` before recreating in the same mount.
 - After destroy, timers, listeners, scene layers, and character layers should be removed.
+- Recreate the runtime when the page needs a different initial scene/surface before the user sees it.
+- Keep exactly one active runtime per mount unless the host intentionally renders multiple characters.
+
+```ts
+let runtime: ReturnType<typeof createGhostRuntimeFromPreset> | null = null;
+
+function bootNanika(pageState: { scene: string; surface: string }) {
+  runtime?.destroy();
+  runtime = createGhostRuntimeFromPreset(preset, {
+    root: "#fortuneNanikaRuntime",
+    initialScene: pageState.scene,
+    initialSurface: pageState.surface,
+  });
+}
+```
 
 ## Developer Tool Access
 
@@ -148,9 +203,11 @@ Example extension config shape:
 ## Verification Checklist
 
 - Runtime selectors resolve only inside `root`.
+- No `.ghostnest-runtime`, character sprite, speech balloon, scene layer, or menu node is created outside the mount.
 - The host page layout does not shift when speech text changes.
 - Long speech text scrolls inside the balloon.
 - `destroy()` followed by recreation does not duplicate timers or layers.
+- Route-like recreation keeps one runtime root and one stage in the mount.
 - Host CSS can override Nanika colors without Nanika overriding the whole page.
 - Host buttons keep their own styles unless they are inside `.ghostnest-runtime` or an explicit Nanika mount selector.
 - Page-specific events can drive scene, surface, expression, and speech.

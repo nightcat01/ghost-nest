@@ -1,5 +1,7 @@
 import type { GhostRuntime, RuntimeEventName, RuntimeRule } from "./core/types.js";
+import type { RuntimeAction } from "./core/types.js";
 import { nanikaPreset } from "./ghost/preset.js";
+import { managementMenuItems, nanikaRules } from "./ghost/actions.js";
 import {
   createGhostRuntimeFromPreset,
   createRuntimeRulesFromMappings,
@@ -17,6 +19,59 @@ type NanikaMappingsResponse = {
   ok?: boolean;
   mappings?: NanikaMapping[];
 };
+
+function isManagementMenuAction(action: RuntimeAction): action is Extract<RuntimeAction, { type: "open_management_menu" }> {
+  return action.type === "open_management_menu";
+}
+
+function isActionGroup(action: RuntimeAction): action is Extract<RuntimeAction, { type: "run_sequence" | "run_parallel" | "run_random" }> {
+  return action.type === "run_sequence" || action.type === "run_parallel" || action.type === "run_random";
+}
+
+/**
+ * Fills demo management menu actions that were saved as empty mapping placeholders.
+ */
+function hydrateDemoManagementMenuActions(actions: RuntimeAction[]): RuntimeAction[] {
+  return actions.map((action) => {
+    if (isManagementMenuAction(action)) {
+      return {
+        ...action,
+        items: action.items.length > 0 ? action.items : managementMenuItems,
+      };
+    }
+
+    if (isActionGroup(action) && Array.isArray(action.actions)) {
+      return {
+        ...action,
+        actions: hydrateDemoManagementMenuActions(action.actions),
+      };
+    }
+
+    return action;
+  });
+}
+
+/**
+ * Keeps the demo menu reachable when saved mappings are incomplete or store only a menu shell.
+ */
+function normalizeSavedRuntimeRules(rules: RuntimeRule[]): RuntimeRule[] {
+  const hydratedRules = rules.map((rule) => ({
+    ...rule,
+    actions: hydrateDemoManagementMenuActions(rule.actions),
+  }));
+  const hasRightClickMenu = hydratedRules.some((rule) => (
+    rule.event === "character:right_click"
+    && rule.actions.some(isManagementMenuAction)
+  ));
+
+  if (hasRightClickMenu) {
+    return hydratedRules;
+  }
+
+  const defaultMenuRule = nanikaRules.find((rule) => rule.event === "character:right_click");
+
+  return defaultMenuRule ? [...hydratedRules, defaultMenuRule] : hydratedRules;
+}
 
 /**
  * Adds page-local rules that let the smoke-test deck exercise runtime UI actions.
@@ -104,7 +159,7 @@ async function loadSavedRuntimeRules() {
       return null;
     }
 
-    return createRuntimeRulesFromMappings(result.mappings ?? []);
+    return normalizeSavedRuntimeRules(createRuntimeRulesFromMappings(result.mappings ?? []));
   } catch {
     return null;
   }
@@ -119,7 +174,14 @@ async function bootRuntime() {
   const savedRules = await loadSavedRuntimeRules();
   ghostNestWindow.__ghostNestRuntime__ = createGhostRuntimeFromPreset(nanikaPreset, {
     ...(savedRules
-      ? { replaceRules: [...savedRules, ...testRules] }
+      ? {
+        replaceRules: [...savedRules, ...testRules],
+        includeDefaultRules: false,
+        preferenceStorage: {
+          runtimeUi: "preset",
+          managementMenu: "preset",
+        },
+      }
       : { rules: testRules }),
   });
 

@@ -30,8 +30,10 @@ type ExistingSurface = {
 };
 
 const newSurfaceSelectValue = "__new_surface__";
+const manualSurfaceIdSelectValue = "__manual_surface_id__";
 const characterSelect = requireElement(document.querySelector<HTMLSelectElement>("#characterSelect"), "#characterSelect");
 const surfaceSelect = requireElement(document.querySelector<HTMLSelectElement>("#surfaceSelect"), "#surfaceSelect");
+const surfaceIdPresetSelect = requireElement(document.querySelector<HTMLSelectElement>("#surfaceIdPresetSelect"), "#surfaceIdPresetSelect");
 const surfaceIdInput = requireElement(document.querySelector<HTMLInputElement>("#surfaceIdInput"), "#surfaceIdInput");
 const surfaceExpressionSelect = requireElement(document.querySelector<HTMLSelectElement>("#surfaceExpressionSelect"), "#surfaceExpressionSelect");
 const surfaceAltInput = requireElement(document.querySelector<HTMLInputElement>("#surfaceAltInput"), "#surfaceAltInput");
@@ -59,6 +61,64 @@ function sortExistingSurfaces(surfaces: ExistingSurface[]) {
       sensitivity: "base",
     }),
   );
+}
+
+/**
+ * Suggests the next numeric surface key without assuming keys must be numeric.
+ */
+function createNextSurfaceId() {
+  const numericIds = existingSurfaces
+    .map((surface) => Number(surface.surfaceId))
+    .filter((surfaceId) => Number.isInteger(surfaceId) && surfaceId >= 0);
+
+  if (numericIds.length === 0) {
+    return "0";
+  }
+
+  return String(Math.max(...numericIds) + 1);
+}
+
+/**
+ * Keeps the quick surface key selector in sync with existing keys and the manual input.
+ */
+function renderSurfaceIdPresetOptions(preferredValue = surfaceIdInput.value.trim()) {
+  const nextSurfaceId = createNextSurfaceId();
+  const fixedOptions = [
+    new Option(`자동 추천: ${nextSurfaceId}`, nextSurfaceId),
+    new Option("직접 입력", manualSurfaceIdSelectValue),
+  ];
+  const existingOptions = existingSurfaces.map((surface) =>
+    new Option(`기존 키 수정: ${surface.surfaceId}`, surface.surfaceId),
+  );
+
+  surfaceIdPresetSelect.replaceChildren(...fixedOptions, ...existingOptions);
+
+  const hasPreferredOption = Array.from(surfaceIdPresetSelect.options)
+    .some((option) => option.value === preferredValue);
+
+  surfaceIdPresetSelect.value = preferredValue && hasPreferredOption
+    ? preferredValue
+    : manualSurfaceIdSelectValue;
+}
+
+/**
+ * Applies a quick-selected surface key to the editable input.
+ */
+function applySurfaceIdPresetSelection() {
+  if (surfaceIdPresetSelect.value && surfaceIdPresetSelect.value !== manualSurfaceIdSelectValue) {
+    surfaceIdInput.value = surfaceIdPresetSelect.value;
+  }
+
+  renderSurfaceIdPresetOptions(surfaceIdInput.value.trim());
+  renderOutputs();
+}
+
+/**
+ * Reflects a manually typed surface key in the quick selector when possible.
+ */
+function syncSurfaceIdPresetFromInput() {
+  renderSurfaceIdPresetOptions(surfaceIdInput.value.trim());
+  renderOutputs();
 }
 
 /**
@@ -106,15 +166,15 @@ function validateSurfaceSnippet(surfaceSnippet: ReturnType<typeof createSurfaceS
   const sceneId = surfaceSnippet.surface.visual?.type === "scene" ? surfaceSnippet.surface.visual.sceneId : "";
 
   if (!expression) {
-    return "캐릭터 상태에 연결할 표정을 선택하세요.";
+    return "표시 상태에 연결할 표정을 선택하세요.";
   }
 
   if (!image && !sceneId) {
-    return "캐릭터 상태의 기준 이미지 또는 장면 조합을 선택하세요.";
+    return "표시 상태의 기준 이미지 또는 무대 조합을 선택하세요.";
   }
 
   if (image && !getExpressionAssetPaths(expression).includes(image)) {
-    return `먼저 표정 '${expression}' 등록을 완료하고, 그 후보 안에 캐릭터 상태용 기본 이미지를 포함하세요.`;
+    return `먼저 표정 '${expression}' 등록을 완료하고, 그 후보 안에 표시 상태용 기본 이미지를 포함하세요.`;
   }
 
   return null;
@@ -139,7 +199,7 @@ function renderOutputs() {
   } else {
     const empty = document.createElement("p");
 
-    empty.textContent = "캐릭터 상태의 기준 이미지를 선택하세요.";
+    empty.textContent = "표시 상태의 기준 이미지를 선택하세요.";
     preview.append(empty);
   }
 
@@ -162,7 +222,7 @@ function renderScenePreview(sceneId: string) {
   if (!scene) {
     const empty = document.createElement("p");
 
-    empty.textContent = `${sceneId} 장면 조합을 찾지 못했어요.`;
+    empty.textContent = `${sceneId} 무대 조합을 찾지 못했어요.`;
     preview.append(empty);
     return;
   }
@@ -246,7 +306,7 @@ function renderSceneOptions() {
     left.id.localeCompare(right.id, undefined, { numeric: true, sensitivity: "base" }),
   );
 
-  surfaceSceneSelect.replaceChildren(new Option("장면 조합 사용 안 함", ""));
+  surfaceSceneSelect.replaceChildren(new Option("무대 조합 사용 안 함", ""));
   scenes.forEach((scene) => {
     surfaceSceneSelect.append(new Option(`${scene.id} / ${scene.layers.length}개 요소`, scene.id));
   });
@@ -305,8 +365,8 @@ async function loadCharacterAssets() {
   }));
 
   surfaceSelect.replaceChildren(
-    new Option("캐릭터 상태 선택", ""),
-    new Option("새 캐릭터 상태 만들기", newSurfaceSelectValue),
+    new Option("상태 연결 선택", ""),
+    new Option("새 상태 연결 만들기", newSurfaceSelectValue),
   );
   existingSurfaces.forEach((surface) => {
     const label = [
@@ -319,8 +379,9 @@ async function loadCharacterAssets() {
   });
 
   await loadSavedAssetFiles();
+  renderSurfaceIdPresetOptions();
   applySurfaceSelection();
-  status.textContent = `${characterId} 캐릭터 상태를 불러왔어요.`;
+  status.textContent = `${characterId} 상태 연결을 불러왔어요.`;
 }
 
 /**
@@ -348,12 +409,13 @@ function applySurfaceSelection() {
   deleteButton.disabled = surfaceSelect.value === newSurfaceSelectValue || !surfaceSelect.value;
 
   if (surfaceSelect.value === newSurfaceSelectValue) {
-    surfaceIdInput.value = surfaceIdInput.value.trim() || "0";
+    surfaceIdInput.value = createNextSurfaceId();
     surfaceExpressionSelect.value = "";
     surfaceAltInput.value = "";
     surfaceImageInput.value = "";
     baseAssetSelect.value = "";
     surfaceSceneSelect.value = "";
+    renderSurfaceIdPresetOptions(surfaceIdInput.value);
     renderOutputs();
     return;
   }
@@ -366,6 +428,7 @@ function applySurfaceSelection() {
   surfaceImageInput.value = surface?.image ?? "";
   baseAssetSelect.value = surface?.image ?? "";
   surfaceSceneSelect.value = surface?.sceneId ?? "";
+  renderSurfaceIdPresetOptions(surfaceIdInput.value);
   renderOutputs();
 }
 
@@ -382,7 +445,7 @@ async function saveSurfaceConfig() {
   }
 
   saveButton.disabled = true;
-  status.textContent = "캐릭터 상태를 저장하는 중이에요.";
+  status.textContent = "상태 연결을 저장하는 중이에요.";
 
   try {
     const response = await fetch(createDevtoolsApiPath("/api/devtools/save-character-surface"), {
@@ -396,15 +459,15 @@ async function saveSurfaceConfig() {
     const result = await readApiJson<SurfaceSaveResponse>(response);
 
     if (!response.ok || !result.ok) {
-      status.textContent = result.message ?? `캐릭터 상태 저장 실패: ${result.error ?? response.status}`;
+      status.textContent = result.message ?? `상태 연결 저장 실패: ${result.error ?? response.status}`;
       return;
     }
 
     await loadCharacterAssets();
     surfaceSelect.value = surfaceSnippet.surfaceId;
-    status.textContent = `${result.saved?.path ?? "character index.ts"}에 캐릭터 상태를 저장했어요.`;
+    status.textContent = `${result.saved?.path ?? "character index.ts"}에 상태 연결을 저장했어요.`;
   } catch (error) {
-    status.textContent = error instanceof Error ? error.message : "캐릭터 상태 저장 요청에 실패했어요.";
+    status.textContent = error instanceof Error ? error.message : "상태 연결 저장 요청에 실패했어요.";
   } finally {
     saveButton.disabled = false;
     renderOutputs();
@@ -418,18 +481,18 @@ async function deleteSurfaceConfig() {
   const surfaceId = surfaceSelect.value;
 
   if (!surfaceId || surfaceId === newSurfaceSelectValue) {
-    status.textContent = "삭제할 기존 캐릭터 상태를 선택하세요.";
+    status.textContent = "삭제할 기존 상태 연결을 선택하세요.";
     return;
   }
 
-  const confirmed = window.confirm(`${characterSelect.value || "rine"} 캐릭터의 상태 ${surfaceId}를 삭제할까요?\n\n이 상태에 붙은 파츠 설정도 함께 삭제됩니다.`);
+  const confirmed = window.confirm(`${characterSelect.value || "rine"} 캐릭터의 상태 연결 ${surfaceId}를 삭제할까요?\n\n이 표시 상태에 붙은 파츠 설정도 함께 삭제됩니다.`);
 
   if (!confirmed) {
     return;
   }
 
   deleteButton.disabled = true;
-  status.textContent = "캐릭터 상태를 삭제하는 중이에요.";
+  status.textContent = "상태 연결을 삭제하는 중이에요.";
 
   try {
     const response = await fetch(createDevtoolsApiPath("/api/devtools/delete-character-surface"), {
@@ -443,14 +506,14 @@ async function deleteSurfaceConfig() {
     const result = await readApiJson<SurfaceSaveResponse>(response);
 
     if (!response.ok || !result.ok) {
-      status.textContent = result.message ?? `캐릭터 상태 삭제 실패: ${result.error ?? response.status}`;
+      status.textContent = result.message ?? `상태 연결 삭제 실패: ${result.error ?? response.status}`;
       return;
     }
 
     await loadCharacterAssets();
-    status.textContent = `캐릭터 상태 ${surfaceId}를 삭제했어요.`;
+    status.textContent = `상태 연결 ${surfaceId}를 삭제했어요.`;
   } catch (error) {
-    status.textContent = error instanceof Error ? error.message : "캐릭터 상태 삭제 요청에 실패했어요.";
+    status.textContent = error instanceof Error ? error.message : "상태 연결 삭제 요청에 실패했어요.";
   } finally {
     applySurfaceSelection();
   }
@@ -464,6 +527,7 @@ function init() {
     void loadCharacterAssets();
   });
   surfaceSelect.addEventListener("change", applySurfaceSelection);
+  surfaceIdPresetSelect.addEventListener("change", applySurfaceIdPresetSelection);
   baseAssetSelect.addEventListener("change", () => {
     surfaceImageInput.value = baseAssetSelect.value;
     if (baseAssetSelect.value) {
@@ -478,7 +542,9 @@ function init() {
     }
     renderOutputs();
   });
-  [surfaceIdInput, surfaceExpressionSelect, surfaceAltInput, surfaceImageInput].forEach((input) => {
+  surfaceIdInput.addEventListener("input", syncSurfaceIdPresetFromInput);
+  surfaceIdInput.addEventListener("change", syncSurfaceIdPresetFromInput);
+  [surfaceExpressionSelect, surfaceAltInput, surfaceImageInput].forEach((input) => {
     input.addEventListener("input", renderOutputs);
     input.addEventListener("change", renderOutputs);
   });

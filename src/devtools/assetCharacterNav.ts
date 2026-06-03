@@ -2,19 +2,52 @@ type CharacterNavItem = {
   id: string;
   href: string;
   label: string;
-  group: "basic" | "editor" | "support";
+  group: "home" | "character" | "material" | "support";
   step?: string;
 };
 
+type FlowStep = {
+  id: "character" | "expression" | "state" | "parts" | "stage";
+  title: string;
+  description: string;
+};
+
 const navItems: CharacterNavItem[] = [
-  { id: "home", href: "./dev-character.html", label: "제작 홈", group: "basic", step: "0" },
-  { id: "create", href: "./dev-character-create.html", label: "캐릭터", group: "basic", step: "1" },
-  { id: "expression", href: "./dev-character-expression.html", label: "표정", group: "basic", step: "2" },
-  { id: "set", href: "./dev-character-set.html", label: "캐릭터 상태", group: "basic", step: "3" },
-  { id: "crop", href: "./dev-assets-crop.html", label: "영역 선택", group: "editor" },
-  { id: "layer", href: "./dev-assets-layer.html", label: "파츠 편집", group: "editor", step: "4" },
-  { id: "scene", href: "./dev-character-scene.html", label: "무대 편집", group: "editor", step: "5" },
-  { id: "composition", href: "./dev-character-composition.html", label: "상태 조합", group: "support" },
+  { id: "home", href: "./dev-character.html", label: "제작 홈", group: "home" },
+  { id: "create", href: "./dev-character-create.html", label: "캐릭터 만들기", group: "character", step: "1" },
+  { id: "expression", href: "./dev-character-expression.html", label: "표정 만들기", group: "character", step: "2" },
+  { id: "set", href: "./dev-character-set.html", label: "상태 연결", group: "character", step: "3" },
+  { id: "layer", href: "./dev-assets-layer.html", label: "파츠 움직임", group: "material", step: "4" },
+  { id: "scene", href: "./dev-character-scene.html", label: "무대 조합", group: "material", step: "5" },
+  { id: "crop", href: "./dev-assets-crop.html", label: "영역 선택", group: "support" },
+];
+
+const flowSteps: FlowStep[] = [
+  {
+    id: "character",
+    title: "캐릭터",
+    description: "작업할 캐릭터를 만듭니다.",
+  },
+  {
+    id: "expression",
+    title: "표정",
+    description: "표정 이미지를 등록합니다.",
+  },
+  {
+    id: "state",
+    title: "연결",
+    description: "상태에 재료를 붙입니다.",
+  },
+  {
+    id: "parts",
+    title: "파츠",
+    description: "움직이는 파츠를 붙입니다.",
+  },
+  {
+    id: "stage",
+    title: "무대",
+    description: "배경과 소품을 배치합니다.",
+  },
 ];
 
 /**
@@ -34,35 +67,37 @@ function getCurrentPageId(nav: HTMLElement) {
 }
 
 /**
- * Renders the shared character settings navigation.
+ * Returns the current production flow group for a page.
  */
-function renderCharacterNav(nav: HTMLElement) {
-  const currentPageId = getCurrentPageId(nav);
-  const groups = [
-    { id: "basic", label: "기본 등록" },
-    { id: "editor", label: "이미지 편집 도구" },
-    { id: "support", label: "보조 도구" },
-  ] satisfies Array<{ id: CharacterNavItem["group"]; label: string }>;
-  const fragments = groups.flatMap((group) => {
-    const groupItems = navItems.filter((item) => item.group === group.id);
+function getCurrentGroup(currentPageId: string) {
+  return navItems.find((item) => item.id === currentPageId)?.group ?? "home";
+}
 
-    if (groupItems.length === 0) {
-      return [];
-    }
+/**
+ * Returns the current visual flow step for highlighting.
+ */
+function getCurrentFlowStep(currentPageId: string): FlowStep["id"] | null {
+  if (currentPageId === "create") {
+    return "character";
+  }
 
-    const groupElement = document.createElement("div");
-    const groupLabel = document.createElement("span");
+  if (currentPageId === "expression") {
+    return "expression";
+  }
 
-    groupElement.className = "asset-tool-nav-group";
-    groupElement.dataset.navGroup = group.id;
-    groupLabel.className = "asset-tool-nav-group-label";
-    groupLabel.textContent = group.label;
-    groupElement.append(groupLabel, ...groupItems.map((item) => createNavLink(item, currentPageId)));
+  if (currentPageId === "set" || currentPageId === "composition") {
+    return "state";
+  }
 
-    return [groupElement];
-  });
+  if (currentPageId === "layer" || currentPageId === "crop") {
+    return "parts";
+  }
 
-  nav.replaceChildren(...fragments);
+  if (currentPageId === "scene") {
+    return "stage";
+  }
+
+  return null;
 }
 
 /**
@@ -90,6 +125,67 @@ function createNavLink(item: CharacterNavItem, currentPageId: string) {
   }
 
   return link;
+}
+
+/**
+ * Renders the left-to-right production flow above page-specific links.
+ */
+function createFlowCompass(currentStep: FlowStep["id"] | null) {
+  const compass = document.createElement("ol");
+
+  compass.className = "asset-production-flow";
+  compass.setAttribute("aria-label", "제작 흐름");
+  compass.replaceChildren(...flowSteps.map((step, index) => {
+    const item = document.createElement("li");
+    const number = document.createElement("strong");
+    const text = document.createElement("span");
+    const description = document.createElement("small");
+
+    item.dataset.active = String(step.id === currentStep);
+    number.textContent = String(index + 1);
+    text.textContent = step.title;
+    description.textContent = step.description;
+    item.append(number, text, description);
+
+    return item;
+  }));
+
+  return compass;
+}
+
+/**
+ * Renders the shared character settings navigation.
+ */
+function renderCharacterNav(nav: HTMLElement) {
+  const currentPageId = getCurrentPageId(nav);
+  const currentGroup = getCurrentGroup(currentPageId);
+  const currentStep = getCurrentFlowStep(currentPageId);
+  const linkGroups = [
+    { id: "home", label: "시작" },
+    { id: "character", label: "캐릭터 흐름" },
+    { id: "material", label: "재료 편집" },
+    { id: "support", label: "보조 도구" },
+  ] satisfies Array<{ id: CharacterNavItem["group"]; label: string }>;
+  const groups = linkGroups.flatMap((group) => {
+    const groupItems = navItems.filter((item) => item.group === group.id);
+
+    if (groupItems.length === 0) {
+      return [];
+    }
+
+    const groupElement = document.createElement("div");
+    const groupLabel = document.createElement("span");
+
+    groupElement.className = "asset-tool-nav-group";
+    groupElement.dataset.navGroup = group.id;
+    groupLabel.className = "asset-tool-nav-group-label";
+    groupLabel.textContent = group.label;
+    groupElement.append(groupLabel, ...groupItems.map((item) => createNavLink(item, currentPageId)));
+
+    return [groupElement];
+  });
+
+  nav.replaceChildren(createFlowCompass(currentStep), ...groups);
 }
 
 document.querySelectorAll<HTMLElement>("[data-character-nav]").forEach(renderCharacterNav);

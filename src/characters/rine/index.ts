@@ -13,7 +13,7 @@ export const rine: CharacterDefinition = {
     ...rineAssetMeta,
     expressions: rineExpressions,
     surfaces: rineSurfaces,
-    ...(rineDefaultScene ? { defaultScene: rineDefaultScene } : {}),
+    defaultScene: rineDefaultScene,
     scenes: rineScenes,
   },
 };

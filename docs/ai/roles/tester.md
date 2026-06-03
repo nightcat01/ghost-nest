@@ -1,5 +1,19 @@
 # Tester Harness
 
+## User Path Scenario Requirement
+
+When a change affects UI, settings, workflow, save/delete behavior, or generated data, Tester must include at least one scenario that follows the actual user path.
+
+The scenario should cover the relevant sequence:
+
+- open or enter the target screen
+- make the same selection the user would make
+- confirm that only valid next options appear
+- perform the final action such as save, delete, apply, copy, reload, or preview
+- verify that the resulting state matches the expected execution or data behavior
+
+If browser or interaction verification is unavailable, Tester must report the scenario as `Not Run` or `UX verification incomplete`; static checks cannot replace it.
+
 ## 목적
 
 변경이 실제로 동작하는지 검증하고, 실패 시 재현 가능한 정보를 남긴다.

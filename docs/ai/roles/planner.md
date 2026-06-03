@@ -1,5 +1,19 @@
 # Planner Harness
 
+## User Path Requirement
+
+For normal or risky work that changes UI, settings, mappings, workflow steps, save/delete behavior, or generated data, Planner must define the concrete user path before implementation.
+
+The path should include:
+
+- starting screen or entry point
+- user selection or action sequence
+- expected options that should appear
+- expected save/apply/reload behavior
+- what must be verified by UX Checker and Tester
+
+If the latest user complaint is about discoverability or "where does this appear", planning must start from that complaint's exact click path.
+
 ## 목적
 
 작업 범위, 위험도, 필요한 역할, 진행 단계를 정한다.

@@ -282,7 +282,7 @@ function renderEditableLayerList(role: EditableSceneLayer["role"]) {
   layers.forEach((layer, index) => {
     const fileName = layer.image.split("/").pop() ?? "이미지 없음";
 
-    select.append(new Option(`${index + 1}. ${fileName} / depth ${layer.depth}`, layer.id));
+    select.append(new Option(`${index + 1}. ${fileName} / 겹침 ${layer.depth}`, layer.id));
   });
   select.value = layers.some((layer) => layer.id === currentValue) ? currentValue : layers[0]?.id ?? "";
   removeButton.disabled = !select.value;
@@ -489,7 +489,7 @@ function createPreviewLayer(layer: RuntimeSceneLayer) {
 
   if (layer.role === "character") {
     element.classList.add("asset-scene-character-slot");
-    element.textContent = "character";
+    element.textContent = "캐릭터 자리";
     element.style.left = "42%";
     element.style.top = "26%";
     element.style.width = "20%";
@@ -542,7 +542,7 @@ function renderOutputs() {
     });
 
   output.textContent = JSON.stringify({
-    defaultScene: sceneSnippet.defaultScene ? sceneSnippet.sceneId : existingDefaultScene,
+    defaultScene: sceneSnippet.defaultScene ? sceneSnippet.sceneId : "",
     scenePath: `assets.scenes[${JSON.stringify(sceneSnippet.sceneId)}]`,
     scene: sceneSnippet.scene,
   }, null, 2);

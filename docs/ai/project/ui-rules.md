@@ -12,6 +12,46 @@ GhostNest는 runtime, devtools, character editor, mapping editor가 모두 UI �
 
 # GhostNest UI Rules
 
+## GhostNest Mapping And Character Path Verification
+
+GhostNest mapping and character-setting work must verify the actual route a user takes in the devtools UI.
+
+For Nanika mapping editor changes, verify the path that matches the latest complaint:
+
+- select or load the target character
+- start a connection from the visible card the user would click
+- confirm the expected child category or card appears
+- select the resource or action
+- confirm only compatible next cards are shown
+- save, delete, reload, or apply when the request changes stored behavior
+
+For character resources, do not treat "card exists somewhere" as enough. Scene, surface, expression, layer, dialogue, hit area, base image, parts image, and stage/scene composition must appear only from the paths where a user can actually use them.
+
+For scene/stage composition checks:
+
+- scene/stage composition cards are character resources, so the user path must be checked from character-related cards unless the feature explicitly starts from runtime.
+- scene/stage composition execution uses runtime actions such as scene or scene overlay, so the action path must also be checked after selecting the scene/stage resource.
+- disabling or deleting a mapping connection must not delete the asset itself; deleting the asset belongs to character/resource settings.
+
+For executable mapping checks, distinguish visual canvas state from runtime data:
+
+- The canvas diagram is not enough unless it is converted into executable mapping data.
+- Saved mapping behavior must be checked against the data that runtime reads.
+- If an action node is removed visually, verify whether `NanikaMapping.actions[]` or the equivalent runtime rule data was actually updated.
+
+For character editor checks:
+
+- create, select, save, delete, reload, and preview must point to the same character data.
+- base, parts, scene/stage composition, expression, surface, and layer lists must not leak unrelated resource groups into each other.
+- image-editing screens such as layer, crop, parts, and stage/scene composition require enough preview area to verify placement.
+
+Reports for GhostNest UI work must include:
+
+- verified GhostNest user paths
+- unverified GhostNest user paths
+- whether the result is only visually shown or actually executable by runtime
+- remaining data or fallback risks
+
 이 문서는 GhostNest 전용 UI 안정성 기준이다.
 
 ## 핵심 대상

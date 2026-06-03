@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GhostNest 캐릭터 상태 설정</title>
+    <title>GhostNest 상태 연결 설정</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -11,43 +11,43 @@
       <header class="asset-lab-header">
         <div>
           <p class="eyebrow">3단계 / 캐릭터 설정</p>
-          <h1>캐릭터 상태 만들기</h1>
+          <h1>상태 연결하기</h1>
         </div>
         <a class="asset-lab-back" href="./dev-character.html">제작 홈</a>
       </header>
 
       <nav class="asset-tool-nav" aria-label="Character setting pages" data-character-nav data-current-page="set"></nav>
 
-      <section class="asset-lab-grid asset-character-editor-grid" aria-label="캐릭터 상태 설정">
+      <section class="asset-lab-grid asset-character-editor-grid" aria-label="상태 연결 설정">
         <section class="asset-lab-panel">
           <div class="asset-lab-section asset-step-intro">
             <h2>이 단계에서 하는 일</h2>
-            <p class="asset-lab-help">표정 이미지 후보 중 실제로 사용할 기본 이미지 한 장을 고르거나, 캐릭터를 포함한 장면 조합을 골라 기준 상태를 만듭니다. 파츠와 애니메이션은 이 상태 위에 붙습니다.</p>
+            <p class="asset-lab-help">표정 만들기와 무대 조합 만들기에서 준비한 재료를 런타임 표시 상태에 연결합니다. 여기서는 새 재료를 만드는 대신, 이미 만든 표정·기본 이미지·무대 조합 중 무엇을 보여줄지 정합니다.</p>
             <ol class="asset-step-guide">
               <li>캐릭터를 선택합니다.</li>
-              <li>상태 ID를 정합니다. 처음이면 0으로 두어도 됩니다.</li>
-              <li>연결할 표정과 기준 화면을 고릅니다.</li>
+              <li>상태 저장 키를 고릅니다. 처음이면 자동 추천값을 그대로 써도 됩니다.</li>
+              <li>이미 만든 표정과 기준 화면을 고릅니다.</li>
               <li>미리보기를 확인하고 저장합니다.</li>
             </ol>
-            <div class="asset-step-result-map" aria-label="캐릭터 상태 결과 지도">
+            <div class="asset-step-result-map" aria-label="상태 연결 결과 지도">
               <article>
                 <strong>저장 결과</strong>
-                <span>assets.surfaces에 실제 표시 상태가 저장됩니다.</span>
+                <span>assets.surfaces에 실제 표시 상태 연결이 저장됩니다.</span>
               </article>
               <article>
                 <strong>다음 사용처</strong>
-                <span>파츠 움직임은 선택한 캐릭터 상태 위에만 붙어서 움직입니다.</span>
+                <span>파츠 움직임은 선택한 상태 연결 위에만 붙어서 움직입니다.</span>
               </article>
               <article>
                 <strong>매핑 기준</strong>
-                <span>캐릭터 상태 변경 액션에서 화면에 보여줄 상태로 선택됩니다.</span>
+                <span>상태 변경 액션에서 화면에 보여줄 표시 상태로 선택됩니다.</span>
               </article>
             </div>
           </div>
 
           <div class="asset-lab-section">
             <h2>캐릭터</h2>
-            <p class="asset-lab-help">상태를 저장할 캐릭터를 선택합니다.</p>
+            <p class="asset-lab-help">상태 연결을 저장할 캐릭터를 선택합니다.</p>
             <label>
               캐릭터
               <select id="characterSelect">
@@ -57,21 +57,27 @@
           </div>
 
           <div class="asset-lab-section">
-            <h2>상태 기본 정보</h2>
-            <p class="asset-lab-help">상태는 표정, 기준 화면, 이후 붙일 파츠를 묶는 단위입니다.</p>
+            <h2>연결할 표시 상태</h2>
+            <p class="asset-lab-help">표시 상태는 런타임에서 바뀌는 화면 단위입니다. 표정 이름과 실제로 보여줄 기준 화면을 연결합니다.</p>
             <div class="asset-lab-field-grid">
               <label>
-                기존 상태
+                불러올 상태 연결
                 <select id="surfaceSelect">
                   <option value="">캐릭터를 먼저 선택하세요.</option>
                 </select>
               </label>
               <label>
-                상태 ID
-                <input id="surfaceIdInput" type="text" value="0" autocomplete="off" />
+                상태 저장 키 빠른 선택
+                <select id="surfaceIdPresetSelect">
+                  <option value="">캐릭터를 먼저 선택하세요.</option>
+                </select>
               </label>
               <label>
-                연결할 표정
+                상태 저장 키
+                <input id="surfaceIdInput" type="text" value="0" placeholder="예: 0, neutral, sitting" autocomplete="off" />
+              </label>
+              <label>
+                사용할 표정
                 <select id="surfaceExpressionSelect">
                   <option value="">없음</option>
                   <option value="neutral">기본 표정 (neutral)</option>
@@ -85,11 +91,12 @@
                 <input id="surfaceAltInput" type="text" autocomplete="off" />
               </label>
             </div>
+            <p class="asset-lab-help asset-field-note">상태 저장 키는 런타임이 화면을 바꿀 때 찾는 이름입니다. 숫자만 쓸 필요는 없고, 기존 키를 고르면 해당 상태를 수정합니다.</p>
           </div>
 
           <div class="asset-lab-section">
             <h2>기준 화면 - 기본 이미지</h2>
-            <p class="asset-lab-help">선택한 표정에 등록된 기본 이미지 후보 중 하나를 상태의 기준 화면으로 사용합니다. 장면 조합을 선택하면 기본 이미지는 자동으로 비워집니다.</p>
+            <p class="asset-lab-help">표정 만들기에서 등록한 기본 이미지 후보 중 하나를 기준 화면으로 연결합니다. 무대 조합을 선택하면 기본 이미지는 자동으로 비워집니다.</p>
             <label>
               저장된 기본 이미지
               <select id="baseAssetSelect">
@@ -103,12 +110,12 @@
           </div>
 
           <div class="asset-lab-section">
-            <h2>기준 화면 - 장면 조합</h2>
-            <p class="asset-lab-help">캐릭터가 포함된 저장 조합을 한 장짜리 기준 화면처럼 사용할 수 있습니다. 런타임 배경으로 쓰는 무대 조합과 다르게, 이 값은 캐릭터 상태 안에서만 쓰입니다.</p>
+            <h2>기준 화면 - 무대 조합</h2>
+            <p class="asset-lab-help">저장된 무대 조합을 기준 화면으로 연결할 수 있습니다. 이 값은 전체 배경 설정이 아니라, 선택한 표시 상태에서 보여줄 화면 재료입니다.</p>
             <label>
-              저장된 장면 조합
+              저장된 무대 조합
               <select id="surfaceSceneSelect">
-                <option value="">장면 조합 사용 안 함</option>
+                <option value="">무대 조합 사용 안 함</option>
               </select>
             </label>
           </div>
@@ -117,21 +124,21 @@
             <div class="asset-lab-section-header">
               <div>
                 <h2>저장</h2>
-                <p class="asset-lab-help">캐릭터 상태를 저장하면 다음 단계에서 눈, 입, 장식 같은 파츠를 이 상태 위에 추가할 수 있습니다.</p>
+                <p class="asset-lab-help">상태 연결을 저장하면 다음 단계에서 눈, 입, 장식 같은 파츠를 이 표시 상태 위에 추가할 수 있습니다.</p>
               </div>
               <div class="asset-lab-actions">
-                <button type="button" id="saveSurfaceConfigButton">캐릭터 상태 저장</button>
-                <button class="asset-danger-button" type="button" id="deleteSurfaceConfigButton">선택 상태 삭제</button>
-                <a class="asset-primary-link" href="./dev-assets-layer.html">다음: 파츠 / 애니메이션 추가</a>
+                <button type="button" id="saveSurfaceConfigButton">상태 연결 저장</button>
+                <button class="asset-danger-button" type="button" id="deleteSurfaceConfigButton">선택 연결 삭제</button>
+                <a class="asset-primary-link" href="./dev-assets-layer.html">다음: 파츠 움직임 만들기</a>
               </div>
             </div>
-            <p class="asset-lab-status" id="setStatus" role="status">캐릭터 상태 만들기를 준비하고 있어요.</p>
+            <p class="asset-lab-status" id="setStatus" role="status">상태 연결을 준비하고 있어요.</p>
           </div>
         </section>
 
-        <section class="asset-lab-panel asset-lab-output-panel">
+        <section class="asset-lab-panel asset-lab-output-panel asset-workbench-panel">
           <div class="asset-lab-output-header">
-            <h2>미리보기</h2>
+            <h2>상태 연결 미리보기</h2>
           </div>
           <div class="asset-composite-preview" id="setPreview" aria-live="polite"></div>
           <details class="asset-debug-details">

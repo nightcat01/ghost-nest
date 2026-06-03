@@ -11,6 +11,19 @@ UI/UX를 변경한 작업은 실제 화면 검증을 완료 조건으로 삼는�
 
 # Quality Gates
 
+## User Path Completion Gate
+
+A task is not complete unless the latest requested user path has been verified or explicitly reported as unverified.
+
+For UI, settings, mapping, workflow, save/delete, and generated-data work, completion requires:
+
+- the concrete user path used for verification
+- whether the expected option or action was discoverable from that path
+- whether the final state persisted or applied correctly
+- any path that was not verified and why
+
+Static checks, build success, API success, or DOM presence do not replace user path verification when the request is about screen behavior or user flow.
+
 이 문서는 공용 완료 기준이다.
 
 작업 완료는 기능 구현, 화면 사용성, 검증 결과를 분리해서 판단한다.

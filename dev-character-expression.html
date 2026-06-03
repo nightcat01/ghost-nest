@@ -36,7 +36,7 @@
               </article>
               <article>
                 <strong>다음 사용처</strong>
-                <span>캐릭터 상태에서 실제 표시 기준으로 사용합니다.</span>
+                <span>상태 연결에서 실제 표시 기준으로 사용합니다.</span>
               </article>
               <article>
                 <strong>매핑 기준</strong>
@@ -58,7 +58,7 @@
 
           <div class="asset-lab-section">
             <h2>표정과 이미지 후보</h2>
-            <p class="asset-lab-help">여기서 고른 이미지는 다음 단계에서 캐릭터 상태의 기준 이미지가 됩니다.</p>
+            <p class="asset-lab-help">여기서 고른 이미지는 다음 단계에서 상태 연결의 기준 이미지가 됩니다.</p>
             <div class="asset-lab-field-grid">
               <label>
                 표정 이름
@@ -76,16 +76,23 @@
               </label>
               <label>
                 연결할 기본 이미지
-                <select id="expressionAssetSelect" multiple size="8">
+                <select id="expressionAssetSelect" class="asset-hidden-native-select" multiple size="8" aria-hidden="true" tabindex="-1">
                   <option value="">저장된 기본 이미지를 불러오는 중이에요.</option>
                 </select>
               </label>
+              <div class="asset-choice-field" aria-label="연결할 기본 이미지 후보">
+                <div class="asset-choice-field-header">
+                  <strong>이미지 후보 선택</strong>
+                  <span>카드를 클릭해서 여러 장을 선택하세요.</span>
+                </div>
+                <div class="asset-image-choice-grid" id="expressionAssetChoiceGrid"></div>
+              </div>
             </div>
           </div>
 
           <div class="asset-lab-section">
             <h2>이미지 등록</h2>
-            <p class="asset-lab-help">새 이미지를 바로 캐릭터 에셋 폴더에 저장합니다. 표정은 기본 이미지 후보만 다루고, 여러 이미지를 묶은 기준 화면은 다음 단계의 장면 조합에서 선택합니다.</p>
+            <p class="asset-lab-help">새 이미지를 바로 캐릭터 에셋 폴더에 저장합니다. 표정은 기본 이미지 후보만 다루고, 여러 이미지를 묶은 기준 화면은 다음 단계의 상태 연결에서 선택합니다.</p>
             <div class="asset-lab-field-grid">
               <label>
                 저장 위치
@@ -108,12 +115,12 @@
             <div class="asset-lab-section-header">
               <div>
                 <h2>저장</h2>
-                <p class="asset-lab-help">선택한 기본 이미지 목록을 캐릭터의 표정 후보로 저장합니다. 무대나 장면 조합은 표정 후보에 섞지 않습니다.</p>
+                <p class="asset-lab-help">선택한 기본 이미지 목록을 캐릭터의 표정 후보로 저장합니다. 무대 조합은 표정 후보에 섞지 않습니다.</p>
               </div>
               <div class="asset-lab-actions">
                 <button type="button" id="saveExpressionButton">표정 이미지 저장</button>
                 <button class="asset-danger-button" type="button" id="deleteExpressionButton">선택 표정 삭제</button>
-                <a class="asset-primary-link" href="./dev-character-set.html">다음: 캐릭터 상태 만들기</a>
+                <a class="asset-primary-link" href="./dev-character-set.html">다음: 상태 연결하기</a>
               </div>
             </div>
             <p class="asset-lab-status" id="expressionStatus" role="status">표정 이미지 등록을 준비하고 있어요.</p>

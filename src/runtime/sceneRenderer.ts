@@ -18,7 +18,8 @@ function resolveScene(scene: RuntimeSceneOptions | undefined, preferredSceneId?:
     return null;
   }
 
-  const defaultSceneId = preferredSceneId ?? scene.defaultScene;
+  const hasPreferredScene = typeof preferredSceneId === "string" && preferredSceneId.length > 0;
+  const defaultSceneId = hasPreferredScene ? preferredSceneId : scene.defaultScene;
 
   if (defaultSceneId && scene.scenes?.[defaultSceneId]) {
     return scene.scenes[defaultSceneId];
@@ -30,23 +31,15 @@ function resolveScene(scene: RuntimeSceneOptions | undefined, preferredSceneId?:
     return sceneSet[Math.floor(Math.random() * sceneSet.length)] ?? sceneSet[0] ?? null;
   }
 
+  if (hasPreferredScene) {
+    return null;
+  }
+
   if (scene.layers) {
     return {
       id: "legacy",
       layers: scene.layers,
     };
-  }
-
-  const firstScene = Object.values(scene.scenes ?? {})[0];
-
-  if (firstScene) {
-    return firstScene;
-  }
-
-  const firstSceneSet = Object.values(scene.sceneSets ?? {})[0];
-
-  if (firstSceneSet && firstSceneSet.length > 0) {
-    return firstSceneSet[Math.floor(Math.random() * firstSceneSet.length)] ?? firstSceneSet[0] ?? null;
   }
 
   return null;

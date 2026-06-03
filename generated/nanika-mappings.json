@@ -2,238 +2,536 @@
   "mappings": [
     {
       "id": "rine.runtime.ready",
-      "name": "Rine 시작 인사",
-      "target": { "scope": "runtime", "id": "ghost-nest.demo.nanika", "label": "런타임: GhostNest Demo Nanika" },
       "event": "runtime:ready",
       "actions": [
-        { "type": "scene", "id": "rine-demo-scene" },
-        { "type": "speak", "category": "onMount" },
-        { "type": "log", "label": "runtime:ready" }
-      ]
+        {
+          "type": "speak",
+          "category": "onMount"
+        },
+        {
+          "type": "log",
+          "label": "runtime:ready"
+        }
+      ],
+      "name": "Rine 시작 인사",
+      "target": {
+        "scope": "runtime",
+        "id": "ghost-nest.demo.nanika",
+        "label": "런타임: GhostNest Demo Nanika"
+      }
     },
     {
       "id": "rine.character.click",
-      "name": "Rine 캐릭터 클릭 대화",
-      "target": { "scope": "character", "id": "rine", "label": "캐릭터: 리네" },
       "event": "character:click",
       "actions": [
-        { "type": "touch_interaction" },
-        { "type": "speak", "category": "onClick" },
-        { "type": "log", "label": "character:click" }
-      ]
+        {
+          "type": "touch_interaction"
+        },
+        {
+          "type": "speak",
+          "category": "onClick"
+        },
+        {
+          "type": "log",
+          "label": "character:click"
+        }
+      ],
+      "name": "Rine 캐릭터 클릭 대화",
+      "target": {
+        "scope": "character",
+        "id": "rine",
+        "label": "캐릭터: 리네"
+      }
     },
     {
       "id": "rine.character.double-click",
-      "name": "Rine 더블 클릭 반응",
-      "target": { "scope": "character", "id": "rine", "label": "캐릭터: 리네" },
       "event": "character:double_click",
       "actions": [
-        { "type": "touch_interaction" },
-        { "type": "change_expression", "expression": "thinking", "clearTouchedPart": true },
-        { "type": "speak_text", "text": "앗, 거기는 왜 자꾸 누르시나요?" },
-        { "type": "log", "label": "character:double_click" }
-      ]
+        {
+          "type": "touch_interaction"
+        },
+        {
+          "type": "change_expression",
+          "expression": "thinking",
+          "clearTouchedPart": true
+        },
+        {
+          "type": "speak_text",
+          "text": "앗, 거기는 왜 자꾸 누르시나요?"
+        },
+        {
+          "type": "log",
+          "label": "character:double_click"
+        }
+      ],
+      "name": "Rine 더블 클릭 반응",
+      "target": {
+        "scope": "character",
+        "id": "rine",
+        "label": "캐릭터: 리네"
+      }
     },
     {
       "id": "rine.character.touch.head",
-      "name": "Rine 머리 터치",
-      "target": { "scope": "character", "id": "rine", "label": "캐릭터: 리네" },
       "event": "character:touch",
-      "when": { "part": "head" },
       "actions": [
-        { "type": "touch_interaction" },
-        { "type": "change_expression", "expression": "happy" },
-        { "type": "set_touched_part", "part": "head" },
-        { "type": "speak", "category": "onTouchHead" },
-        { "type": "log", "label": "character:touch.head" }
-      ]
+        {
+          "type": "touch_interaction"
+        },
+        {
+          "type": "change_expression",
+          "expression": "happy"
+        },
+        {
+          "type": "set_touched_part",
+          "part": "head"
+        },
+        {
+          "type": "speak",
+          "category": "onTouchHead"
+        },
+        {
+          "type": "log",
+          "label": "character:touch.head"
+        }
+      ],
+      "name": "Rine 머리 터치",
+      "target": {
+        "scope": "character",
+        "id": "rine",
+        "label": "캐릭터: 리네"
+      },
+      "when": {
+        "part": "head"
+      }
     },
     {
       "id": "rine.character.touch.face",
-      "name": "Rine 얼굴 터치",
-      "target": { "scope": "character", "id": "rine", "label": "캐릭터: 리네" },
       "event": "character:touch",
-      "when": { "part": "face" },
       "actions": [
-        { "type": "touch_interaction" },
-        { "type": "change_expression", "expression": "surprised" },
-        { "type": "set_touched_part", "part": "face" },
-        { "type": "speak", "category": "onTouchFace" },
-        { "type": "log", "label": "character:touch.face" }
-      ]
+        {
+          "type": "touch_interaction"
+        },
+        {
+          "type": "change_expression",
+          "expression": "surprised"
+        },
+        {
+          "type": "set_touched_part",
+          "part": "face"
+        },
+        {
+          "type": "speak",
+          "category": "onTouchFace"
+        },
+        {
+          "type": "log",
+          "label": "character:touch.face"
+        }
+      ],
+      "name": "Rine 얼굴 터치",
+      "target": {
+        "scope": "character",
+        "id": "rine",
+        "label": "캐릭터: 리네"
+      },
+      "when": {
+        "part": "face"
+      }
     },
     {
       "id": "rine.character.touch.body",
-      "name": "Rine 몸 터치",
-      "target": { "scope": "character", "id": "rine", "label": "캐릭터: 리네" },
       "event": "character:touch",
-      "when": { "part": "body" },
       "actions": [
-        { "type": "touch_interaction" },
-        { "type": "change_expression", "expression": "thinking" },
-        { "type": "set_touched_part", "part": "body" },
-        { "type": "speak", "category": "onTouchBody" },
-        { "type": "log", "label": "character:touch.body" }
-      ]
+        {
+          "type": "touch_interaction"
+        },
+        {
+          "type": "change_expression",
+          "expression": "thinking"
+        },
+        {
+          "type": "set_touched_part",
+          "part": "body"
+        },
+        {
+          "type": "speak",
+          "category": "onTouchBody"
+        },
+        {
+          "type": "log",
+          "label": "character:touch.body"
+        }
+      ],
+      "name": "Rine 몸 터치",
+      "target": {
+        "scope": "character",
+        "id": "rine",
+        "label": "캐릭터: 리네"
+      },
+      "when": {
+        "part": "body"
+      }
     },
     {
       "id": "rine.character.idle",
-      "name": "Rine 대기 반응",
-      "target": { "scope": "character", "id": "rine", "label": "캐릭터: 리네" },
       "event": "character:idle",
       "actions": [
-        { "type": "change_expression", "expression": "neutral", "clearTouchedPart": true },
-        { "type": "speak", "category": "onIdle" },
-        { "type": "log", "label": "character:idle" }
-      ]
+        {
+          "type": "change_expression",
+          "expression": "neutral",
+          "clearTouchedPart": true
+        },
+        {
+          "type": "speak",
+          "category": "onIdle"
+        },
+        {
+          "type": "log",
+          "label": "character:idle"
+        }
+      ],
+      "name": "Rine 대기 반응",
+      "target": {
+        "scope": "character",
+        "id": "rine",
+        "label": "캐릭터: 리네"
+      }
     },
     {
       "id": "rine.character.random-prompt",
-      "name": "Rine 랜덤 발화",
-      "target": { "scope": "speech", "id": "speech", "label": "대사 / 말풍선" },
       "event": "character:randomPrompt",
       "actions": [
-        { "type": "touch_interaction" },
-        { "type": "mark_prompted" },
-        { "type": "change_expression", "expression": "happy", "clearTouchedPart": true },
-        { "type": "speak", "category": "onRandomPrompt" },
-        { "type": "log", "label": "character:randomPrompt" }
-      ]
+        {
+          "type": "touch_interaction"
+        },
+        {
+          "type": "mark_prompted"
+        },
+        {
+          "type": "change_expression",
+          "expression": "happy",
+          "clearTouchedPart": true
+        },
+        {
+          "type": "speak",
+          "category": "onRandomPrompt"
+        },
+        {
+          "type": "log",
+          "label": "character:randomPrompt"
+        }
+      ],
+      "name": "Rine 랜덤 발화",
+      "target": {
+        "scope": "speech",
+        "id": "speech",
+        "label": "대사 / 말풍선"
+      }
     },
     {
       "id": "rine.area.hover.runtime-title",
-      "name": "Rine 제목 영역 hover",
-      "target": { "scope": "ui", "id": "ui", "label": "UI / 메뉴" },
       "event": "area:hover",
-      "when": { "area": "runtimeTitle" },
-      "conditions": [{ "type": "cooldown", "key": "area:hover:runtimeTitle", "duration": 5000 }],
       "actions": [
-        { "type": "touch_interaction" },
-        { "type": "change_expression", "expression": "thinking", "clearTouchedPart": true },
-        { "type": "speak", "category": "onHoverRuntimeTitle" },
-        { "type": "log", "label": "area:hover.runtimeTitle" }
+        {
+          "type": "touch_interaction"
+        },
+        {
+          "type": "change_expression",
+          "expression": "thinking",
+          "clearTouchedPart": true
+        },
+        {
+          "type": "speak",
+          "category": "onHoverRuntimeTitle"
+        },
+        {
+          "type": "log",
+          "label": "area:hover.runtimeTitle"
+        }
+      ],
+      "name": "Rine 제목 영역 hover",
+      "target": {
+        "scope": "ui",
+        "id": "ui",
+        "label": "UI / 메뉴"
+      },
+      "when": {
+        "area": "runtimeTitle"
+      },
+      "conditions": [
+        {
+          "type": "cooldown",
+          "key": "area:hover:runtimeTitle",
+          "duration": 5000
+        }
       ]
     },
     {
       "id": "rine.area.hover.event-log",
-      "name": "Rine 이벤트 로그 hover",
-      "target": { "scope": "ui", "id": "ui", "label": "UI / 메뉴" },
       "event": "area:hover",
-      "when": { "area": "eventLog" },
-      "conditions": [{ "type": "cooldown", "key": "area:hover:eventLog", "duration": 5000 }],
       "actions": [
-        { "type": "touch_interaction" },
-        { "type": "change_expression", "expression": "thinking", "clearTouchedPart": true },
-        { "type": "speak", "category": "onHoverEventLog" },
-        { "type": "log", "label": "area:hover.eventLog" }
+        {
+          "type": "touch_interaction"
+        },
+        {
+          "type": "change_expression",
+          "expression": "thinking",
+          "clearTouchedPart": true
+        },
+        {
+          "type": "speak",
+          "category": "onHoverEventLog"
+        },
+        {
+          "type": "log",
+          "label": "area:hover.eventLog"
+        }
+      ],
+      "name": "Rine 이벤트 로그 hover",
+      "target": {
+        "scope": "ui",
+        "id": "ui",
+        "label": "UI / 메뉴"
+      },
+      "when": {
+        "area": "eventLog"
+      },
+      "conditions": [
+        {
+          "type": "cooldown",
+          "key": "area:hover:eventLog",
+          "duration": 5000
+        }
       ]
     },
     {
       "id": "rine.area.hover.command-menu",
-      "name": "Rine 명령 메뉴 hover",
-      "target": { "scope": "ui", "id": "ui", "label": "UI / 메뉴" },
       "event": "area:hover",
-      "when": { "area": "commandMenu" },
-      "conditions": [{ "type": "cooldown", "key": "area:hover:commandMenu", "duration": 5000 }],
       "actions": [
-        { "type": "touch_interaction" },
-        { "type": "change_expression", "expression": "thinking", "clearTouchedPart": true },
-        { "type": "speak", "category": "onHoverCommandMenu" },
-        { "type": "log", "label": "area:hover.commandMenu" }
+        {
+          "type": "touch_interaction"
+        },
+        {
+          "type": "change_expression",
+          "expression": "thinking",
+          "clearTouchedPart": true
+        },
+        {
+          "type": "speak",
+          "category": "onHoverCommandMenu"
+        },
+        {
+          "type": "log",
+          "label": "area:hover.commandMenu"
+        }
+      ],
+      "name": "Rine 명령 메뉴 hover",
+      "target": {
+        "scope": "ui",
+        "id": "ui",
+        "label": "UI / 메뉴"
+      },
+      "when": {
+        "area": "commandMenu"
+      },
+      "conditions": [
+        {
+          "type": "cooldown",
+          "key": "area:hover:commandMenu",
+          "duration": 5000
+        }
       ]
     },
     {
       "id": "rine.command.hover.fortune",
-      "name": "Rine 운세 버튼 hover",
-      "target": { "scope": "plugin", "id": "fortune", "label": "기능: 운세" },
       "event": "command:hover",
-      "when": { "command": "fortune" },
-      "conditions": [{ "type": "feature_enabled", "feature": "commandHoverDescription" }],
       "actions": [
-        { "type": "touch_interaction" },
-        { "type": "change_expression", "expression": "thinking", "clearTouchedPart": true },
-        { "type": "speak", "category": "onHoverFortuneCommand" },
-        { "type": "log", "label": "command:hover.fortune" }
+        {
+          "type": "touch_interaction"
+        },
+        {
+          "type": "change_expression",
+          "expression": "thinking",
+          "clearTouchedPart": true
+        },
+        {
+          "type": "speak",
+          "category": "onHoverFortuneCommand"
+        },
+        {
+          "type": "log",
+          "label": "command:hover.fortune"
+        }
+      ],
+      "name": "Rine 운세 버튼 hover",
+      "target": {
+        "scope": "plugin",
+        "id": "fortune",
+        "label": "기능: 운세"
+      },
+      "when": {
+        "command": "fortune"
+      },
+      "conditions": [
+        {
+          "type": "feature_enabled",
+          "feature": "commandHoverDescription"
+        }
       ]
     },
     {
       "id": "rine.command.hover.line",
-      "name": "Rine 한마디 버튼 hover",
-      "target": { "scope": "speech", "id": "speech", "label": "대사 / 말풍선" },
       "event": "command:hover",
-      "when": { "command": "line" },
-      "conditions": [{ "type": "feature_enabled", "feature": "commandHoverDescription" }],
       "actions": [
-        { "type": "touch_interaction" },
-        { "type": "change_expression", "expression": "thinking", "clearTouchedPart": true },
-        { "type": "speak", "category": "onHoverLineCommand" },
-        { "type": "log", "label": "command:hover.line" }
+        {
+          "type": "touch_interaction"
+        },
+        {
+          "type": "change_expression",
+          "expression": "thinking",
+          "clearTouchedPart": true
+        },
+        {
+          "type": "speak",
+          "category": "onHoverLineCommand"
+        },
+        {
+          "type": "log",
+          "label": "command:hover.line"
+        }
+      ],
+      "name": "Rine 한마디 버튼 hover",
+      "target": {
+        "scope": "speech",
+        "id": "speech",
+        "label": "대사 / 말풍선"
+      },
+      "when": {
+        "command": "line"
+      },
+      "conditions": [
+        {
+          "type": "feature_enabled",
+          "feature": "commandHoverDescription"
+        }
       ]
     },
     {
       "id": "rine.command.hover.hide",
-      "name": "Rine 숨김 버튼 hover",
-      "target": { "scope": "ui", "id": "ui", "label": "UI / 메뉴" },
       "event": "command:hover",
-      "when": { "command": "hide" },
-      "conditions": [{ "type": "feature_enabled", "feature": "commandHoverDescription" }],
       "actions": [
-        { "type": "touch_interaction" },
-        { "type": "change_expression", "expression": "thinking", "clearTouchedPart": true },
-        { "type": "speak", "category": "onHoverHideCommand" },
-        { "type": "log", "label": "command:hover.hide" }
+        {
+          "type": "touch_interaction"
+        },
+        {
+          "type": "change_expression",
+          "expression": "thinking",
+          "clearTouchedPart": true
+        },
+        {
+          "type": "speak",
+          "category": "onHoverHideCommand"
+        },
+        {
+          "type": "log",
+          "label": "command:hover.hide"
+        }
+      ],
+      "name": "Rine 숨김 버튼 hover",
+      "target": {
+        "scope": "ui",
+        "id": "ui",
+        "label": "UI / 메뉴"
+      },
+      "when": {
+        "command": "hide"
+      },
+      "conditions": [
+        {
+          "type": "feature_enabled",
+          "feature": "commandHoverDescription"
+        }
       ]
     },
     {
       "id": "rine.command.line",
-      "name": "Rine 한마디 실행",
-      "target": { "scope": "speech", "id": "speech", "label": "대사 / 말풍선" },
       "event": "command:line",
       "actions": [
-        { "type": "touch_interaction" },
-        { "type": "speak", "category": "onLine" },
-        { "type": "log", "label": "command:line" }
-      ]
+        {
+          "type": "touch_interaction"
+        },
+        {
+          "type": "speak",
+          "category": "onLine"
+        },
+        {
+          "type": "log",
+          "label": "command:line"
+        }
+      ],
+      "name": "Rine 한마디 실행",
+      "target": {
+        "scope": "speech",
+        "id": "speech",
+        "label": "대사 / 말풍선"
+      }
     },
     {
       "id": "rine.command.fortune",
-      "name": "Rine 운세 플러그인 실행",
-      "target": { "scope": "plugin", "id": "fortune", "label": "기능: 운세" },
       "event": "command:fortune",
       "actions": [
-        { "type": "touch_interaction" },
-        { "type": "call_plugin", "pluginId": "fortune" },
-        { "type": "log", "label": "plugin:fortune.execute" }
-      ]
+        {
+          "type": "touch_interaction"
+        },
+        {
+          "type": "call_plugin",
+          "pluginId": "fortune"
+        },
+        {
+          "type": "log",
+          "label": "plugin:fortune.execute"
+        }
+      ],
+      "name": "Rine 운세 플러그인 실행",
+      "target": {
+        "scope": "plugin",
+        "id": "fortune",
+        "label": "기능: 운세"
+      }
     },
     {
       "id": "rine.character.right-click.menu",
-      "name": "Rine 관리 메뉴 열기",
-      "target": { "scope": "ui", "id": "ui", "label": "UI / 메뉴" },
       "event": "character:right_click",
       "actions": [
-        { "type": "touch_interaction" },
-        { "type": "change_expression", "expression": "thinking", "clearTouchedPart": true },
-        { "type": "speak_text", "text": "관리 메뉴를 열었어요. 필요한 동작을 골라주세요." },
-        { "type": "open_management_menu", "title": "관리 메뉴", "items": [] },
-        { "type": "log", "label": "character:right_click.management_menu" }
-      ]
-    },
-    {
-      "id": "rine.scene.demo",
-      "name": "Rine scene 적용 예시",
-      "target": { "scope": "character", "id": "rine", "label": "캐릭터: 리네" },
-      "event": "runtime:ready",
-      "actions": [
         {
-          "type": "run_sequence",
-          "actions": [
-            { "type": "scene", "id": "rine-demo-scene" },
-            { "type": "change_speech_layout", "mode": "dialogue-box", "placement": "overlay-bottom" },
-            { "type": "speak_text", "text": "Rine demo scene을 적용했어요. 이 연결은 scene과 대사창을 함께 켜는 예시입니다." }
-          ]
+          "type": "touch_interaction"
+        },
+        {
+          "type": "change_expression",
+          "expression": "thinking",
+          "clearTouchedPart": true
+        },
+        {
+          "type": "speak_text",
+          "text": "관리 메뉴를 열었어요. 필요한 동작을 골라주세요."
+        },
+        {
+          "type": "open_management_menu",
+          "title": "관리 메뉴",
+          "items": []
+        },
+        {
+          "type": "log",
+          "label": "character:right_click.management_menu"
         }
-      ]
+      ],
+      "name": "Rine 관리 메뉴 열기",
+      "target": {
+        "scope": "ui",
+        "id": "ui",
+        "label": "UI / 메뉴"
+      }
     }
   ]
 }

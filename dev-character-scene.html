@@ -26,8 +26,8 @@
             <ol class="asset-step-guide">
               <li>캐릭터를 선택합니다.</li>
               <li>무대 ID와 기본 무대 여부를 정합니다.</li>
-              <li>배경, 소품, FX 이미지와 depth를 정합니다.</li>
-              <li>미리보기에서 겹침을 확인하고 저장합니다.</li>
+              <li>배경, 소품, FX 이미지와 겹침 순서를 정합니다.</li>
+              <li>오른쪽 작업판에서 위치와 겹침을 확인하고 저장합니다.</li>
             </ol>
             <div class="asset-step-result-map" aria-label="무대 결과 지도">
               <article>
@@ -58,8 +58,8 @@
 
           <div class="asset-lab-section">
             <h2>무대 기본 정보</h2>
-            <p class="asset-lab-help">무대 조합은 이미지 하나가 아니라, 배치와 깊이를 포함한 런타임 배경/전경 세트입니다. 저장 키는 scene입니다.</p>
-            <div class="asset-lab-field-grid">
+            <p class="asset-lab-help">무대 조합은 이미지 하나가 아니라, 배치와 겹침 순서를 포함한 런타임 배경/전경 세트입니다. 내부 저장 키는 scene입니다.</p>
+            <div class="asset-lab-field-grid asset-compact-field-grid">
               <label>
                 무대 조합
                 <select id="sceneSelect">
@@ -81,7 +81,7 @@
           <div class="asset-lab-section">
             <h2>무대 재료 이미지 등록</h2>
             <p class="asset-lab-help">배경으로 쓸 이미지는 무대 재료에, 여러 캐릭터에서 재사용할 소품이나 FX는 파츠 이미지에 저장하세요. 런타임용은 WebP를 권장하고, 투명 효과가 필요하면 WebP 또는 PNG를 사용하세요.</p>
-            <div class="asset-lab-field-grid">
+            <div class="asset-lab-field-grid asset-compact-field-grid">
               <label>
                 저장 위치
                 <select id="sceneUploadAssetKindSelect">
@@ -102,7 +102,7 @@
           <div class="asset-lab-section">
             <h2>배경</h2>
             <p class="asset-lab-help">캐릭터 뒤에 깔리는 가장 아래 요소입니다. 이미지 없이 배경색만 저장할 수도 있습니다.</p>
-            <div class="asset-lab-field-grid">
+            <div class="asset-lab-field-grid asset-compact-field-grid">
               <label>
                 배경 이미지
                 <select id="backgroundAssetSelect">
@@ -114,7 +114,7 @@
                 <input id="backgroundColorInput" type="text" placeholder="#f7f1e8" autocomplete="off" />
               </label>
               <label>
-                Depth
+                겹침 순서
                 <input id="backgroundDepthInput" type="number" value="0" />
               </label>
             </div>
@@ -123,34 +123,34 @@
           <div class="asset-lab-section">
             <h2>캐릭터 위치</h2>
             <p class="asset-lab-help">캐릭터 이미지는 여기서 고르지 않습니다. 무대 안에서 몇 번째 깊이에 놓을지만 정합니다.</p>
-            <label>
-              Character Depth
+            <label class="asset-compact-single-field">
+              캐릭터 겹침 순서
               <input id="characterDepthInput" type="number" value="20" />
             </label>
           </div>
 
           <div class="asset-lab-section">
             <h2>책상 / 소품</h2>
-            <p class="asset-lab-help">캐릭터와 겹칠 수 있는 소품 요소입니다. 캐릭터 depth보다 높으면 캐릭터 앞에 보입니다.</p>
-            <div class="asset-lab-field-grid">
-              <label>
+            <p class="asset-lab-help">캐릭터와 겹칠 수 있는 소품 요소입니다. 캐릭터 겹침 순서보다 높으면 캐릭터 앞에 보입니다.</p>
+            <div class="asset-lab-field-grid asset-compact-field-grid asset-scene-layer-field-grid">
+              <label class="asset-wide-field">
                 소품 목록
                 <select id="propLayerSelect" size="4"></select>
               </label>
-              <label>
+              <label class="asset-wide-field">
                 소품 이미지
                 <select id="propAssetSelect">
                   <option value="">저장된 에셋을 불러오는 중이에요.</option>
                 </select>
               </label>
               <label>
-                Depth
+                겹침 순서
                 <input id="propDepthInput" type="number" value="30" />
               </label>
-              <label>X % <input id="propXInput" type="number" value="20" /></label>
-              <label>Y % <input id="propYInput" type="number" value="74" /></label>
-              <label>Width % <input id="propWidthInput" type="number" value="80" /></label>
-              <label>Height % <input id="propHeightInput" type="number" value="25" /></label>
+              <label>X 위치 % <input id="propXInput" type="number" value="20" /></label>
+              <label>Y 위치 % <input id="propYInput" type="number" value="74" /></label>
+              <label>너비 % <input id="propWidthInput" type="number" value="80" /></label>
+              <label>높이 % <input id="propHeightInput" type="number" value="25" /></label>
             </div>
             <div class="asset-lab-actions">
               <button type="button" id="addPropLayerButton">소품 추가</button>
@@ -161,25 +161,25 @@
           <div class="asset-lab-section">
             <h2>FX</h2>
             <p class="asset-lab-help">빛, 날씨, 전경 장식처럼 런타임 무대 위에 얹는 환경 효과입니다. 캐릭터 감정 FX는 파츠 편집에서 캐릭터 파츠로 다루는 것을 권장합니다.</p>
-            <div class="asset-lab-field-grid">
-              <label>
+            <div class="asset-lab-field-grid asset-compact-field-grid asset-scene-layer-field-grid">
+              <label class="asset-wide-field">
                 FX 목록
                 <select id="effectLayerSelect" size="4"></select>
               </label>
-              <label>
+              <label class="asset-wide-field">
                 FX 이미지
                 <select id="effectAssetSelect">
                   <option value="">저장된 에셋을 불러오는 중이에요.</option>
                 </select>
               </label>
               <label>
-                Depth
+                겹침 순서
                 <input id="effectDepthInput" type="number" value="40" />
               </label>
-              <label>X % <input id="effectXInput" type="number" value="0" /></label>
-              <label>Y % <input id="effectYInput" type="number" value="0" /></label>
-              <label>Width % <input id="effectWidthInput" type="number" value="100" /></label>
-              <label>Height % <input id="effectHeightInput" type="number" value="100" /></label>
+              <label>X 위치 % <input id="effectXInput" type="number" value="0" /></label>
+              <label>Y 위치 % <input id="effectYInput" type="number" value="0" /></label>
+              <label>너비 % <input id="effectWidthInput" type="number" value="100" /></label>
+              <label>높이 % <input id="effectHeightInput" type="number" value="100" /></label>
             </div>
             <div class="asset-lab-actions">
               <button type="button" id="addEffectLayerButton">FX 추가</button>
@@ -203,15 +203,20 @@
           </div>
         </section>
 
-        <section class="asset-lab-panel asset-lab-output-panel">
+        <section class="asset-lab-panel asset-lab-output-panel asset-workbench-panel">
           <div class="asset-lab-output-header">
-            <h2>미리보기</h2>
+            <h2>무대 작업판</h2>
           </div>
-          <p class="asset-lab-help">배경, 캐릭터 자리, 소품, 환경 FX가 어떤 깊이로 겹치는지 확인합니다. 저장과 삭제는 왼쪽 설정 흐름에서 처리합니다.</p>
+          <p class="asset-lab-help">배경, 캐릭터 자리, 소품, 환경 FX가 어떤 순서로 겹치는지 확인합니다. 소품과 FX는 작업판에서 드래그해 위치와 크기를 조정할 수 있습니다.</p>
+          <div class="asset-workbench-guide" aria-label="무대 작업판 사용 흐름">
+            <span>배경</span>
+            <span>캐릭터 자리</span>
+            <span>소품 / FX</span>
+          </div>
           <div class="asset-scene-preview" id="scenePreview" aria-live="polite"></div>
           <div class="asset-scene-summary">
             <h2>현재 무대 작업</h2>
-            <p class="asset-lab-help">왼쪽에서 요소를 조정하면 이 미리보기와 저장 데이터가 함께 바뀝니다.</p>
+            <p class="asset-lab-help">왼쪽에서 요소를 조정하면 작업판과 저장 데이터가 함께 바뀝니다.</p>
           </div>
           <details class="asset-debug-details">
             <summary>저장 데이터 보기</summary>

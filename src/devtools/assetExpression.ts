@@ -33,6 +33,7 @@ const expressionSelect = requireElement(document.querySelector<HTMLSelectElement
 const customExpressionField = requireElement(document.querySelector<HTMLElement>("#customExpressionField"), "#customExpressionField");
 const customExpressionInput = requireElement(document.querySelector<HTMLInputElement>("#customExpressionInput"), "#customExpressionInput");
 const expressionAssetSelect = requireElement(document.querySelector<HTMLSelectElement>("#expressionAssetSelect"), "#expressionAssetSelect");
+const expressionAssetChoiceGrid = requireElement(document.querySelector<HTMLElement>("#expressionAssetChoiceGrid"), "#expressionAssetChoiceGrid");
 const uploadAssetKindSelect = requireElement(document.querySelector<HTMLSelectElement>("#uploadAssetKindSelect"), "#uploadAssetKindSelect");
 const expressionImageInput = requireElement(document.querySelector<HTMLInputElement>("#expressionImageInput"), "#expressionImageInput");
 const uploadExpressionImagesButton = requireElement(document.querySelector<HTMLButtonElement>("#uploadExpressionImagesButton"), "#uploadExpressionImagesButton");
@@ -45,6 +46,15 @@ const deleteExpressionButton = requireElement(document.querySelector<HTMLButtonE
 let existingExpressions: Record<string, CharacterExpressionAsset> = {};
 let savedAssetFiles: AssetFile[] = [];
 const newExpressionSelectValue = "__new_expression__";
+
+/**
+ * Returns the selected base image paths from the hidden native select.
+ */
+function getSelectedExpressionAssetPaths() {
+  return Array.from(expressionAssetSelect.selectedOptions)
+    .map((option) => option.value)
+    .filter(Boolean);
+}
 
 /**
  * Returns the selected asset folder for image uploads.
@@ -62,9 +72,7 @@ function getUploadAssetKind() {
  */
 function createExpressionSnippet() {
   const expression = getSelectedExpression();
-  const assets = Array.from(expressionAssetSelect.selectedOptions)
-    .map((option) => option.value)
-    .filter(Boolean);
+  const assets = getSelectedExpressionAssetPaths();
 
   return {
     expression,
@@ -91,6 +99,62 @@ function renderCustomExpressionField() {
   customExpressionField.hidden = !isNewExpression;
   customExpressionField.style.display = isNewExpression ? "grid" : "none";
   deleteExpressionButton.disabled = isNewExpression || !getSelectedExpression();
+}
+
+/**
+ * Updates one hidden select option and refreshes the visible card picker.
+ */
+function setExpressionAssetSelected(assetPath: string, selected: boolean) {
+  const option = Array.from(expressionAssetSelect.options).find((item) => item.value === assetPath);
+
+  if (!option) {
+    return;
+  }
+
+  option.selected = selected;
+  renderExpressionAssetChoices();
+  renderOutputs();
+}
+
+/**
+ * Renders saved base images as click-friendly candidate cards.
+ */
+function renderExpressionAssetChoices() {
+  const options = Array.from(expressionAssetSelect.options).filter((option) => option.value);
+
+  expressionAssetChoiceGrid.replaceChildren();
+
+  if (options.length === 0) {
+    const empty = document.createElement("p");
+
+    empty.className = "asset-preview-placeholder";
+    empty.textContent = "저장된 기본 이미지가 없어요. 먼저 이미지를 등록하세요.";
+    expressionAssetChoiceGrid.append(empty);
+    return;
+  }
+
+  options.forEach((option, index) => {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    const image = document.createElement("img");
+    const title = document.createElement("strong");
+    const pathText = document.createElement("small");
+
+    label.className = "asset-image-choice-card";
+    label.dataset.selected = String(option.selected);
+    input.type = "checkbox";
+    input.checked = option.selected;
+    input.value = option.value;
+    image.src = option.value;
+    image.alt = option.textContent?.trim() || `표정 후보 ${index + 1}`;
+    title.textContent = `후보 ${index + 1}`;
+    pathText.textContent = option.textContent?.trim() || option.value.split("/").pop() || option.value;
+    input.addEventListener("change", () => {
+      setExpressionAssetSelected(option.value, input.checked);
+    });
+    label.append(input, image, title, pathText);
+    expressionAssetChoiceGrid.append(label);
+  });
 }
 
 /**
@@ -160,6 +224,7 @@ function applyExpressionSelection() {
   Array.from(expressionAssetSelect.options).forEach((option) => {
     option.selected = assetPaths.includes(option.value);
   });
+  renderExpressionAssetChoices();
   renderOutputs();
 }
 
@@ -275,6 +340,7 @@ async function uploadExpressionImages() {
       Array.from(expressionAssetSelect.options).forEach((option) => {
         option.selected = savedPaths.includes(option.value) || option.selected;
       });
+      renderExpressionAssetChoices();
       renderOutputs();
     }
 
@@ -392,7 +458,10 @@ function init() {
   expressionSelect.addEventListener("change", applyExpressionSelection);
   customExpressionInput.addEventListener("input", renderOutputs);
   customExpressionInput.addEventListener("change", renderOutputs);
-  expressionAssetSelect.addEventListener("change", renderOutputs);
+  expressionAssetSelect.addEventListener("change", () => {
+    renderExpressionAssetChoices();
+    renderOutputs();
+  });
   uploadExpressionImagesButton.addEventListener("click", () => {
     void uploadExpressionImages();
   });

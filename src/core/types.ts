@@ -606,6 +606,13 @@ export type StorageAdapter = {
   remove: (key: string) => void | Promise<void>;
 };
 
+export type RuntimePreferenceStorageMode = "stored" | "preset" | "disabled";
+
+export type RuntimePreferenceStorageOptions = {
+  runtimeUi?: RuntimePreferenceStorageMode;
+  managementMenu?: RuntimePreferenceStorageMode;
+};
+
 export type DialogueEngine = {
   line: (category: DialogueCategory) => DialogueMessage | Promise<DialogueMessage>;
   custom: (text: string) => DialogueMessage | Promise<DialogueMessage>;
@@ -633,6 +640,7 @@ export type GhostRuntimeOptions = {
   speechLayout?: SpeechLayoutOptions;
   speechBalloonSize?: Partial<SpeechBalloonSizeOptions>;
   spriteSize?: Partial<CharacterSpriteSizeOptions>;
+  preferenceStorage?: RuntimePreferenceStorageOptions;
   includeDefaultRules?: boolean;
   rules?: RuntimeRule[];
   maxLogItems?: number;

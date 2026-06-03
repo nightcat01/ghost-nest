@@ -612,25 +612,25 @@ function getTargetSurface() {
  */
 function validateLayerSaveTarget() {
   if (!hasSurfaceSelection()) {
-    return "파츠를 저장할 캐릭터 상태를 먼저 선택하세요.";
+    return "파츠를 저장할 표시 상태를 먼저 선택하세요.";
   }
 
   if (surfaceSelect.value === newSurfaceSelectValue) {
-    return "새 캐릭터 상태에는 바로 파츠를 저장하지 말고, 캐릭터 상태 등록에서 표정과 기본 이미지를 먼저 저장하세요.";
+    return "새 표시 상태에는 바로 파츠를 저장하지 말고, 상태 연결에서 표정과 기준 이미지를 먼저 저장하세요.";
   }
 
   const surface = getTargetSurface();
 
   if (!surface) {
-    return "선택한 캐릭터 상태 정보를 찾지 못했어요. 캐릭터를 다시 불러온 뒤 시도하세요.";
+    return "선택한 표시 상태 정보를 찾지 못했어요. 캐릭터를 다시 불러온 뒤 시도하세요.";
   }
 
   if (!surface.expression) {
-    return "이 캐릭터 상태에는 표정이 연결되어 있지 않아요. 캐릭터 상태 등록에서 표정을 먼저 저장하세요.";
+    return "이 표시 상태에는 표정이 연결되어 있지 않아요. 상태 연결에서 표정을 먼저 저장하세요.";
   }
 
   if (!surface.image) {
-    return "이 캐릭터 상태에는 기본 이미지가 없어요. 캐릭터 상태 등록에서 기준 이미지를 먼저 저장하세요.";
+    return "이 표시 상태에는 기본 이미지가 없어요. 상태 연결에서 기준 이미지를 먼저 저장하세요.";
   }
 
   return null;
@@ -1191,8 +1191,8 @@ async function loadCharacterAssets() {
     ));
 
     surfaceSelect.replaceChildren(
-      new Option("캐릭터 상태 선택", ""),
-      new Option("새 캐릭터 상태 만들기", newSurfaceSelectValue),
+      new Option("표시 상태 선택", ""),
+      new Option("새 상태 연결 만들기", newSurfaceSelectValue),
     );
     existingSurfaces.forEach((surface) => {
       const labelParts = [
@@ -1214,13 +1214,13 @@ async function loadCharacterAssets() {
     restoreSavedAssetSelection();
     restoreLayerSelection();
     renderOutputs();
-    status.textContent = `${characterId} 캐릭터를 불러왔어요. 캐릭터 상태를 선택하세요.`;
+    status.textContent = `${characterId} 캐릭터를 불러왔어요. 파츠를 붙일 표시 상태를 선택하세요.`;
   } catch (error) {
     surfaceSelect.replaceChildren(
-      new Option("캐릭터 상태를 불러오지 못했어요.", ""),
-      new Option("새 캐릭터 상태 만들기", newSurfaceSelectValue),
+      new Option("표시 상태를 불러오지 못했어요.", ""),
+      new Option("새 상태 연결 만들기", newSurfaceSelectValue),
     );
-    existingLayerSelect.replaceChildren(new Option("캐릭터 상태를 먼저 선택하세요.", ""));
+    existingLayerSelect.replaceChildren(new Option("표시 상태를 먼저 선택하세요.", ""));
     renderOutputs();
     status.textContent = error instanceof Error ? error.message : "캐릭터 레이어 정보를 불러오지 못했어요.";
   }
@@ -1315,7 +1315,7 @@ function handleSurfaceSelectionChange() {
 
   if (!hasSurfaceSelection()) {
     baseImage = null;
-    existingLayerSelect.replaceChildren(new Option("캐릭터 상태를 먼저 선택하세요.", ""));
+    existingLayerSelect.replaceChildren(new Option("표시 상태를 먼저 선택하세요.", ""));
     renderOutputs();
     return;
   }
@@ -1325,7 +1325,7 @@ function handleSurfaceSelectionChange() {
     baseImage = null;
     renderLayerOptionsForSurface();
     renderOutputs();
-    status.textContent = "새 캐릭터 상태에 추가할 파츠를 설정하세요.";
+    status.textContent = "새 표시 상태에 추가할 파츠를 설정하세요.";
     return;
   }
 
@@ -1335,7 +1335,7 @@ function handleSurfaceSelectionChange() {
   baseImage = surface?.image ? createAssetPathImage(surface.image) : null;
   renderLayerOptionsForSurface();
   renderOutputs();
-  status.textContent = `${surfaceSelect.value} 캐릭터 상태의 파츠를 선택하세요.`;
+  status.textContent = `${surfaceSelect.value} 표시 상태의 파츠를 선택하세요.`;
 }
 
 /**
@@ -1505,11 +1505,11 @@ function renderSummary() {
     ["layer", "파츠", snippet.layerId],
     ["frameCount", "프레임 수", `${partImages.length}개`],
     ["currentFrame", "현재 프레임", currentFrame],
-    ["depth", "깊이", String(snippet.layer.depth ?? getLayerDepth({ layerId: snippet.layerId }))],
-    ["interval", "프레임 간격", `${snippet.layer.intervalMs}ms`],
-    ["idleInterval", "대기 반복 간격", `${snippet.layer.idleIntervalMs ?? 0}ms`],
+    ["depth", "겹침 순서", String(snippet.layer.depth ?? getLayerDepth({ layerId: snippet.layerId }))],
+    ["interval", "프레임 전환 간격", `${snippet.layer.intervalMs}ms`],
+    ["idleInterval", "자동 반복 간격", `${snippet.layer.idleIntervalMs ?? 0}ms`],
     ["coversBase", "기본 이미지 덮기", snippet.layer.coversBase ? "예" : "아니오"],
-    ["placement", "배치", `x ${currentRegion.x}%, y ${currentRegion.y}%, w ${currentRegion.width}%, h ${currentRegion.height}%`],
+    ["placement", "위치 / 크기", `x ${currentRegion.x}%, y ${currentRegion.y}%, w ${currentRegion.width}%, h ${currentRegion.height}%`],
   ];
 
   layerSummary.replaceChildren();

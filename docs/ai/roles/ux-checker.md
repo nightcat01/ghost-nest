@@ -10,6 +10,16 @@ UX Checker는 UI 변경 작업에서 선택 역할이 아니라 완료 게이트
 
 # UX Checker Harness
 
+## User Path Discoverability Check
+
+For UI and workflow changes, UX Checker must verify whether a user can reach the feature from the expected starting point.
+
+- DOM existence alone is not enough.
+- A hidden card, unreachable option, unclear category, or action that appears only after an unrelated selection is a UX failure.
+- Check the sequence: entry point -> selection -> available next choices -> final action.
+- Compare the checked sequence with the latest user complaint, not only the implementation plan.
+- Report `verified user paths` and `unverified user paths` separately.
+
 ## 목적
 
 기능이 동작하는지를 넘어 실제 사용 흐름과 화면 안정성을 검토한다.

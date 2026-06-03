@@ -11,6 +11,7 @@ import type {
   RuntimeEventName,
   RuntimeEventPayload,
   RuntimePlugin,
+  RuntimePreferenceStorageOptions,
   SpeechBalloonSizeOptions,
   SpeechLayoutOptions,
   RuntimeState,
@@ -45,6 +46,7 @@ type ActionRunnerContext = {
   managementMenu?: ManagementMenuOptions | undefined;
   navigation?: RuntimeNavigationOptions | undefined;
   speechLayout?: SpeechLayoutOptions | undefined;
+  preferenceStorage?: RuntimePreferenceStorageOptions | undefined;
   defaultRuntimeUiPreferences?: RuntimeUiPreferences | undefined;
   defaultSpeechBalloonSize: SpeechBalloonSizeOptions;
   controls: RuntimeControlOptions;
@@ -102,6 +104,7 @@ export function createActionRunner(context: ActionRunnerContext) {
     managementMenu,
     navigation,
     speechLayout,
+    preferenceStorage,
     defaultRuntimeUiPreferences,
     defaultSpeechBalloonSize,
     controls,
@@ -130,6 +133,15 @@ export function createActionRunner(context: ActionRunnerContext) {
   const runtimeUiPreferences: RuntimeUiPreferences = {
     ...defaultRuntimeUiPreferences,
   };
+  const resolvedPreferenceStorage: Required<RuntimePreferenceStorageOptions> = {
+    runtimeUi: preferenceStorage?.runtimeUi ?? "stored",
+    managementMenu: preferenceStorage?.managementMenu ?? "stored",
+  };
+  const canReadStoredManagementMenu = resolvedPreferenceStorage.managementMenu === "stored";
+  const canPersistManagementMenu = resolvedPreferenceStorage.managementMenu === "stored";
+  const canReadStoredRuntimeUi = resolvedPreferenceStorage.runtimeUi === "stored";
+  const canUseDefaultRuntimeUi = resolvedPreferenceStorage.runtimeUi !== "disabled";
+  const canPersistRuntimeUi = resolvedPreferenceStorage.runtimeUi === "stored";
 
   const managementMenuOptionsReady = loadManagementMenuOptions();
   const runtimeUiPreferencesReady = loadRuntimeUiPreferences();
@@ -138,6 +150,10 @@ export function createActionRunner(context: ActionRunnerContext) {
   let menuPreviewTimerId: number | null = null;
 
   async function loadManagementMenuOptions() {
+    if (!canReadStoredManagementMenu) {
+      return;
+    }
+
     try {
       const storedOptions = readStoredManagementMenuOptions(
         await storageAdapter.get(managementMenuStorageKey),
@@ -159,6 +175,10 @@ export function createActionRunner(context: ActionRunnerContext) {
   }
 
   async function saveManagementMenuOptions() {
+    if (!canPersistManagementMenu) {
+      return;
+    }
+
     try {
       await storageAdapter.set(managementMenuStorageKey, {
         defaultDisplay: managementMenuOptions.defaultDisplay,
@@ -220,6 +240,19 @@ export function createActionRunner(context: ActionRunnerContext) {
   }
 
   async function loadRuntimeUiPreferences() {
+    if (!canReadStoredRuntimeUi) {
+      if (!canUseDefaultRuntimeUi) {
+        delete runtimeUiPreferences.balloonTheme;
+        delete runtimeUiPreferences.balloonFontSize;
+        delete runtimeUiPreferences.speechLayout;
+        delete runtimeUiPreferences.speechBalloonSize;
+        delete runtimeUiPreferences.characterPosition;
+      }
+
+      applyRuntimeUiPreferences();
+      return;
+    }
+
     try {
       const storedPreferences = readStoredRuntimeUiPreferences(
         await storageAdapter.get(runtimeUiStorageKey),
@@ -272,6 +305,10 @@ export function createActionRunner(context: ActionRunnerContext) {
   }
 
   async function saveRuntimeUiPreferences() {
+    if (!canPersistRuntimeUi) {
+      return;
+    }
+
     try {
       await storageAdapter.set(runtimeUiStorageKey, runtimeUiPreferences);
     } catch (error) {
@@ -295,7 +332,9 @@ export function createActionRunner(context: ActionRunnerContext) {
     delete runtimeUiPreferences.speechLayout;
     delete runtimeUiPreferences.speechBalloonSize;
     delete runtimeUiPreferences.characterPosition;
-    Object.assign(runtimeUiPreferences, defaultRuntimeUiPreferences);
+    if (canUseDefaultRuntimeUi) {
+      Object.assign(runtimeUiPreferences, defaultRuntimeUiPreferences);
+    }
     applyRuntimeUiPreferences();
     elements.stage.style.removeProperty("--character-stage-x");
     elements.stage.style.removeProperty("--character-stage-y");
@@ -739,8 +778,8 @@ export function createActionRunner(context: ActionRunnerContext) {
     resetManagementMenuOptions();
     resetRuntimeUiPreferences();
     await Promise.all([
-      storageAdapter.remove(managementMenuStorageKey),
-      storageAdapter.remove(runtimeUiStorageKey),
+      canPersistManagementMenu ? storageAdapter.remove(managementMenuStorageKey) : Promise.resolve(),
+      canPersistRuntimeUi ? storageAdapter.remove(runtimeUiStorageKey) : Promise.resolve(),
     ]);
   });
 

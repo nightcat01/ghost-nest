@@ -685,7 +685,7 @@ async function readCharacterAssets(characterId) {
       ...(metaModule[names.assetMeta] ?? {}),
       expressions: expressionsModule[names.expressions] ?? {},
       surfaces: surfacesModule[names.surfaces] ?? {},
-      ...(defaultScene ? { defaultScene } : {}),
+      defaultScene: defaultScene ?? "",
       scenes: scenesModule[names.scenes] ?? {},
     };
 
@@ -991,7 +991,7 @@ function createCharacterIndexFile(characterId, options = {}) {
   const names = createCharacterAssetExportNames(characterId);
   const includeTypeImport = options.includeTypeImport ?? true;
 
-  return `import { ${exportName}Lines } from "./lines.js";\nimport { ${exportName}Profile } from "./profile.js";\nimport { ${names.expressions} } from "./assets/expressions.js";\nimport { ${names.assetMeta} } from "./assets/meta.js";\nimport { ${names.defaultScene}, ${names.scenes} } from "./assets/scenes.js";\nimport { ${names.surfaces} } from "./assets/surfaces.js";\n${includeTypeImport ? 'import type { CharacterDefinition } from "../../core/types.js";\n' : ""}\nexport const ${exportName}${includeTypeImport ? ": CharacterDefinition" : ""} = {\n  profile: ${exportName}Profile,\n  lines: ${exportName}Lines,\n  assets: {\n    ...${names.assetMeta},\n    expressions: ${names.expressions},\n    surfaces: ${names.surfaces},\n    ...(${names.defaultScene} ? { defaultScene: ${names.defaultScene} } : {}),\n    scenes: ${names.scenes},\n  },\n};\n\nexport default ${exportName};\n`;
+  return `import { ${exportName}Lines } from "./lines.js";\nimport { ${exportName}Profile } from "./profile.js";\nimport { ${names.expressions} } from "./assets/expressions.js";\nimport { ${names.assetMeta} } from "./assets/meta.js";\nimport { ${names.defaultScene}, ${names.scenes} } from "./assets/scenes.js";\nimport { ${names.surfaces} } from "./assets/surfaces.js";\n${includeTypeImport ? 'import type { CharacterDefinition } from "../../core/types.js";\n' : ""}\nexport const ${exportName}${includeTypeImport ? ": CharacterDefinition" : ""} = {\n  profile: ${exportName}Profile,\n  lines: ${exportName}Lines,\n  assets: {\n    ...${names.assetMeta},\n    expressions: ${names.expressions},\n    surfaces: ${names.surfaces},\n    defaultScene: ${names.defaultScene},\n    scenes: ${names.scenes},\n  },\n};\n\nexport default ${exportName};\n`;
 }
 
 function insertPropertyBeforeClose(source, blockEnd, text) {
@@ -1192,10 +1192,8 @@ function upsertExpressionInAssets(assets, expression, asset) {
 
 function upsertSceneInAssets(assets, sceneId, scene, shouldSetDefaultScene) {
   const scenes = assets.scenes ?? {};
-
-  return {
+  const nextAssets = {
     ...assets,
-    ...(shouldSetDefaultScene ? { defaultScene: sceneId } : {}),
     scenes: {
       ...scenes,
       [sceneId]: {
@@ -1204,6 +1202,14 @@ function upsertSceneInAssets(assets, sceneId, scene, shouldSetDefaultScene) {
       },
     },
   };
+
+  if (shouldSetDefaultScene) {
+    nextAssets.defaultScene = sceneId;
+  } else if (nextAssets.defaultScene === sceneId) {
+    delete nextAssets.defaultScene;
+  }
+
+  return nextAssets;
 }
 
 function deleteSurfaceInAssets(assets, surfaceId) {

@@ -22,7 +22,7 @@
         <section class="asset-lab-panel">
           <div class="asset-lab-section asset-step-intro">
             <h2>이 도구를 쓰는 때</h2>
-            <p class="asset-lab-help">기본 이미지에서 눈, 입 같은 파츠를 만들 영역을 잡을 때 사용합니다. 영역 값은 파츠 / 애니메이션 단계의 위치 기준으로도 이어집니다.</p>
+            <p class="asset-lab-help">기본 이미지에서 눈, 입 같은 파츠를 만들 영역을 잡을 때 사용합니다. 영역 값은 파츠 움직임 단계의 위치 기준으로도 이어집니다.</p>
           </div>
 
           <div class="asset-lab-section">
@@ -44,12 +44,12 @@
 
           <div class="asset-lab-section asset-crop-adjust-section" id="cropAdjustSection" hidden>
             <h2>2. 영역 조정</h2>
-            <p class="asset-lab-help">오른쪽 미리보기에서 영역을 직접 드래그하거나 아래 값을 입력합니다.</p>
+            <p class="asset-lab-help">오른쪽 작업판에서 영역을 직접 드래그하거나 아래 값을 입력합니다.</p>
             <div class="asset-lab-region-grid">
-              <label>X <input id="targetRegionXInput" type="number" min="0" max="100" step="1" /></label>
-              <label>Y <input id="targetRegionYInput" type="number" min="0" max="100" step="1" /></label>
-              <label>W <input id="targetRegionWidthInput" type="number" min="1" max="100" step="1" /></label>
-              <label>H <input id="targetRegionHeightInput" type="number" min="1" max="100" step="1" /></label>
+              <label>X 위치 <input id="targetRegionXInput" type="number" min="0" max="100" step="1" /></label>
+              <label>Y 위치 <input id="targetRegionYInput" type="number" min="0" max="100" step="1" /></label>
+              <label>너비 <input id="targetRegionWidthInput" type="number" min="1" max="100" step="1" /></label>
+              <label>높이 <input id="targetRegionHeightInput" type="number" min="1" max="100" step="1" /></label>
             </div>
             <label class="asset-lab-checkbox asset-inline-checkbox">
               <input id="regionOverlayVisibleInput" type="checkbox" checked />
@@ -72,9 +72,9 @@
           </div>
         </section>
 
-        <section class="asset-lab-panel asset-lab-output-panel">
+        <section class="asset-lab-panel asset-lab-output-panel asset-workbench-panel">
           <div class="asset-lab-output-header">
-            <h2>영역 미리보기</h2>
+            <h2>영역 작업판</h2>
           </div>
           <div class="asset-composite-preview" id="cropPreview" aria-live="polite"></div>
         </section>

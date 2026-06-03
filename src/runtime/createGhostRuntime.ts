@@ -93,17 +93,31 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
   const cleanupCallbacks: Array<() => void> = [];
   const actionTimers = new Map<string, number>();
   const ruleCooldowns = new Map<string, number>();
+  const hasCharacterDefaultScene = Boolean(options.character.assets)
+    && Object.prototype.hasOwnProperty.call(options.character.assets, "defaultScene");
   const characterScene = options.character.assets
-    && (options.character.assets.defaultScene || options.character.assets.scenes || options.character.assets.sceneSets)
+    && (hasCharacterDefaultScene || options.character.assets.scenes || options.character.assets.sceneSets)
     ? {
-      ...(options.character.assets.defaultScene ? { defaultScene: options.character.assets.defaultScene } : {}),
+      ...(hasCharacterDefaultScene ? { defaultScene: options.character.assets.defaultScene } : {}),
       ...(options.character.assets.scenes ? { scenes: options.character.assets.scenes } : {}),
       ...(options.character.assets.sceneSets ? { sceneSets: options.character.assets.sceneSets } : {}),
     }
     : undefined;
+  const runtimeScene = characterScene || options.scene
+    ? {
+      ...(options.scene?.defaultScene !== undefined ? { defaultScene: options.scene.defaultScene } : {}),
+      ...(characterScene?.defaultScene !== undefined ? { defaultScene: characterScene.defaultScene } : {}),
+      ...((options.scene?.scenes || characterScene?.scenes)
+        ? { scenes: { ...(options.scene?.scenes ?? {}), ...(characterScene?.scenes ?? {}) } }
+        : {}),
+      ...((options.scene?.sceneSets || characterScene?.sceneSets)
+        ? { sceneSets: { ...(options.scene?.sceneSets ?? {}), ...(characterScene?.sceneSets ?? {}) } }
+        : {}),
+    }
+    : undefined;
   const sceneRenderer = createSceneRenderer({
     elements,
-    scene: characterScene ?? options.scene,
+    scene: runtimeScene,
     initialScene: options.initialScene,
   });
   const characterRenderer = createCharacterRenderer({ elements, character: options.character });
@@ -322,6 +336,7 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
     managementMenu: options.managementMenu,
     navigation: options.navigation,
     speechLayout,
+    preferenceStorage: options.preferenceStorage,
     defaultRuntimeUiPreferences: {
       ...(options.balloonTheme ? { balloonTheme: options.balloonTheme } : {}),
     },

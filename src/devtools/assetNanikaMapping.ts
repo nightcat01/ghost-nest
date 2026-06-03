@@ -157,6 +157,8 @@ type CanvasNodeKind =
 type CanvasNode = {
   id: string;
   kind: CanvasNodeKind;
+  resourceKind?: NanikaResourceKind;
+  sourceId?: string;
   title: string;
   description: string;
   x: number;
@@ -207,6 +209,12 @@ type NanikaResourceKind = "expression" | "surface" | "scene" | "layer" | "dialog
 type PaletteCategory = {
   id: PaletteCategoryId;
   label: string;
+};
+
+type ResourceGroupPaletteItem = PaletteItem & {
+  kind: "resource-group";
+  resourceKind: NanikaResourceKind;
+  options: readonly ParameterOption[];
 };
 
 const registry = createNanikaMappingRegistry(nanikaPreset);
@@ -1022,8 +1030,18 @@ function createCanvasNode(
   x: number,
   y: number,
   meta: string[] = [],
+  resourceKind?: NanikaResourceKind,
 ): CanvasNode {
-  return { id, kind, title, description, x, y, meta };
+  return {
+    id,
+    kind,
+    ...(resourceKind ? { resourceKind } : {}),
+    title,
+    description,
+    x,
+    y,
+    meta,
+  };
 }
 
 function createActionCanvasNodes(
@@ -1106,8 +1124,167 @@ function createMappingCanvasGraph(mapping: RuntimeRule | NanikaMapping, source: 
   return graph;
 }
 
+function removeActionsFromMappingCanvas(
+  actions: readonly RuntimeAction[],
+  removedNodeIds: ReadonlySet<string>,
+  prefix: string,
+): RuntimeAction[] {
+  return actions.flatMap((action, index) => {
+    const nodeId = `${prefix}:action:${index}:${action.type}`;
+
+    if (removedNodeIds.has(nodeId)) {
+      return [];
+    }
+
+    const actionRecord = action as RuntimeAction & { actions?: RuntimeAction[] };
+    if (!Array.isArray(actionRecord.actions)) {
+      return [cloneRuntimeAction(action)];
+    }
+
+    const nestedActions = removeActionsFromMappingCanvas(
+      actionRecord.actions,
+      removedNodeIds,
+      `${prefix}:${index}`,
+    );
+
+    if (nestedActions.length === 0) {
+      return [];
+    }
+
+    return [{
+      ...cloneRuntimeAction(action),
+      actions: nestedActions,
+    } as RuntimeAction];
+  });
+}
+
+function getCanvasNodeSourceId(node: CanvasNode) {
+  if (node.sourceId) {
+    return node.sourceId;
+  }
+
+  const keyMeta = node.meta?.find((item) => item.startsWith("key: "));
+  if (keyMeta) {
+    return keyMeta.slice("key: ".length);
+  }
+
+  const parts = node.id.split(":");
+  if (parts[0] === "palette") {
+    const hasResourceKind = getCanvasNodeResourceKind(node) !== null;
+    const sourceIndex = hasResourceKind ? 3 : 2;
+
+    return parts[sourceIndex] ?? node.id;
+  }
+
+  const [, ...rest] = node.id.split(":");
+
+  return rest.length > 0 ? rest.join(":") : node.id;
+}
+
+function getConnectedResourceForAction(graph: CanvasGraph, actionNode: CanvasNode) {
+  const resourceNodeIds = graph.edges
+    .filter((edge) => edge.relation === "references" && (edge.from === actionNode.id || edge.to === actionNode.id))
+    .map((edge) => edge.from === actionNode.id ? edge.to : edge.from);
+
+  return resourceNodeIds
+    .map((nodeId) => graph.nodes.find((node) => node.id === nodeId))
+    .find((node): node is CanvasNode => Boolean(node && node.kind === "resource")) ?? null;
+}
+
+function applyResourceToCanvasAction(action: Record<string, unknown>, resourceNode: CanvasNode | null) {
+  if (!resourceNode) {
+    return;
+  }
+
+  const resourceId = getCanvasNodeSourceId(resourceNode);
+
+  if (resourceNode.resourceKind === "dialogue" && action.type === "speak") {
+    action.category = resourceId;
+  }
+
+  if (resourceNode.resourceKind === "expression" && action.type === "change_expression") {
+    action.expression = resourceId;
+  }
+
+  if (resourceNode.resourceKind === "surface" && action.type === "surface") {
+    action.id = resourceId;
+  }
+
+  if (resourceNode.resourceKind === "scene" && (action.type === "scene" || action.type === "scene_overlay")) {
+    action.id = resourceId;
+  }
+
+  if (resourceNode.resourceKind === "layer" && action.type === "play_layer_animation") {
+    action.layerId = resourceId;
+  }
+
+  if (resourceNode.resourceKind === "hitArea" && action.type === "set_touched_part") {
+    action.part = resourceId;
+  }
+}
+
+function createRuntimeActionFromCanvasNode(graph: CanvasGraph, node: CanvasNode, visited = new Set<string>()): RuntimeAction | null {
+  if (visited.has(node.id)) {
+    return null;
+  }
+  visited.add(node.id);
+
+  const actionType = getCanvasNodeActionType(node) ?? node.sourceId;
+  if (!actionType) {
+    return null;
+  }
+
+  if (actionType === "run_sequence" || actionType === "run_parallel" || actionType === "run_random") {
+    const childActions = graph.edges
+      .filter((edge) => edge.relation === "executes" && edge.from === node.id)
+      .map((edge) => graph.nodes.find((candidate) => candidate.id === edge.to))
+      .filter((candidate): candidate is CanvasNode => Boolean(candidate && (candidate.kind === "action" || candidate.kind === "group")))
+      .sort((a, b) => (a.x - b.x) || (a.y - b.y))
+      .map((childNode) => createRuntimeActionFromCanvasNode(graph, childNode, new Set(visited)))
+      .filter((action): action is RuntimeAction => Boolean(action));
+
+    return childActions.length > 0 ? createActionGroup(actionType, childActions) : null;
+  }
+
+  const action = { type: actionType } as Record<string, unknown>;
+  applyResourceToCanvasAction(action, getConnectedResourceForAction(graph, node));
+
+  const catalogItem = registry.actions.find((item) => item.type === actionType);
+  const missingRequired = catalogItem?.parameters.some((parameter) => "required" in parameter && parameter.required === true && action[parameter.name] === undefined) ?? false;
+
+  return missingRequired ? null : action as RuntimeAction;
+}
+
+function createAdditionalActionsFromCanvasState(graph: CanvasGraph, state: CanvasState) {
+  const extraNodeIds = new Set(state.extraNodes.map((node) => node.id));
+
+  return graph.edges
+    .filter((edge) => edge.relation === "executes" && edge.from === "mapping" && extraNodeIds.has(edge.to))
+    .map((edge) => graph.nodes.find((node) => node.id === edge.to))
+    .filter((node): node is CanvasNode => Boolean(node && (node.kind === "action" || node.kind === "group")))
+    .sort((a, b) => (a.x - b.x) || (a.y - b.y))
+    .map((node) => createRuntimeActionFromCanvasNode(graph, node))
+    .filter((action): action is RuntimeAction => Boolean(action));
+}
+
+function createMappingFromCanvasState(mapping: NanikaMapping): NanikaMapping {
+  const graph = currentEditorGraph ?? createMappingCanvasGraph(mapping, "saved");
+  const state = getCanvasState(getEditorGraphKey(editorSelection));
+  const removedNodeIds = new Set(state.removedNodeIds);
+  const keptActions = removeActionsFromMappingCanvas(
+    mapping.actions,
+    removedNodeIds,
+    `mapping:${mapping.id}`,
+  );
+  const additionalActions = createAdditionalActionsFromCanvasState(graph, state);
+
+  return {
+    ...mapping,
+    actions: [...keptActions, ...additionalActions],
+  };
+}
+
 function createCharacterCanvasGraph(): CanvasGraph {
-  const resources = registry.characterResources;
   const configuredMappings = getConfiguredMappings();
   const usage = collectActionUsage(configuredMappings.flatMap((rule) => rule.actions));
   const graph: CanvasGraph = {
@@ -1133,21 +1310,7 @@ function createCharacterCanvasGraph(): CanvasGraph {
     }],
   };
 
-  const groups: Array<{
-    id: string;
-    title: string;
-    description: string;
-    usageKind: string;
-    options: readonly ParameterOption[];
-  }> = [
-    { id: "expressions", title: "표정", description: "표정 후보입니다.", usageKind: "expression", options: resources.expressions },
-    { id: "surfaces", title: "캐릭터 상태", description: "실제로 표시되는 캐릭터 상태입니다.", usageKind: "surface", options: resources.surfaces },
-    { id: "scenes", title: "무대 조합", description: "런타임 배경/전경/환경 FX를 묶은 화면 세트입니다.", usageKind: "scene", options: resources.scenes },
-    { id: "layers", title: "파츠 움직임", description: "깜빡임, 입모양, 파츠 같은 보조 움직임입니다.", usageKind: "layer", options: resources.layers },
-    { id: "dialogues", title: "Dialogues", description: "대사 카테고리입니다.", usageKind: "dialogue", options: resources.dialogueCategories },
-    { id: "hit-areas", title: "Hit Areas", description: "클릭/터치 가능한 캐릭터 영역입니다.", usageKind: "hitArea", options: resources.touchParts },
-  ];
-
+  const groups = getCharacterResourceGroupPaletteItems();
   let groupY = 40;
   groups.forEach((group) => {
     const groupId = `group:${group.id}`;
@@ -1163,7 +1326,8 @@ function createCharacterCanvasGraph(): CanvasGraph {
       group.description,
       552,
       groupY,
-      [`${group.options.length}개`, `${group.options.filter((option) => (usage.get(`${group.usageKind}:${option.id}`) ?? 0) > 0).length}개 사용 중`],
+      [`${group.options.length}개`, `${group.options.filter((option) => (usage.get(`${group.resourceKind}:${option.id}`) ?? 0) > 0).length}개 사용 중`],
+      group.resourceKind,
     ));
     graph.edges.push({
       id: `character->${groupId}`,
@@ -1174,7 +1338,7 @@ function createCharacterCanvasGraph(): CanvasGraph {
     });
 
     group.options.slice(0, 8).forEach((option, optionIndex) => {
-      const usageCount = usage.get(`${group.usageKind}:${option.id}`) ?? 0;
+      const usageCount = usage.get(`${group.resourceKind}:${option.id}`) ?? 0;
       const nodeId = `${group.id}:${option.id}`;
       graph.nodes.push(createCanvasNode(
         nodeId,
@@ -1184,6 +1348,7 @@ function createCharacterCanvasGraph(): CanvasGraph {
         836 + ((optionIndex % 2) * optionGapX),
         groupY + ((Math.floor(optionIndex / 2)) * optionGapY),
         [`key: ${option.id}`, usageCount > 0 ? `사용 ${usageCount}` : "미연결"],
+        group.resourceKind,
       ));
       graph.edges.push({
         id: `${groupId}->${nodeId}`,
@@ -1595,8 +1760,13 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
       element.type = "button";
     }
     element.dataset.kind = node.kind;
+    element.dataset.nodeId = node.id;
     element.dataset.selected = "false";
     element.dataset.readonly = isReadonly ? "true" : "false";
+    const resourceKind = getCanvasNodeResourceKind(node);
+    if (resourceKind) {
+      element.dataset.resourceKind = resourceKind;
+    }
     element.style.left = `${node.x}px`;
     element.style.top = `${node.y}px`;
 
@@ -1729,7 +1899,7 @@ function getPreferredPaletteCategoryForKind(kind: CanvasNodeKind): PaletteCatego
   }
 
   if (kind === "character") {
-    return "events";
+    return "resources";
   }
 
   if (kind === "event" || kind === "feature-set") {
@@ -1775,8 +1945,51 @@ function getActionResourceKind(actionType: string): NanikaResourceKind | null {
   return null;
 }
 
+function getResourceKindFromNodeId(nodeId: string): NanikaResourceKind | null {
+  const [prefix, groupId] = nodeId.split(":");
+  const id = prefix === "group" ? groupId : prefix;
+
+  if (id === "expressions" || id === "expression") {
+    return "expression";
+  }
+
+  if (id === "surfaces" || id === "surface") {
+    return "surface";
+  }
+
+  if (id === "scenes" || id === "scene") {
+    return "scene";
+  }
+
+  if (id === "layers" || id === "layer") {
+    return "layer";
+  }
+
+  if (id === "dialogues" || id === "dialogue") {
+    return "dialogue";
+  }
+
+  if (id === "hit-areas" || id === "hitArea") {
+    return "hitArea";
+  }
+
+  return null;
+}
+
+function getCanvasNodeResourceKind(node: CanvasNode): NanikaResourceKind | null {
+  return node.resourceKind ?? getResourceKindFromNodeId(node.id);
+}
+
 function getCanvasNodeActionType(node: CanvasNode) {
   return node.meta?.find((item) => registry.actions.some((action) => action.type === item)) ?? null;
+}
+
+function getPendingConnectionSourceNode() {
+  if (!pendingConnectionNodeId || !currentEditorGraph) {
+    return null;
+  }
+
+  return currentEditorGraph.nodes.find((node) => node.id === pendingConnectionNodeId) ?? null;
 }
 
 function getCanvasRelation(from: CanvasNodeKind, to: CanvasNodeKind): CanvasEdge["relation"] | null {
@@ -1863,8 +2076,11 @@ function connectPendingNodeTo(targetNodeId: string) {
 }
 
 function createCanvasNodeFromPalette(item: PaletteItem, x: number, y: number): CanvasNode {
-  const id = `palette:${item.kind}:${item.id}:${Date.now().toString(36)}`;
-  return createCanvasNode(id, item.kind, item.title, item.description, x, y, item.meta ?? [item.id]);
+  const resourceSegment = item.resourceKind ? `${item.resourceKind}:` : "";
+  const id = `palette:${item.kind}:${resourceSegment}${item.id}:${Date.now().toString(36)}`;
+  const node = createCanvasNode(id, item.kind, item.title, item.description, x, y, item.meta ?? [item.id], item.resourceKind);
+  node.sourceId = item.id;
+  return node;
 }
 
 function handlePaletteDrop(event: DragEvent, board: HTMLElement) {
@@ -1895,10 +2111,10 @@ function handlePaletteDrop(event: DragEvent, board: HTMLElement) {
   renderEditorCanvas();
 }
 
-function addPaletteItemToCurrentGraph(item: PaletteItem) {
+function addPaletteItemToCurrentGraph(item: PaletteItem, renderImmediately = true) {
   if (!currentEditorGraph) {
     selectCatalogInEditor(item.title, item.description, item.meta ?? [item.id], false);
-    return;
+    return null;
   }
 
   const size = getCanvasSize(currentEditorGraph);
@@ -1910,7 +2126,10 @@ function addPaletteItemToCurrentGraph(item: PaletteItem) {
   currentEditorGraph.nodes.push(node);
   getCanvasState(currentEditorGraphKey).extraNodes.push(node);
   selectedCanvasNodeId = node.id;
-  renderEditorCanvas();
+  if (renderImmediately) {
+    renderEditorCanvas();
+  }
+  return node;
 }
 
 function revealEditorPanel() {
@@ -2006,6 +2225,19 @@ function getPaletteItems(category: PaletteCategoryId): PaletteItem[] {
     }));
   }
 
+  const pendingSource = getPendingConnectionSourceNode();
+
+  if (category === "resources" && pendingSource?.kind === "character") {
+    return getCharacterResourceGroupPaletteItems().map((item) => ({
+      id: item.id,
+      kind: item.kind,
+      resourceKind: item.resourceKind,
+      title: item.title,
+      description: item.description,
+      meta: item.meta ?? [],
+    }));
+  }
+
   const resources = registry.characterResources;
   const resourceItems: Array<CharacterResourceCatalogOption & {
     kind: "resource";
@@ -2040,6 +2272,19 @@ function isPaletteItemAllowedForPending(item: PaletteItem) {
     return false;
   }
 
+  if (source.kind === "resource-group" && item.kind === "resource") {
+    const resourceKind = getCanvasNodeResourceKind(source);
+
+    return Boolean(resourceKind && item.resourceKind === resourceKind);
+  }
+
+  if (source.kind === "resource" && (item.kind === "action" || item.kind === "group")) {
+    const resourceKind = getCanvasNodeResourceKind(source);
+    const actionResourceKind = getActionResourceKind(item.id);
+
+    return Boolean(resourceKind && actionResourceKind === resourceKind);
+  }
+
   if (source.kind === "action" && item.kind === "resource") {
     const actionType = getCanvasNodeActionType(source);
     const resourceKind = actionType ? getActionResourceKind(actionType) : null;
@@ -2059,6 +2304,12 @@ function getAvailablePaletteCategories(categories: PaletteCategory[]) {
 }
 
 function renderEditorPalette() {
+  if (pendingConnectionNodeId) {
+    mappingPaletteDeck.dataset.pendingSourceId = pendingConnectionNodeId;
+  } else {
+    delete mappingPaletteDeck.dataset.pendingSourceId;
+  }
+
   const baseCategories: PaletteCategory[] = [
     { id: "characters", label: "캐릭터" },
     { id: "saved", label: "저장 연결" },
@@ -2119,14 +2370,14 @@ function renderEditorPalette() {
       }
     });
     card.addEventListener("click", () => {
-      if (item.kind === "character") {
+      if (item.kind === "character" && !pendingConnectionNodeId) {
         selectCharacterInEditor(false);
         selectedCanvasNodeId = "character";
         renderEditorCanvas();
         return;
       }
 
-      if (item.kind === "mapping") {
+      if (item.kind === "mapping" && !pendingConnectionNodeId) {
         const mapping = savedMappings.find((savedMapping) => savedMapping.id === item.id);
         if (mapping) {
           selectMappingInEditor(mapping, "saved", false);
@@ -2134,7 +2385,7 @@ function renderEditorPalette() {
         }
       }
 
-      if (item.kind === "feature-set") {
+      if (item.kind === "feature-set" && !pendingConnectionNodeId) {
         const featureSet = getFeatureSetsForDisplay().find((savedFeatureSet) => savedFeatureSet.id === item.id);
         if (featureSet) {
           selectFeatureSetInEditor(featureSet, false);
@@ -2142,7 +2393,14 @@ function renderEditorPalette() {
         }
       }
 
-      addPaletteItemToCurrentGraph(item);
+      const pendingSourceId = pendingConnectionNodeId ?? mappingPaletteDeck.dataset.pendingSourceId ?? selectedCanvasNodeForPopover?.id ?? null;
+      const shouldConnectPending = Boolean(pendingSourceId);
+      const node = addPaletteItemToCurrentGraph(item, !shouldConnectPending);
+
+      if (pendingSourceId && node) {
+        pendingConnectionNodeId = pendingSourceId;
+        connectPendingNodeTo(node.id);
+      }
     });
     return card;
   }));
@@ -2272,6 +2530,67 @@ function selectFeatureSetInEditor(featureSet: NanikaFeatureSet, reveal = true, r
 
 function selectCatalogInEditor(title: string, description: string, meta: string[] = [], reveal = true) {
   setEditorSelection({ type: "catalog", title, description, meta }, reveal, true);
+}
+
+function getCharacterResourceGroupPaletteItems(): ResourceGroupPaletteItem[] {
+  const resources = registry.characterResources;
+
+  return [
+    {
+      id: "expressions",
+      kind: "resource-group",
+      resourceKind: "expression",
+      title: "표정",
+      description: "대사나 이벤트에서 사용할 표정 후보입니다.",
+      options: resources.expressions,
+      meta: [`${resources.expressions.length}개`],
+    },
+    {
+      id: "surfaces",
+      kind: "resource-group",
+      resourceKind: "surface",
+      title: "캐릭터 상태",
+      description: "실제로 표시되는 캐릭터 상태입니다.",
+      options: resources.surfaces,
+      meta: [`${resources.surfaces.length}개`],
+    },
+    {
+      id: "scenes",
+      kind: "resource-group",
+      resourceKind: "scene",
+      title: "무대 조합",
+      description: "배경, 전경, 환경 FX를 묶은 화면 세트입니다.",
+      options: resources.scenes,
+      meta: [`${resources.scenes.length}개`],
+    },
+    {
+      id: "layers",
+      kind: "resource-group",
+      resourceKind: "layer",
+      title: "파츠 움직임",
+      description: "눈 깜빡임, 입 모양, 보조 파츠 움직임입니다.",
+      options: resources.layers,
+      meta: [`${resources.layers.length}개`],
+    },
+    {
+      id: "dialogues",
+      kind: "resource-group",
+      resourceKind: "dialogue",
+      title: "대사",
+      description: "말풍선에 표시할 대사 카테고리입니다.",
+      options: resources.dialogueCategories,
+      meta: [`${resources.dialogueCategories.length}개`],
+    },
+    {
+      id: "hit-areas",
+      kind: "resource-group",
+      resourceKind: "hitArea",
+      title: "터치 영역",
+      description: "클릭하거나 터치할 수 있는 캐릭터 영역입니다.",
+      options: resources.touchParts,
+      meta: [`${resources.touchParts.length}개`],
+    },
+  ];
 }
 
 function getConfiguredMappings(): readonly (RuntimeRule | NanikaMapping)[] {
@@ -4338,8 +4657,49 @@ function addSelectedEditorMappingToFeatureSet() {
   revealEditorPanel();
 }
 
-function saveEditorCanvasState() {
+async function saveMappingFromEditorCanvas(mapping: NanikaMapping) {
+  const nextMapping = createMappingFromCanvasState(mapping);
+
+  if (nextMapping.actions.length === 0) {
+    savedMappingStatus.textContent = "모든 액션을 제거한 연결은 저장할 수 없어요. 연결 자체를 삭제해 주세요.";
+    savedMappingStatus.dataset.state = "warning";
+    return;
+  }
+
+  try {
+    const response = await fetch(createDevtoolsApiPath("/api/devtools/save-nanika-mapping"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mapping: nextMapping }),
+    });
+    const result = await readApiJson<NanikaMappingsResponse>(response);
+
+    if (!response.ok || !result.ok) {
+      throw new Error(result.message ?? result.error ?? "작업판 변경을 mapping에 저장하지 못했어요.");
+    }
+
+    savedMappings = result.mappings ?? [];
+    savedMappingsLoaded = true;
+    saveCanvasStatesToStorage();
+    renderSavedMappings(result.path);
+    renderFeatureSets();
+    refreshOverview();
+    selectMappingInEditor(nextMapping, "saved", false);
+    savedMappingStatus.textContent = `${nextMapping.id} 연결 변경을 저장했어요.`;
+    savedMappingStatus.dataset.state = "ready";
+  } catch (error) {
+    savedMappingStatus.textContent = error instanceof Error ? error.message : "작업판 변경을 mapping에 저장하지 못했어요.";
+    savedMappingStatus.dataset.state = "warning";
+  }
+}
+
+async function saveEditorCanvasState() {
   if (!currentEditorGraph || !currentEditorGraphKey) {
+    return;
+  }
+
+  if (editorSelection.type === "mapping" && editorSelection.source === "saved") {
+    await saveMappingFromEditorCanvas(editorSelection.mapping as NanikaMapping);
     return;
   }
 
@@ -4362,7 +4722,7 @@ function runEditorSave() {
     return;
   }
 
-  saveEditorCanvasState();
+  void saveEditorCanvasState();
 }
 
 function createEditorGraphDraftJson() {
