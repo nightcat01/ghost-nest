@@ -11,8 +11,8 @@
         "sourceCharacters": "src/characters",
         "buildCharacters": "dist/characters",
         "commonAssets": "src/assets/common",
-        "browserSourcePrefix": "./src/characters",
-        "browserCommonPrefix": "./src/assets/common"
+        "browserSourcePrefix": "/src/characters",
+        "browserCommonPrefix": "/src/common"
       }
     },
     "comfy-asset-generator": {

@@ -2706,6 +2706,11 @@ body.fortune-embed-page {
     repeating-linear-gradient(90deg, rgba(50, 119, 108, 0.075) 0 1px, transparent 1px 32px),
     repeating-linear-gradient(0deg, rgba(50, 119, 108, 0.075) 0 1px, transparent 1px 32px),
     #fff;
+  cursor: grab;
+}
+
+.nanika-paint-canvas[data-panning="true"] {
+  cursor: grabbing;
 }
 
 .nanika-paint-viewport {

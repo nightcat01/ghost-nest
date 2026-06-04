@@ -10,3 +10,7 @@ docs/next-work.md
 # Local AI harness and verification scratch files
 docs/ai/
 tmp-ui-check/
+
+# Local character work-in-progress assets
+src/characters/miyako/
+src/assets/common/scenes/miyako_bg.png

@@ -803,17 +803,23 @@ async function readCharacterAssets(characterId) {
     surfaces: path.join(assetDirectory, "surfaces.js"),
     scenes: path.join(assetDirectory, "scenes.js"),
   };
+  const linesPath = path.join(buildCharactersDirectory, safeCharacterId, "lines.js");
 
   if (Object.values(assetPaths).every((assetPath) => fs.existsSync(assetPath))) {
     const names = createCharacterAssetExportNames(safeCharacterId);
+    const exportName = toExportName(safeCharacterId);
     const cacheKey = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const [metaModule, expressionsModule, surfacesModule, scenesModule] = await Promise.all([
+    const [metaModule, expressionsModule, surfacesModule, scenesModule, linesModule] = await Promise.all([
       import(`${pathToFileURL(assetPaths.meta).href}?t=${cacheKey}`),
       import(`${pathToFileURL(assetPaths.expressions).href}?t=${cacheKey}`),
       import(`${pathToFileURL(assetPaths.surfaces).href}?t=${cacheKey}`),
       import(`${pathToFileURL(assetPaths.scenes).href}?t=${cacheKey}`),
+      fs.existsSync(linesPath)
+        ? import(`${pathToFileURL(linesPath).href}?t=${cacheKey}`)
+        : Promise.resolve({}),
     ]);
     const defaultScene = scenesModule[names.defaultScene];
+    const lines = linesModule[`${exportName}Lines`] ?? {};
     const assets = {
       ...(metaModule[names.assetMeta] ?? {}),
       expressions: expressionsModule[names.expressions] ?? {},
@@ -825,6 +831,7 @@ async function readCharacterAssets(characterId) {
     return {
       characterId: safeCharacterId,
       assets: normalizeCharacterAssets(safeCharacterId, assets),
+      lines: cloneJson(lines),
     };
   }
 
@@ -832,13 +839,10 @@ async function readCharacterAssets(characterId) {
   const characterModule = await import(moduleUrl);
   const character = characterModule[safeCharacterId] ?? characterModule.default;
 
-  if (!character?.assets) {
-    throw new Error("character_assets_not_found");
-  }
-
   return {
     characterId: safeCharacterId,
-    assets: normalizeCharacterAssets(safeCharacterId, character.assets),
+    assets: normalizeCharacterAssets(safeCharacterId, character?.assets ?? {}),
+    lines: cloneJson(character?.lines ?? {}),
   };
 }
 

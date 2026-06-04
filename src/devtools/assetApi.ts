@@ -93,6 +93,8 @@ export type CharacterSurfaceAsset = {
 };
 
 export type CharacterAssetsPayload = {
+  alt?: string;
+  hitAreas?: Record<string, unknown>;
   expressions?: Record<string, CharacterExpressionAsset>;
   surfaces?: Record<string, CharacterSurfaceAsset>;
   defaultScene?: string;
@@ -100,7 +102,9 @@ export type CharacterAssetsPayload = {
 };
 
 export type CharacterAssetsResponse = DevApiResponse & {
+  characterId?: string;
   assets?: CharacterAssetsPayload;
+  lines?: Record<string, string[]>;
 };
 
 /**
