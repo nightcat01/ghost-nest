@@ -54,6 +54,46 @@
               <button type="button" data-editor-mode-target="saved"><strong>저장 연결</strong><span>수정용 매핑 초안</span></button>
               <button type="button" data-editor-mode-target="feature-sets"><strong>기능 묶음</strong><span>연결 묶음</span></button>
             </div>
+            <details class="nanika-condition-builder" id="conditionBuilder">
+              <summary>조건 만들기</summary>
+              <div class="nanika-condition-form">
+                <label>
+                  조건 ID
+                  <input id="conditionIdInput" type="text" value="page.home" />
+                </label>
+                <label>
+                  이름
+                  <input id="conditionNameInput" type="text" value="홈 페이지 조건" />
+                </label>
+                <label>
+                  적용 위치
+                  <select id="conditionScopeSelect">
+                    <option value="runtime">런타임 하위</option>
+                    <option value="character">캐릭터 하위</option>
+                  </select>
+                </label>
+                <label>
+                  조건 유형
+                  <select id="conditionTypeSelect">
+                    <option value="pageId">페이지 코드</option>
+                    <option value="url">URL 포함</option>
+                  </select>
+                </label>
+                <label>
+                  조건 값
+                  <input id="conditionValueInput" type="text" value="home" placeholder="home 또는 /zodiac" />
+                </label>
+                <label>
+                  설명
+                  <input id="conditionDescriptionInput" type="text" value="home pageId일 때 사용합니다." />
+                </label>
+                <div class="asset-lab-button-row">
+                  <button class="asset-small-button" id="saveConditionButton" type="button">조건 저장</button>
+                </div>
+                <div class="nanika-condition-list" id="conditionList"></div>
+                <p class="asset-lab-status" id="conditionStatus">조건을 불러오는 중입니다.</p>
+              </div>
+            </details>
             <div class="nanika-editor-palette-tabs" id="mappingPaletteTabs"></div>
             <div class="nanika-editor-palette-deck" id="mappingPaletteDeck"></div>
           </aside>
@@ -140,7 +180,7 @@
           <div class="asset-lab-section-header">
             <div>
               <h2>새 기능 연결 만들기</h2>
-              <p class="asset-lab-help">연결의 이름을 정한 뒤, 왼쪽에서 오른쪽으로 대상 이벤트와 실행할 동작 흐름을 구성합니다.</p>
+              <p class="asset-lab-help">캐릭터와 재료를 고른 뒤, 언제 어떤 동작으로 쓸지 왼쪽에서 오른쪽으로 정합니다.</p>
             </div>
             <div class="asset-lab-button-row">
               <button class="asset-small-button" id="saveDraftMappingButton" type="button">연결 저장</button>
@@ -196,7 +236,7 @@
               <div class="nanika-step-heading">
                 <span>3</span>
                 <div>
-                  <h3>실행 영역 선택</h3>
+                  <h3>동작 종류 선택</h3>
                   <p>이 이벤트가 나니카의 어떤 기능을 움직일지 고릅니다.</p>
                 </div>
               </div>
@@ -207,8 +247,8 @@
               <div class="nanika-step-heading">
                 <span>4</span>
                 <div>
-                  <h3>액션 선택</h3>
-                  <p id="draftActionHelp">실행 영역을 선택하면 구체적인 액션이 나타납니다.</p>
+                  <h3>동작 선택</h3>
+                  <p id="draftActionHelp">동작 종류를 선택하면 구체적인 동작이 나타납니다.</p>
                 </div>
               </div>
               <div class="nanika-step-options" id="draftActionOptions"></div>
@@ -218,14 +258,14 @@
               <div class="nanika-step-heading">
                 <span>5</span>
                 <div>
-                  <h3>선택 액션 설정</h3>
-                  <p>액션 하나의 값을 입력한 뒤 플로우에 추가합니다.</p>
+                  <h3>선택 동작 설정</h3>
+                  <p>동작 하나의 값을 입력한 뒤 흐름에 추가합니다.</p>
                 </div>
               </div>
-              <h3 class="nanika-mapping-subtitle">액션 파라미터</h3>
+              <h3 class="nanika-mapping-subtitle">동작에 쓸 값</h3>
               <div class="nanika-mapping-parameter-grid" id="draftActionParameters"></div>
               <div class="asset-lab-button-row">
-                <button class="asset-small-button" id="addSelectedActionButton" type="button">액션 플로우에 추가</button>
+                <button class="asset-small-button" id="addSelectedActionButton" type="button">동작 흐름에 추가</button>
               </div>
             </section>
           </div>
@@ -234,8 +274,8 @@
             <section class="nanika-action-flow-panel" aria-label="Action flow">
               <div class="asset-lab-section-header">
                 <div>
-                  <h3>액션 플로우</h3>
-                  <p class="asset-lab-help">이 이벤트가 발생했을 때 실행할 액션을 쌓습니다. 여러 액션을 한 덩어리로 묶으면 실행 방식을 정할 수 있습니다.</p>
+                  <h3>동작 흐름</h3>
+                  <p class="asset-lab-help">이 이벤트가 발생했을 때 실행할 동작을 쌓습니다. 여러 동작을 한 덩어리로 묶으면 실행 방식을 정할 수 있습니다.</p>
                 </div>
                 <div class="asset-lab-button-row">
                   <button class="asset-small-button" id="wrapSequenceButton" type="button" title="현재 플로우의 액션을 위에서 아래 순서대로 실행하는 묶음으로 바꿉니다.">순서대로 실행</button>

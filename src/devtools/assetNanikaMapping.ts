@@ -37,6 +37,22 @@ type NanikaFeatureSetsResponse = DevApiResponse & {
   path?: string;
 };
 
+type NanikaCondition = {
+  id: string;
+  scope: "runtime" | "character";
+  type: "url" | "pageId";
+  value: string;
+  name?: string;
+  description?: string;
+};
+
+type NanikaConditionsResponse = DevApiResponse & {
+  conditions?: NanikaCondition[];
+  condition?: NanikaCondition;
+  deletedId?: string;
+  path?: string;
+};
+
 type DraftMappingResult = {
   mapping: NanikaMapping | null;
   runtimeRule: RuntimeRule | null;
@@ -225,6 +241,20 @@ type ResourceGroupPaletteItem = PaletteItem & {
   kind: "resource-group";
   resourceKind: NanikaResourceKind;
   options: readonly ParameterOption[];
+};
+
+type ActionResourceReference = {
+  resourceKind: NanikaResourceKind;
+  id: string;
+  parameterName: string;
+};
+
+type ActionUsageDetail = {
+  mappingId: string;
+  mappingName: string;
+  event: string;
+  actionType: string;
+  actionLabel: string;
 };
 
 type RuntimeProfileOverviewCard = {
@@ -504,6 +534,26 @@ function createCharacterConditionPaletteItems(): PaletteItem[] {
   }));
 }
 
+function createSavedConditionPaletteItems(): PaletteItem[] {
+  return savedConditions.map((condition) => {
+    const typeLabel = condition.type === "url" ? "URL 포함" : "페이지 코드";
+    const scopeLabel = condition.scope === "runtime" ? "런타임" : "캐릭터";
+
+    return {
+      id: `saved-condition:${condition.id}`,
+      kind: "condition",
+      title: condition.name ?? condition.id,
+      description: condition.description || `${typeLabel} ${condition.value} 조건입니다.`,
+      meta: [
+        `scope: ${condition.scope}`,
+        condition.id,
+        `${condition.type}: ${condition.value}`,
+        `${scopeLabel} 조건`,
+      ],
+    };
+  });
+}
+
 function getConditionScopeFromMeta(meta: readonly string[] = []) {
   const scopeMeta = meta.find((item) => item.startsWith("scope: "));
 
@@ -562,9 +612,12 @@ let selectedEvent: string | null = null;
 let selectedActionCategory: RuntimeActionCatalogCategory | null = null;
 let selectedActionType: string | null = null;
 let draftActionFlow: RuntimeAction[] = [];
+let draftParameterPrefill: Record<string, string> = {};
+let draftQuickConnectionActive = false;
 let savedMappings: NanikaMapping[] = [];
 let savedMappingsLoaded = false;
 let savedFeatureSets: NanikaFeatureSet[] = [];
+let savedConditions: NanikaCondition[] = [];
 let availableCharacterIds: string[] = [registry.character.id];
 let featureSetClonePreviewRequestId = 0;
 let selectedSnippetFeatureSetIds = new Set<string>();
@@ -693,6 +746,15 @@ const featureSetStatus = requireElement(document.querySelector<HTMLElement>("#fe
 const featureSetList = requireElement(document.querySelector<HTMLElement>("#featureSetList"), "#featureSetList");
 const mappingPaletteTabs = requireElement(document.querySelector<HTMLElement>("#mappingPaletteTabs"), "#mappingPaletteTabs");
 const mappingPaletteDeck = requireElement(document.querySelector<HTMLElement>("#mappingPaletteDeck"), "#mappingPaletteDeck");
+const conditionIdInput = requireElement(document.querySelector<HTMLInputElement>("#conditionIdInput"), "#conditionIdInput");
+const conditionNameInput = requireElement(document.querySelector<HTMLInputElement>("#conditionNameInput"), "#conditionNameInput");
+const conditionScopeSelect = requireElement(document.querySelector<HTMLSelectElement>("#conditionScopeSelect"), "#conditionScopeSelect");
+const conditionTypeSelect = requireElement(document.querySelector<HTMLSelectElement>("#conditionTypeSelect"), "#conditionTypeSelect");
+const conditionValueInput = requireElement(document.querySelector<HTMLInputElement>("#conditionValueInput"), "#conditionValueInput");
+const conditionDescriptionInput = requireElement(document.querySelector<HTMLInputElement>("#conditionDescriptionInput"), "#conditionDescriptionInput");
+const saveConditionButton = requireElement(document.querySelector<HTMLButtonElement>("#saveConditionButton"), "#saveConditionButton");
+const conditionList = requireElement(document.querySelector<HTMLElement>("#conditionList"), "#conditionList");
+const conditionStatus = requireElement(document.querySelector<HTMLElement>("#conditionStatus"), "#conditionStatus");
 const mappingEditorHelp = requireElement(document.querySelector<HTMLElement>("#mappingEditorHelp"), "#mappingEditorHelp");
 const mappingEditorStats = requireElement(document.querySelector<HTMLElement>("#mappingEditorStats"), "#mappingEditorStats");
 const mappingEditorCanvas = requireElement(document.querySelector<HTMLElement>("#mappingEditorCanvas"), "#mappingEditorCanvas");
@@ -822,6 +884,9 @@ function getEventScope(event: string): MappingScopeId {
 
 function setEditorMode(view: MappingView) {
   activeView = view;
+  viewSections.forEach((section) => {
+    section.hidden = section.dataset.view !== view;
+  });
   editorModeButtons.forEach((button) => {
     button.dataset.active = button.dataset.editorModeTarget === view ? "true" : "false";
   });
@@ -1175,6 +1240,138 @@ function createCanvasNode(
   };
 }
 
+function sanitizeCanvasIdPart(value: string) {
+  return value.replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+
+function getResourceOptionsByKind(resourceKind: NanikaResourceKind): readonly ParameterOption[] {
+  const resources = registry.characterResources;
+
+  if (resourceKind === "expression") {
+    return resources.expressions;
+  }
+
+  if (resourceKind === "surface") {
+    return resources.surfaces;
+  }
+
+  if (resourceKind === "scene") {
+    return resources.scenes;
+  }
+
+  if (resourceKind === "layer") {
+    return resources.layers;
+  }
+
+  if (resourceKind === "dialogue") {
+    return resources.dialogueCategories;
+  }
+
+  return resources.touchParts;
+}
+
+function findResourceOption(resourceKind: NanikaResourceKind, id: string) {
+  return getResourceOptionsByKind(resourceKind).find((option) => option.id === id) ?? null;
+}
+
+function createResourceReferenceNode(
+  id: string,
+  resourceKind: NanikaResourceKind,
+  resourceId: string,
+  x: number,
+  y: number,
+  meta: string[],
+) {
+  const option = findResourceOption(resourceKind, resourceId);
+  const node = createCanvasNode(
+    id,
+    "resource",
+    option?.label ?? resourceId,
+    option?.description ?? resourceId,
+    x,
+    y,
+    [`key: ${resourceId}`, ...meta],
+    resourceKind,
+  );
+  node.sourceId = resourceId;
+
+  return node;
+}
+
+function getActionResourceReferences(action: RuntimeAction): ActionResourceReference[] {
+  const record = action as Record<string, unknown>;
+  const references: ActionResourceReference[] = [];
+
+  const addReference = (parameterName: string, resourceKind: NanikaResourceKind) => {
+    const value = record[parameterName];
+
+    if (typeof value === "string" && value.trim()) {
+      references.push({
+        resourceKind,
+        id: value.trim(),
+        parameterName,
+      });
+    }
+  };
+
+  if (action.type === "speak") {
+    addReference("category", "dialogue");
+  }
+
+  if (action.type === "change_expression") {
+    addReference("expression", "expression");
+  }
+
+  if (action.type === "surface") {
+    addReference("id", "surface");
+  }
+
+  if (action.type === "scene" || action.type === "scene_overlay") {
+    addReference("id", "scene");
+  }
+
+  if (action.type === "play_layer_animation") {
+    addReference("layerId", "layer");
+  }
+
+  if (action.type === "set_touched_part") {
+    addReference("part", "hitArea");
+  }
+
+  return references;
+}
+
+function attachActionResourceReferences(
+  action: RuntimeAction,
+  actionNodeId: string,
+  graph: CanvasGraph,
+  baseX: number,
+  baseY: number,
+) {
+  getActionResourceReferences(action).forEach((reference, referenceIndex) => {
+    const resourceNodeId = `${actionNodeId}:resource:${reference.resourceKind}:${sanitizeCanvasIdPart(reference.id)}`;
+
+    if (!graph.nodes.some((node) => node.id === resourceNodeId)) {
+      graph.nodes.push(createResourceReferenceNode(
+        resourceNodeId,
+        reference.resourceKind,
+        reference.id,
+        baseX,
+        baseY + 112 + (referenceIndex * 104),
+        [`param: ${reference.parameterName}`, "액션 참조"],
+      ));
+    }
+
+    graph.edges.push({
+      id: `${actionNodeId}->${resourceNodeId}`,
+      from: actionNodeId,
+      to: resourceNodeId,
+      relation: "references",
+      label: "참조",
+    });
+  });
+}
+
 function createActionCanvasNodes(
   action: RuntimeAction,
   index: number,
@@ -1204,6 +1401,7 @@ function createActionCanvasNodes(
     to: nodeId,
     relation: "executes",
   });
+  attachActionResourceReferences(action, nodeId, graph, baseX, baseY);
 
   nestedActions.forEach((nestedAction, nestedIndex) => {
     createActionCanvasNodes(
@@ -1415,9 +1613,53 @@ function createMappingFromCanvasState(mapping: NanikaMapping): NanikaMapping {
   };
 }
 
+function getCanvasActionNodes(graph: CanvasGraph) {
+  return graph.nodes
+    .filter((node) => node.kind === "action" || node.kind === "group")
+    .sort((left, right) => (left.x - right.x) || (left.y - right.y));
+}
+
+function syncSavedMappingCanvasStateAfterSave(previousGraph: CanvasGraph, nextMapping: NanikaMapping) {
+  const key = `saved:mapping:${nextMapping.id}`;
+  const state = getCanvasState(key);
+  const nextGraph = createMappingCanvasGraph(nextMapping, "saved");
+  const previousActionNodes = getCanvasActionNodes(previousGraph);
+  const nextActionNodes = getCanvasActionNodes(nextGraph);
+  const usedPreviousNodeIds = new Set<string>();
+
+  nextActionNodes.forEach((nextNode, index) => {
+    if (state.positions[nextNode.id]) {
+      return;
+    }
+
+    const nextActionType = getCanvasNodeActionType(nextNode);
+    const matchedPreviousNode = previousActionNodes.find((previousNode) =>
+      !usedPreviousNodeIds.has(previousNode.id) && getCanvasNodeActionType(previousNode) === nextActionType,
+    ) ?? previousActionNodes[index];
+
+    if (!matchedPreviousNode) {
+      return;
+    }
+
+    usedPreviousNodeIds.add(matchedPreviousNode.id);
+    state.positions[nextNode.id] = {
+      x: matchedPreviousNode.x,
+      y: matchedPreviousNode.y,
+    };
+  });
+
+  state.extraNodes = state.extraNodes.filter((node) =>
+    !(usedPreviousNodeIds.has(node.id) && (node.kind === "action" || node.kind === "group")),
+  );
+  state.extraEdges = state.extraEdges.filter((edge) =>
+    !usedPreviousNodeIds.has(edge.from) && !usedPreviousNodeIds.has(edge.to),
+  );
+}
+
 function createCharacterCanvasGraph(): CanvasGraph {
   const configuredMappings = getConfiguredMappings();
   const usage = collectActionUsage(configuredMappings.flatMap((rule) => rule.actions));
+  const usageDetails = collectActionUsageDetails(configuredMappings);
   const graph: CanvasGraph = {
     title: `${registry.character.name} 연결 작업판`,
     description: "런타임에서 실제 캐릭터로 들어오고, 캐릭터 재료와 별도 무대 조합 재료로 이어집니다.",
@@ -1512,24 +1754,55 @@ function createCharacterCanvasGraph(): CanvasGraph {
 
     group.options.slice(0, 8).forEach((option, optionIndex) => {
       const usageCount = usage.get(`${group.resourceKind}:${option.id}`) ?? 0;
+      const optionUsageDetails = usageDetails.get(`${group.resourceKind}:${option.id}`) ?? [];
       const nodeId = `${group.id}:${option.id}`;
-      graph.nodes.push(createCanvasNode(
+      const resourceX = 836 + ((optionIndex % 2) * optionGapX);
+      const resourceY = groupY + ((Math.floor(optionIndex / 2)) * optionGapY);
+      const resourceNode = createCanvasNode(
         nodeId,
         "resource",
         option.label,
         option.description ?? option.id,
-        836 + ((optionIndex % 2) * optionGapX),
-        groupY + ((Math.floor(optionIndex / 2)) * optionGapY),
+        resourceX,
+        resourceY,
         [`key: ${option.id}`, usageCount > 0 ? `사용 ${usageCount}` : "미연결"],
         group.resourceKind,
-      ));
+      );
+      resourceNode.sourceId = option.id;
+      graph.nodes.push(resourceNode);
       graph.edges.push({
         id: `${groupId}->${nodeId}`,
         from: groupId,
         to: nodeId,
         relation: usageCount > 0 ? "executes" : "references",
-        label: usageCount > 0 ? "사용" : "보유",
+        label: "보유",
       });
+
+      if (optionUsageDetails.length > 0) {
+        const usageNodeId = `${nodeId}:usage`;
+        const usageMeta = optionUsageDetails.slice(0, 6).map((detail) =>
+          `${detail.mappingName} / ${getReadableEventLabel(detail.event)} / ${detail.actionLabel}`,
+        );
+        if (optionUsageDetails.length > 6) {
+          usageMeta.push(`+${optionUsageDetails.length - 6}개 더 있음`);
+        }
+        graph.nodes.push(createCanvasNode(
+          usageNodeId,
+          "mapping",
+          `${option.label} 사용처`,
+          `${optionUsageDetails.length}개 연결/액션에서 이 재료를 참조합니다.`,
+          resourceX + 584,
+          resourceY,
+          usageMeta,
+        ));
+        graph.edges.push({
+          id: `${nodeId}->${usageNodeId}`,
+          from: nodeId,
+          to: usageNodeId,
+          relation: "references",
+          label: "참조됨",
+        });
+      }
     });
 
     if (group.options.length > 8) {
@@ -1629,13 +1902,6 @@ function applyCanvasState(key: string, graph: CanvasGraph) {
   const removedNodeIds = new Set(state.removedNodeIds);
   graph.nodes = graph.nodes.filter((node) => !removedNodeIds.has(node.id));
   graph.edges = graph.edges.filter((edge) => !removedNodeIds.has(edge.from) && !removedNodeIds.has(edge.to));
-  graph.nodes.forEach((node) => {
-    const position = state.positions[node.id];
-    if (position) {
-      node.x = position.x;
-      node.y = position.y;
-    }
-  });
   const nodeIds = new Set(graph.nodes.map((node) => node.id));
   state.extraNodes.forEach((node) => {
     if (!nodeIds.has(node.id)) {
@@ -1648,6 +1914,13 @@ function applyCanvasState(key: string, graph: CanvasGraph) {
     if (!edgeIds.has(edge.id)) {
       graph.edges.push({ ...edge });
       edgeIds.add(edge.id);
+    }
+  });
+  graph.nodes.forEach((node) => {
+    const position = state.positions[node.id];
+    if (position) {
+      node.x = position.x;
+      node.y = position.y;
     }
   });
 
@@ -1857,6 +2130,42 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
     ));
   }
 
+  function startQuickConnectionFromResource(node: CanvasNode) {
+    const resourceKind = getCanvasNodeResourceKind(node);
+    const resourceId = getCanvasNodeSourceId(node);
+
+    if (!resourceKind || !resourceId) {
+      startCanvasConnection(node);
+      return;
+    }
+
+    const actionType = getDefaultActionTypeForResourceKind(resourceKind);
+    const actionCatalogItem = registry.actions.find((action) => action.type === actionType);
+    selectedScope = "character";
+    selectedEvent = null;
+    selectedActionCategory = actionCatalogItem?.category ?? null;
+    selectedActionType = actionType;
+    draftActionFlow = [];
+    draftQuickConnectionActive = true;
+    draftParameterPrefill = {
+      [getDefaultParameterNameForResourceKind(resourceKind)]: resourceId,
+    };
+    draftTargetSelect.value = createMappingTargetValue("character", registry.character.id);
+    draftMappingIdInput.value = `${registry.character.id}.${resourceKind}.${resourceId}`.replace(/[^a-zA-Z0-9_.:-]/g, ".");
+    draftMappingNameInput.value = `${registry.character.name} ${node.title} 연결`;
+    setEditorMode("create");
+    renderStepBuilder();
+
+    renderDraftPreview();
+
+    renderDetailPanel(
+      "액션",
+      `${node.title} 빠른 연결`,
+      `${getResourceKindLabel(resourceKind)} 재료를 선택했어요. 이제 2단계에서 언제 쓸지 고른 뒤, 필요하면 함께 실행할 동작을 추가하세요.`,
+      [`재료: ${node.title}`, `선택값: ${resourceId}`, `추천 동작: ${getReadableActionLabel(actionType)}`],
+    );
+  }
+
   function startCanvasConnection(node: CanvasNode) {
     pendingConnectionNodeId = node.id;
     selectedPaletteCategory = getPreferredPaletteCategoryForKind(node.kind);
@@ -1882,6 +2191,9 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
     const actions = document.createElement("div");
     actions.className = "asset-lab-button-row";
     const connectButton = createActionButton("연결 시작", () => startCanvasConnection(node));
+    const quickConnectButton = node.kind === "resource"
+      ? createActionButton("언제 쓸지 정하기", () => startQuickConnectionFromResource(node))
+      : null;
     const editButton = createActionButton("수정", () => editCanvasNode(node));
     const deleteButton = createActionButton("삭제", () => removeCanvasNode(node));
     deleteButton.title = "현재 작업판에서 이 카드를 제거합니다. 원본 파일은 삭제하지 않습니다.";
@@ -1892,7 +2204,11 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
       popover.remove();
       nodes.get(node.id)?.setAttribute("data-selected", "false");
     });
-    actions.append(connectButton, editButton, deleteButton, closeButton);
+    actions.append(connectButton);
+    if (quickConnectButton) {
+      actions.append(quickConnectButton);
+    }
+    actions.append(editButton, deleteButton, closeButton);
     popover.append(title, body, actions);
     board.append(popover);
   }
@@ -1922,7 +2238,12 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
       element.style.left = `${node.x}px`;
       element.style.top = `${node.y}px`;
     }
-    getCanvasState(currentEditorGraphKey).positions[node.id] = { x: node.x, y: node.y };
+    const state = getCanvasState(currentEditorGraphKey);
+
+    state.positions[node.id] = { x: node.x, y: node.y };
+    state.extraNodes = state.extraNodes.map((extraNode) =>
+      extraNode.id === node.id ? { ...extraNode, x: node.x, y: node.y } : extraNode,
+    );
     updateEdges();
   }
 
@@ -2122,6 +2443,74 @@ function getActionResourceKind(actionType: string): NanikaResourceKind | null {
   return null;
 }
 
+function getDefaultActionTypeForResourceKind(resourceKind: NanikaResourceKind) {
+  if (resourceKind === "dialogue") {
+    return "speak";
+  }
+
+  if (resourceKind === "expression") {
+    return "change_expression";
+  }
+
+  if (resourceKind === "surface") {
+    return "surface";
+  }
+
+  if (resourceKind === "scene") {
+    return "scene";
+  }
+
+  if (resourceKind === "layer") {
+    return "play_layer_animation";
+  }
+
+  return "set_touched_part";
+}
+
+function getDefaultParameterNameForResourceKind(resourceKind: NanikaResourceKind) {
+  if (resourceKind === "dialogue") {
+    return "category";
+  }
+
+  if (resourceKind === "expression") {
+    return "expression";
+  }
+
+  if (resourceKind === "surface" || resourceKind === "scene") {
+    return "id";
+  }
+
+  if (resourceKind === "layer") {
+    return "layerId";
+  }
+
+  return "part";
+}
+
+function getResourceKindLabel(resourceKind: NanikaResourceKind) {
+  if (resourceKind === "expression") {
+    return "표정";
+  }
+
+  if (resourceKind === "surface") {
+    return "상태";
+  }
+
+  if (resourceKind === "scene") {
+    return "무대 조합";
+  }
+
+  if (resourceKind === "layer") {
+    return "파츠 움직임";
+  }
+
+  if (resourceKind === "dialogue") {
+    return "대사";
+  }
+
+  return "터치 영역";
+}
+
 function getResourceKindFromNodeId(nodeId: string): NanikaResourceKind | null {
   const [prefix, groupId] = nodeId.split(":");
   const id = prefix === "group" ? groupId : prefix;
@@ -2304,17 +2693,45 @@ function handlePaletteDrop(event: DragEvent, board: HTMLElement) {
   renderEditorCanvas();
 }
 
+function getNextPaletteNodePosition() {
+  const fallbackSize = currentEditorGraph ? getCanvasSize(currentEditorGraph) : { width: 680, height: 260 };
+  const source = currentEditorGraph?.nodes.find((node) => node.id === pendingConnectionNodeId || node.id === selectedCanvasNodeForPopover?.id);
+
+  if (!source) {
+    return {
+      x: Math.max(16, Math.min(fallbackSize.width - 232, Math.round(fallbackSize.width / 2) - 92)),
+      y: Math.max(16, Math.min(fallbackSize.height - 112, Math.round(fallbackSize.height / 2) - 38)),
+    };
+  }
+
+  const existingTargets = currentEditorGraph?.edges.filter((edge) => edge.from === source.id).length ?? 0;
+  const candidateX = source.x + 260;
+  const candidateY = source.y + (existingTargets * 112);
+
+  if (candidateX <= fallbackSize.width - 232) {
+    return {
+      x: Math.max(16, candidateX),
+      y: Math.max(16, Math.min(fallbackSize.height - 112, candidateY)),
+    };
+  }
+
+  return {
+    x: Math.max(16, Math.min(fallbackSize.width - 232, source.x)),
+    y: Math.max(16, Math.min(fallbackSize.height - 112, source.y + 128 + (existingTargets * 112))),
+  };
+}
+
 function addPaletteItemToCurrentGraph(item: PaletteItem, renderImmediately = true) {
   if (!currentEditorGraph) {
     selectCatalogInEditor(item.title, item.description, item.meta ?? [item.id], false);
     return null;
   }
 
-  const size = getCanvasSize(currentEditorGraph);
+  const position = getNextPaletteNodePosition();
   const node = createCanvasNodeFromPalette(
     item,
-    Math.max(16, Math.min(size.width - 232, Math.round(size.width / 2) - 92)),
-    Math.max(16, Math.min(size.height - 112, Math.round(size.height / 2) - 38)),
+    position.x,
+    position.y,
   );
   currentEditorGraph.nodes.push(node);
   getCanvasState(currentEditorGraphKey).extraNodes.push(node);
@@ -2380,6 +2797,7 @@ function getPaletteItems(category: PaletteCategoryId): PaletteItem[] {
 
   if (category === "conditions") {
     return [
+      ...createSavedConditionPaletteItems(),
       ...createRuntimeConditionPaletteItems(),
       ...createCharacterConditionPaletteItems(),
     ];
@@ -2819,24 +3237,18 @@ function collectActionUsage(actions: readonly RuntimeAction[], output = new Map<
     output.set(`action:${action.type}`, (output.get(`action:${action.type}`) ?? 0) + 1);
 
     const record = action as Record<string, unknown>;
-    const usageFields: Array<[string, string]> = [
-      ["category", "dialogue"],
-      ["expression", "expression"],
-      ["id", action.type === "scene" || action.type === "scene_overlay" ? "무대 조합 id" : "캐릭터 상태 id"],
-      ["layerId", "layer"],
-      ["pluginId", "plugin"],
-      ["part", "hitArea"],
-      ["theme", "ui"],
-      ["mode", "ui"],
-      ["placement", "ui"],
-      ["display", "ui"],
-    ];
+    getActionResourceReferences(action).forEach((reference) => {
+      const key = `${reference.resourceKind}:${reference.id}`;
+      output.set(key, (output.get(key) ?? 0) + 1);
+    });
 
-    usageFields.forEach(([field, kind]) => {
+    ["pluginId", "theme", "mode", "placement", "display"].forEach((field) => {
       const value = record[field];
+      const kind = field === "pluginId" ? "plugin" : "ui";
 
-      if (typeof value === "string" && value) {
-        output.set(`${kind}:${value}`, (output.get(`${kind}:${value}`) ?? 0) + 1);
+      if (typeof value === "string" && value.trim()) {
+        const key = `${kind}:${value.trim()}`;
+        output.set(key, (output.get(key) ?? 0) + 1);
       }
     });
 
@@ -2865,6 +3277,60 @@ function collectActionUsage(actions: readonly RuntimeAction[], output = new Map<
   });
 
   return output;
+}
+
+function collectActionUsageDetails(mappings: readonly (RuntimeRule | NanikaMapping)[]) {
+  const details = new Map<string, ActionUsageDetail[]>();
+
+  const visitActions = (
+    mapping: RuntimeRule | NanikaMapping,
+    actions: readonly RuntimeAction[],
+  ) => {
+    actions.forEach((action) => {
+      getActionResourceReferences(action).forEach((reference) => {
+        const key = `${reference.resourceKind}:${reference.id}`;
+        const usage: ActionUsageDetail = {
+          mappingId: mapping.id,
+          mappingName: (mapping as NanikaMapping).name ?? mapping.id,
+          event: mapping.event,
+          actionType: action.type,
+          actionLabel: getReadableActionLabel(action.type),
+        };
+        details.set(key, [...(details.get(key) ?? []), usage]);
+      });
+
+      const record = action as Record<string, unknown>;
+
+      if (Array.isArray(record.actions)) {
+        visitActions(mapping, record.actions as RuntimeAction[]);
+      }
+
+      if (Array.isArray(record.items)) {
+        record.items.forEach((item) => {
+          const actions = (item as { actions?: RuntimeAction[] }).actions;
+          const children = (item as { children?: Array<{ actions?: RuntimeAction[] }> }).children;
+
+          if (Array.isArray(actions)) {
+            visitActions(mapping, actions);
+          }
+
+          if (Array.isArray(children)) {
+            children.forEach((child) => {
+              if (Array.isArray(child.actions)) {
+                visitActions(mapping, child.actions);
+              }
+            });
+          }
+        });
+      }
+    });
+  };
+
+  mappings.forEach((mapping) => {
+    visitActions(mapping, mapping.actions);
+  });
+
+  return details;
 }
 
 function createMaterialItem(
@@ -3821,7 +4287,7 @@ function createDraftMappingFlow() {
   ));
 
   if (draftActionFlow.length === 0) {
-    appendFlowStep(flow, createFlowNode("액션 없음", "액션을 추가하면 여기서 흐름을 확인합니다.", "missing"));
+    appendFlowStep(flow, createFlowNode("동작 없음", "동작을 추가하면 여기서 흐름을 확인합니다.", "missing"));
     return flow;
   }
 
@@ -4075,6 +4541,8 @@ function renderScopeOptions() {
       selectedEvent = null;
       selectedActionCategory = null;
       selectedActionType = null;
+      draftParameterPrefill = {};
+      draftQuickConnectionActive = false;
       renderDetailPanel("대상", scope.title, scope.description);
       renderStepBuilder();
     },
@@ -4108,8 +4576,11 @@ function renderEventOptions() {
     selectedEvent === event.event,
     () => {
       selectedEvent = event.event;
-      selectedActionCategory = null;
-      selectedActionType = null;
+      if (!draftQuickConnectionActive) {
+        selectedActionCategory = null;
+        selectedActionType = null;
+        draftParameterPrefill = {};
+      }
       renderDetailPanel("이벤트", getReadableEventLabel(event.event), event.description, [
         event.event,
         ...formatPayloadFields(event),
@@ -4131,13 +4602,15 @@ function renderActionCategoryOptions() {
       id: category.id,
       title: category.title,
       description: category.description,
-      meta: [`actions: ${registry.actions.filter((action) => action.category === category.id).length}`],
+      meta: [`동작 ${registry.actions.filter((action) => action.category === category.id).length}개`],
     },
     "실행 영역",
     selectedActionCategory === category.id,
     () => {
       selectedActionCategory = category.id;
       selectedActionType = null;
+      draftParameterPrefill = {};
+      draftQuickConnectionActive = false;
       renderDetailPanel("실행 영역", category.title, category.description);
       renderStepBuilder();
     },
@@ -4148,12 +4621,12 @@ function renderActionOptions() {
   const actions = getActionsForSelectedCategory();
 
   if (!selectedActionCategory) {
-    draftActionHelp.textContent = "실행 영역을 선택하면 구체적인 액션이 나타납니다.";
-    draftActionOptions.replaceChildren(createCard("대기 중", "먼저 실행 영역을 선택하세요."));
+    draftActionHelp.textContent = "동작 종류를 선택하면 구체적인 동작이 나타납니다.";
+    draftActionOptions.replaceChildren(createCard("대기 중", "먼저 동작 종류를 선택하세요."));
     return;
   }
 
-  draftActionHelp.textContent = `${actions.length}개 액션 중 하나를 선택하세요.`;
+  draftActionHelp.textContent = `${actions.length}개 동작 중 하나를 선택하세요.`;
   draftActionOptions.replaceChildren(...actions.map((action) => createStepOptionButton(
     {
       id: action.type,
@@ -4165,6 +4638,8 @@ function renderActionOptions() {
     selectedActionType === action.type,
     () => {
       selectedActionType = action.type;
+      draftParameterPrefill = {};
+      draftQuickConnectionActive = false;
       renderDetailPanel("액션", getReadableActionLabel(action.type), action.description, [
         action.type,
         ...formatRequiredControls(action),
@@ -4181,7 +4656,7 @@ function renderDraftActionParameters() {
   if (!selectedAction) {
     const empty = document.createElement("p");
     empty.className = "asset-lab-help";
-    empty.textContent = "액션을 선택하면 입력할 값이 나타납니다.";
+    empty.textContent = "동작을 선택하면 입력할 값이 나타납니다.";
     draftActionParameters.append(empty);
     return;
   }
@@ -4189,7 +4664,7 @@ function renderDraftActionParameters() {
   if (selectedAction.parameters.length === 0) {
     const empty = document.createElement("p");
     empty.className = "asset-lab-help";
-    empty.textContent = "이 액션은 입력할 파라미터가 없습니다.";
+    empty.textContent = "이 동작은 따로 입력할 값이 없습니다.";
     draftActionParameters.append(empty);
     return;
   }
@@ -4231,6 +4706,14 @@ function renderDraftActionParameters() {
       input = textInput;
     }
 
+    const prefilledValue = draftParameterPrefill[parameter.name];
+    if (prefilledValue !== undefined) {
+      if (input instanceof HTMLSelectElement && prefilledValue && !Array.from(input.options).some((option) => option.value === prefilledValue)) {
+        input.append(new Option(`직접 입력: ${prefilledValue}`, prefilledValue));
+      }
+      input.value = prefilledValue;
+    }
+
     input.id = inputId;
     input.dataset.parameterName = parameter.name;
     input.addEventListener("input", renderDraftPreview);
@@ -4248,7 +4731,7 @@ function createActionFromSelectedInputs(errors: string[]) {
   const selectedAction = getSelectedActionCatalogItem();
 
   if (!selectedAction) {
-    errors.push("액션을 선택하세요.");
+    errors.push("동작을 선택하세요.");
     return null;
   }
 
@@ -4264,7 +4747,7 @@ function createActionFromSelectedInputs(errors: string[]) {
 
     if (!rawValue) {
       if (parameter.required) {
-        errors.push(`필수 파라미터 누락: ${parameter.name}`);
+        errors.push(`필수 값 누락: ${getReadableParameterLabel(parameter.name)}`);
       }
       return;
     }
@@ -4284,8 +4767,8 @@ function createActionFromSelectedInputs(errors: string[]) {
 function renderActionFlow() {
   if (draftActionFlow.length === 0) {
     draftActionFlowList.replaceChildren(createCard(
-      "액션 없음",
-      "선택 액션 설정에서 액션을 추가하면 여기에 쌓입니다. 2개 이상 쌓은 뒤 실행 방식을 고를 수 있습니다.",
+      "동작 없음",
+      "선택 동작 설정에서 동작을 추가하면 여기에 쌓입니다. 2개 이상 쌓은 뒤 실행 방식을 고를 수 있습니다.",
     ));
     renderDraftFlowPreview();
     return;
@@ -4338,7 +4821,7 @@ function renderActionFlow() {
       }),
       createActionButton("복제", () => {
         if (draftActionFlow.length >= maxActionFlowSteps) {
-          draftMappingStatus.textContent = `액션 플로우는 최대 ${maxActionFlowSteps}개까지 추가할 수 있습니다.`;
+          draftMappingStatus.textContent = `동작 흐름은 최대 ${maxActionFlowSteps}개까지 추가할 수 있습니다.`;
           draftMappingStatus.dataset.state = "warning";
           return;
         }
@@ -4365,7 +4848,7 @@ function addSelectedActionToFlow() {
   const errors: string[] = [];
 
   if (draftActionFlow.length >= maxActionFlowSteps) {
-    draftMappingStatus.textContent = `액션 플로우는 최대 ${maxActionFlowSteps}개까지 추가할 수 있습니다.`;
+    draftMappingStatus.textContent = `동작 흐름은 최대 ${maxActionFlowSteps}개까지 추가할 수 있습니다.`;
     draftMappingStatus.dataset.state = "warning";
     renderDraftPreview();
     return;
@@ -4374,23 +4857,25 @@ function addSelectedActionToFlow() {
   const action = createActionFromSelectedInputs(errors);
 
   if (!action) {
-    draftMappingStatus.textContent = errors.join(" / ") || "추가할 액션이 없습니다.";
+    draftMappingStatus.textContent = errors.join(" / ") || "추가할 동작이 없습니다.";
     draftMappingStatus.dataset.state = "warning";
     renderDraftPreview();
     return;
   }
 
   draftActionFlow.push(action);
+  draftParameterPrefill = {};
+  draftQuickConnectionActive = false;
   renderActionFlow();
   renderDraftFlowPreview();
   renderDraftPreview();
-  draftMappingStatus.textContent = `${getReadableActionLabel(action.type)} 액션을 플로우에 추가했어요.`;
+  draftMappingStatus.textContent = `${getReadableActionLabel(action.type)} 동작을 흐름에 추가했어요.`;
   draftMappingStatus.dataset.state = "ready";
 }
 
 function wrapCurrentActionFlow(type: "run_sequence" | "run_parallel" | "run_random") {
   if (draftActionFlow.length < 2) {
-    draftMappingStatus.textContent = "묶음으로 만들려면 액션 플로우에 액션을 2개 이상 추가하세요.";
+    draftMappingStatus.textContent = "묶음으로 만들려면 동작 흐름에 동작을 2개 이상 추가하세요.";
     draftMappingStatus.dataset.state = "warning";
     return;
   }
@@ -4421,11 +4906,11 @@ function createDraftMapping(): DraftMappingResult {
   }
 
   if (draftActionFlow.length === 0) {
-    errors.push("액션 플로우에 액션을 하나 이상 추가하세요.");
+    errors.push("동작 흐름에 동작을 하나 이상 추가하세요.");
   }
 
   if (draftActionFlow.length > maxActionFlowSteps) {
-    errors.push(`액션 플로우는 최대 ${maxActionFlowSteps}개까지만 저장할 수 있습니다.`);
+    errors.push(`동작 흐름은 최대 ${maxActionFlowSteps}개까지만 저장할 수 있습니다.`);
   }
 
   if (!selectedEvent) {
@@ -4533,6 +5018,152 @@ async function copyText(text: string, statusElement: HTMLElement, message: strin
   await navigator.clipboard.writeText(text);
   statusElement.textContent = message;
   statusElement.dataset.state = "ready";
+}
+
+function readConditionForm(): NanikaCondition {
+  return {
+    id: conditionIdInput.value.trim(),
+    name: conditionNameInput.value.trim(),
+    scope: conditionScopeSelect.value === "character" ? "character" : "runtime",
+    type: conditionTypeSelect.value === "url" ? "url" : "pageId",
+    value: conditionValueInput.value.trim(),
+    description: conditionDescriptionInput.value.trim(),
+  };
+}
+
+function renderConditions(savedPath?: string) {
+  if (savedConditions.length === 0) {
+    conditionList.replaceChildren(createCard("저장된 조건 없음", "URL이나 pageId 조건을 저장하면 조건 카드덱에서 재사용할 수 있어요."));
+    conditionStatus.textContent = savedPath
+      ? `${savedPath}에 저장된 조건이 없습니다.`
+      : "저장된 조건이 없습니다.";
+    conditionStatus.dataset.state = "ready";
+    return;
+  }
+
+  conditionList.replaceChildren(...savedConditions.map((condition) => {
+    const card = createCard(
+      condition.name ?? condition.id,
+      condition.description || `${condition.type} ${condition.value} 조건입니다.`,
+      [
+        `id: ${condition.id}`,
+        `scope: ${condition.scope}`,
+        `${condition.type}: ${condition.value}`,
+      ],
+    );
+    const controls = document.createElement("div");
+    controls.className = "asset-lab-button-row";
+
+    controls.append(
+      createActionButton("수정", () => {
+        conditionIdInput.value = condition.id;
+        conditionNameInput.value = condition.name ?? "";
+        conditionScopeSelect.value = condition.scope;
+        conditionTypeSelect.value = condition.type;
+        conditionValueInput.value = condition.value;
+        conditionDescriptionInput.value = condition.description ?? "";
+      }),
+      createActionButton("삭제", () => {
+        void deleteCondition(condition.id);
+      }),
+    );
+    card.append(controls);
+
+    return card;
+  }));
+  conditionStatus.textContent = savedPath
+    ? `${savedPath}에서 ${savedConditions.length}개 조건을 불러왔어요.`
+    : `${savedConditions.length}개 조건을 불러왔어요.`;
+  conditionStatus.dataset.state = "ready";
+}
+
+async function loadConditions() {
+  conditionStatus.textContent = "조건을 불러오는 중입니다.";
+  conditionStatus.dataset.state = "ready";
+
+  try {
+    const response = await fetch(createDevtoolsApiPath("/api/devtools/nanika-conditions"));
+    const result = await readApiJson<NanikaConditionsResponse>(response);
+
+    if (!response.ok || !result.ok) {
+      throw new Error(result.message ?? result.error ?? "조건을 불러오지 못했습니다.");
+    }
+
+    savedConditions = result.conditions ?? [];
+    renderConditions(result.path);
+    renderEditorPalette();
+    refreshOverview();
+  } catch (error) {
+    savedConditions = [];
+    renderConditions();
+    renderEditorPalette();
+    refreshOverview();
+    conditionStatus.textContent = error instanceof Error ? error.message : "조건을 불러오지 못했습니다.";
+    conditionStatus.dataset.state = "warning";
+  }
+}
+
+async function saveCondition() {
+  const condition = readConditionForm();
+
+  if (!condition.id || !condition.value) {
+    conditionStatus.textContent = "조건 ID와 조건 값을 입력하세요.";
+    conditionStatus.dataset.state = "warning";
+    return;
+  }
+
+  saveConditionButton.disabled = true;
+  conditionStatus.textContent = "조건을 저장하는 중입니다.";
+
+  try {
+    const response = await fetch(createDevtoolsApiPath("/api/devtools/save-nanika-condition"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ condition }),
+    });
+    const result = await readApiJson<NanikaConditionsResponse>(response);
+
+    if (!response.ok || !result.ok) {
+      throw new Error(result.message ?? result.error ?? "조건을 저장하지 못했습니다.");
+    }
+
+    savedConditions = result.conditions ?? [];
+    renderConditions(result.path);
+    renderEditorPalette();
+    refreshOverview();
+    conditionStatus.textContent = `${condition.id} 조건을 저장했어요.`;
+    conditionStatus.dataset.state = "ready";
+  } catch (error) {
+    conditionStatus.textContent = error instanceof Error ? error.message : "조건을 저장하지 못했습니다.";
+    conditionStatus.dataset.state = "warning";
+  } finally {
+    saveConditionButton.disabled = false;
+  }
+}
+
+async function deleteCondition(conditionId: string) {
+  try {
+    const response = await fetch(createDevtoolsApiPath("/api/devtools/delete-nanika-condition"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: conditionId }),
+    });
+    const result = await readApiJson<NanikaConditionsResponse>(response);
+
+    if (!response.ok || !result.ok) {
+      throw new Error(result.message ?? result.error ?? "조건을 삭제하지 못했습니다.");
+    }
+
+    savedConditions = result.conditions ?? [];
+    renderConditions(result.path);
+    renderEditorPalette();
+    refreshOverview();
+    conditionStatus.textContent = `${conditionId} 조건을 삭제했어요.`;
+    conditionStatus.dataset.state = "ready";
+  } catch (error) {
+    conditionStatus.textContent = error instanceof Error ? error.message : "조건을 삭제하지 못했습니다.";
+    conditionStatus.dataset.state = "warning";
+  }
 }
 
 async function loadSavedMappings() {
@@ -5088,6 +5719,9 @@ function addSelectedEditorMappingToFeatureSet() {
 }
 
 async function saveMappingFromEditorCanvas(mapping: NanikaMapping) {
+  const previousGraph = currentEditorGraph
+    ? JSON.parse(JSON.stringify(currentEditorGraph)) as CanvasGraph
+    : createMappingCanvasGraph(mapping, "saved");
   const nextMapping = createMappingFromCanvasState(mapping);
 
   if (nextMapping.actions.length === 0) {
@@ -5110,6 +5744,7 @@ async function saveMappingFromEditorCanvas(mapping: NanikaMapping) {
 
     savedMappings = result.mappings ?? [];
     savedMappingsLoaded = true;
+    syncSavedMappingCanvasStateAfterSave(previousGraph, nextMapping);
     saveCanvasStatesToStorage();
     renderSavedMappings(result.path);
     renderFeatureSets();
@@ -5225,6 +5860,9 @@ function initDraftBuilder() {
   refreshSavedMappingsButton.addEventListener("click", () => {
     void loadSavedMappings();
   });
+  saveConditionButton.addEventListener("click", () => {
+    void saveCondition();
+  });
   saveFeatureSetButton.addEventListener("click", () => {
     void saveFeatureSet();
   });
@@ -5279,10 +5917,11 @@ function renderSummary() {
       `id: ${registry.character.id}`,
       `기본 표정: ${registry.character.defaultExpression}`,
     ]),
-    createCard("저장 / 적용 상태", "저장된 연결과 현재 preset에 실제 적용된 실행 규칙을 구분합니다.", [
+  createCard("저장 / 적용 상태", "저장된 연결과 현재 preset에 실제 적용된 실행 규칙을 구분합니다.", [
       `저장됨 ${savedMappings.length}`,
       `적용됨 ${rules.length}`,
       `기능 묶음 ${savedFeatureSets.length}`,
+      `조건 ${savedConditions.length}`,
       `저장+적용 ${savedStatus.savedAndApplied.length}`,
       `저장만 됨 ${savedStatus.savedOnly.length}`,
       `적용만 됨 ${savedStatus.appliedOnly.length}`,
@@ -5472,5 +6111,6 @@ renderCapabilities();
 renderEvents();
 renderActions();
 refreshOverview();
+void loadConditions();
 void loadSavedMappings();
 void loadFeatureSets();

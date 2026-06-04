@@ -381,6 +381,9 @@ async function verifyMappingEditor(page) {
     activeTab: document.querySelector("[data-view-target][data-active='true']")?.textContent?.trim(),
     activeEditorMode: document.querySelector("[data-editor-mode-target][data-active='true'] strong")?.textContent?.trim(),
     visibleSections: Array.from(document.querySelectorAll(".nanika-view-section")).filter((section) => !section.hidden).length,
+    createSectionVisible: !(document.querySelector("[data-view='create']")?.hidden ?? true),
+    editorPanelVisible: !(document.querySelector(".nanika-editor-panel")?.hidden ?? false),
+    paletteVisible: getComputedStyle(document.querySelector(".nanika-editor-palette")).display !== "none",
     hasTargetSelect: Boolean(document.querySelector("#draftTargetSelect")),
     hasWrapButtons: ["wrapSequenceButton", "wrapParallelButton", "wrapRandomButton"]
       .every((id) => Boolean(document.getElementById(id))),
@@ -397,6 +400,8 @@ async function verifyMappingEditor(page) {
     paletteTabCount: document.querySelectorAll("#mappingPaletteTabs button").length,
     paletteCardCount: document.querySelectorAll("#mappingPaletteDeck .nanika-palette-card").length,
     visibleSections: Array.from(document.querySelectorAll(".nanika-view-section")).filter((section) => !section.hidden).length,
+    savedSectionVisible: !(document.querySelector("[data-view='saved']")?.hidden ?? true),
+    editorPanelVisible: !(document.querySelector(".nanika-editor-panel")?.hidden ?? false),
   }));
   const sceneActionCount = await page.locator("#mappingEditorCanvas .nanika-paint-node[data-kind='action']").filter({ hasText: "?? ??" }).count();
   let sceneActionResourceFilterMetrics = {
@@ -472,6 +477,8 @@ async function verifyMappingEditor(page) {
     editorShowsSaved: document.querySelectorAll("#mappingEditorCanvas .nanika-paint-node").length >= 3,
     movedToFeatureSet: document.querySelector("[data-editor-mode-target][data-active='true'] strong")?.textContent?.trim() === "기능 묶음",
     visibleSections: Array.from(document.querySelectorAll(".nanika-view-section")).filter((section) => !section.hidden).length,
+    featureSetSectionVisible: !(document.querySelector("[data-view='feature-sets']")?.hidden ?? true),
+    editorPanelVisible: !(document.querySelector(".nanika-editor-panel")?.hidden ?? false),
     featureSetCandidateChecked: document.querySelectorAll("#featureSetMappingPicker input[type='checkbox']:checked").length > 0,
     overflowX: document.documentElement.scrollWidth > window.innerWidth,
   }));
@@ -495,6 +502,8 @@ async function verifyMappingEditor(page) {
     hasGenericTemplate: document.querySelector("#featureSetList")?.textContent?.includes("캐릭터 미지정") ?? false,
     hasCompatibilityStatus: document.querySelector("#featureSetList")?.textContent?.includes("호환 상태") ?? false,
     visibleSections: Array.from(document.querySelectorAll(".nanika-view-section")).filter((section) => !section.hidden).length,
+    featureSetSectionVisible: !(document.querySelector("[data-view='feature-sets']")?.hidden ?? true),
+    editorPanelVisible: !(document.querySelector(".nanika-editor-panel")?.hidden ?? false),
     overflowX: document.documentElement.scrollWidth > window.innerWidth,
   }));
 
@@ -1450,7 +1459,9 @@ async function main() {
       assertMetric(mapping.overviewMetrics.ruleCardCount >= 10, "Rine runtime mappings are not fully visible.");
       assertMetric(!mapping.overviewMetrics.overflowX, "Mapping overview has horizontal overflow.");
       assertMetric(mapping.createMetrics.hasTargetSelect, "Mapping target selector is missing.");
-      assertMetric(mapping.createMetrics.visibleSections === 0, "Create mode should not navigate away from the editor workspace.");
+      assertMetric(mapping.createMetrics.createSectionVisible, "Create mode should expose the saveable draft form.");
+      assertMetric(mapping.createMetrics.editorPanelVisible, "Create mode should keep the editor workspace visible.");
+      assertMetric(mapping.createMetrics.paletteVisible, "Create mode should keep the card deck visible.");
       assertMetric(mapping.createMetrics.hasWrapButtons, "Action flow wrap buttons are missing.");
       assertMetric(mapping.createMetrics.hasDraftFlowPreview, "Draft flow preview is missing.");
       assertMetric(mapping.createMetrics.editorShowsDraft, "Draft view does not update the shared editor.");
@@ -1459,7 +1470,8 @@ async function main() {
       assertMetric(mapping.savedMetrics.hasSavedFlowBoard, "Saved mapping flow board is missing.");
       assertMetric(mapping.savedMetrics.savedGroupCount > 0, "Saved mapping groups are missing.");
       assertMetric(mapping.savedEditorBeforeSetMetrics.addToSetEnabled, "Saved mapping should be addable to a feature set.");
-      assertMetric(mapping.savedEditorBeforeSetMetrics.visibleSections === 0, "Saved mode should not navigate away from the editor workspace.");
+      assertMetric(mapping.savedEditorBeforeSetMetrics.savedSectionVisible, "Saved mode should expose saved mapping management.");
+      assertMetric(mapping.savedEditorBeforeSetMetrics.editorPanelVisible, "Saved mode should keep the editor workspace visible.");
       assertMetric(mapping.savedEditorBeforeSetMetrics.selectedNodeCount >= 3, "Saved mapping did not render as canvas nodes.");
       assertMetric(mapping.savedEditorBeforeSetMetrics.paletteTabCount >= 5, "Editor palette category buttons are missing.");
       assertMetric(mapping.savedEditorBeforeSetMetrics.paletteCardCount > 0, "Editor palette cards are missing.");
@@ -1477,7 +1489,8 @@ async function main() {
       assertMetric(mapping.dragAfterMetrics.moved, "Canvas node drag did not move a card.");
       assertMetric(mapping.dragAfterMetrics.selected, "Canvas node was not selected after drag.");
       assertMetric(mapping.savedMetrics.movedToFeatureSet, "Adding a saved mapping to a feature set did not move to the feature set view.");
-      assertMetric(mapping.savedMetrics.visibleSections === 0, "Feature set mode should stay in the editor workspace after adding a mapping.");
+      assertMetric(mapping.savedMetrics.featureSetSectionVisible, "Adding a mapping to a feature set should expose the feature set form.");
+      assertMetric(mapping.savedMetrics.editorPanelVisible, "Feature set mode should keep the editor workspace visible after adding a mapping.");
       assertMetric(mapping.savedMetrics.featureSetCandidateChecked, "Adding a saved mapping did not check it in the feature set picker.");
       assertMetric(!mapping.savedMetrics.overflowX, "Saved mapping view has horizontal overflow.");
       assertMetric(mapping.featureSetMetrics.hasFeatureSetForm, "Feature set form is missing.");
@@ -1493,7 +1506,8 @@ async function main() {
       assertMetric(mapping.featureSetMetrics.editorShowsFeatureSet, "Feature set selection did not render in the shared editor.");
       assertMetric(mapping.featureSetMetrics.hasGenericTemplate, "Generic character template feature set is missing.");
       assertMetric(mapping.featureSetMetrics.hasCompatibilityStatus, "Feature set compatibility status is missing.");
-      assertMetric(mapping.featureSetMetrics.visibleSections === 0, "Feature set mode should not navigate away from the editor workspace.");
+      assertMetric(mapping.featureSetMetrics.featureSetSectionVisible, "Feature set mode should expose feature set management.");
+      assertMetric(mapping.featureSetMetrics.editorPanelVisible, "Feature set mode should keep the editor workspace visible.");
       assertMetric(!mapping.featureSetMetrics.overflowX, "Feature set view has horizontal overflow.");
       assertMetric(mapping.catalogMetrics.editorShowsCharacter, "Character selection did not return to the character workspace.");
       assertMetric(mapping.catalogMetrics.hasCharacterCanvasNode, "Character workspace did not render the actual character card.");
