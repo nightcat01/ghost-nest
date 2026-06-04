@@ -401,6 +401,70 @@ function bootNanika(pageState: { scene: string; surface: string }) {
 }
 ```
 
+## Character Change Requests
+
+The demo management menu includes a `Character change` item. It does not replace the character inside an already running runtime. Instead, it emits a DOM event from the runtime stage:
+
+```ts
+stage.addEventListener("ghostnest:character-change-request", (event) => {
+  console.log(event.detail);
+});
+```
+
+The event detail has this shape:
+
+```ts
+{
+  type: "request_character_change",
+  characterId?: string,
+  reason?: string,
+}
+```
+
+The host app owns the actual character decision. In Fortune Master, that usually means opening a host-owned character selector, choosing a runtime profile, then recreating Nanika with the selected character and mapping set.
+
+```ts
+import {
+  createGhostRuntimeFromPreset,
+  type NanikaRuntimePreset,
+} from "ghost-nest";
+
+let runtime: ReturnType<typeof createGhostRuntimeFromPreset> | null = null;
+
+function mountNanika(preset: NanikaRuntimePreset) {
+  runtime?.destroy();
+
+  runtime = createGhostRuntimeFromPreset(preset, {
+    root: "#fortuneNanikaRuntime",
+    controls: {
+      devtools: false,
+    },
+  });
+
+  const stage = document.querySelector("#fortuneNanikaRuntime .character-stage");
+
+  stage?.addEventListener("ghostnest:character-change-request", () => {
+    openHostCharacterSelector();
+  }, { once: false });
+}
+
+async function applySelectedCharacter(characterId: string) {
+  const nextPreset = await loadNanikaPresetForCharacter(characterId);
+
+  mountNanika(nextPreset);
+}
+```
+
+This separation is intentional. A character switch changes more than the visible image:
+
+- Character profile and speaker name.
+- Dialogue lines and script categories.
+- Expressions, surfaces, layers, scenes, and hit areas.
+- Runtime rules and feature sets that may reference character-specific keys.
+- Storage scope, user preferences, idle timers, and active animations.
+
+For that reason, host-controlled `destroy()` followed by a fresh `createGhostRuntimeFromPreset(...)` call is the recommended behavior. A future high-level reload API may wrap the same sequence, but host apps should still treat character switching as runtime re-initialization rather than a sprite-only change.
+
 ## Developer Tool Access
 
 Character settings and mapping tools are developer-facing surfaces. They should not be exposed as normal user UI in a host service.

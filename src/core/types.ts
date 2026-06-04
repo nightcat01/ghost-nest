@@ -261,6 +261,11 @@ export type BuiltinRuntimeAction =
       type: "toggle_hidden";
     }
   | {
+      type: "request_character_change";
+      characterId?: string;
+      reason?: string;
+    }
+  | {
       type: "call_plugin";
       pluginId: string;
     }

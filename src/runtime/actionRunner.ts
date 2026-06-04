@@ -453,6 +453,12 @@ export function createActionRunner(context: ActionRunnerContext) {
     }
   });
 
+  registerAction("request_character_change", (action, _) => {
+    const a = action as Extract<BuiltinRuntimeAction, { type: "request_character_change" }>;
+
+    elements.stage.dispatchEvent(new CustomEvent("ghostnest:character-change-request", { detail: a }));
+  });
+
   registerAction("call_plugin", async (action, _) => {
     if (!controls.plugins) {
       return;

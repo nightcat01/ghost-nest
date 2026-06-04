@@ -130,6 +130,16 @@ export const runtimeActionCatalog = [
     parameters: [],
   },
   {
+    type: "request_character_change",
+    category: "character",
+    label: "캐릭터 변경 요청",
+    description: "호스트 앱에 캐릭터 교체 요청 이벤트를 보냅니다. 실제 교체는 앱이 런타임을 다시 생성해서 처리합니다.",
+    parameters: [
+      { name: "characterId", type: "string", description: "현재 캐릭터 또는 교체 기준으로 전달할 character id입니다." },
+      { name: "reason", type: "string", description: "요청 출처를 구분하기 위한 값입니다. 예: management_menu" },
+    ],
+  },
+  {
     type: "call_plugin",
     category: "plugin",
     label: "플러그인 호출",

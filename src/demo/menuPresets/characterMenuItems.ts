@@ -206,6 +206,20 @@ export function createCharacterMenuItems(character?: CharacterDefinition): Manag
     },
     createAssetTestMenuItem(character),
     {
+      id: "change-character",
+      label: "캐릭터 변경",
+      description: "호스트 앱에 캐릭터 교체 요청을 보냅니다. 앱은 이 이벤트를 받아 런타임을 다시 생성할 수 있어요.",
+      actions: [
+        {
+          type: "request_character_change",
+          characterId: character?.profile.id,
+          reason: "management_menu",
+        },
+        { type: "speak_text", text: "캐릭터 변경 요청을 보냈어요." },
+        { type: "log", label: "management.character_change.request" },
+      ],
+    },
+    {
       id: "hide",
       label: "숨기기",
       description: "캐릭터를 잠시 숨기고 배지로 다시 부를 수 있어요.",

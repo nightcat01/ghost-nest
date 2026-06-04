@@ -117,6 +117,14 @@ let effectLayers: EditableSceneLayer[] = [];
 let sceneDragState: SceneDragState | null = null;
 let scenePreviewSize = 760;
 
+const defaultCharacterPreviewPlacement = {
+  x: 31,
+  y: 8,
+  width: 38,
+  height: 86,
+  unit: "percent",
+} as const;
+
 /**
  * Keeps the scene workbench size inside a usable editing range.
  */
@@ -448,6 +456,7 @@ function createSceneSnippet() {
     id: "character-slot",
     role: "character",
     depth: readNumber(characterDepthInput, 20),
+    placement: defaultCharacterPreviewPlacement,
   });
   layers.push(...createEditableRuntimeLayers());
 
@@ -565,10 +574,10 @@ function createPreviewLayer(layer: RuntimeSceneLayer) {
 
   if (layer.role === "character") {
     element.classList.add("asset-scene-character-slot");
-    element.style.left = "42%";
-    element.style.top = "26%";
-    element.style.width = "20%";
-    element.style.height = "58%";
+    applyPreviewPlacement(element, {
+      ...layer,
+      placement: layer.placement ?? defaultCharacterPreviewPlacement,
+    });
 
     if (characterPreviewVisibleInput.checked && characterPreviewImageSelect.value) {
       element.classList.add("asset-scene-character-preview");
