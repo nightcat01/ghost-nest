@@ -74,6 +74,8 @@ const uploadSceneImagesButton = requireElement(document.querySelector<HTMLButton
 const backgroundAssetSelect = requireElement(document.querySelector<HTMLSelectElement>("#backgroundAssetSelect"), "#backgroundAssetSelect");
 const backgroundColorInput = requireElement(document.querySelector<HTMLInputElement>("#backgroundColorInput"), "#backgroundColorInput");
 const backgroundDepthInput = requireElement(document.querySelector<HTMLInputElement>("#backgroundDepthInput"), "#backgroundDepthInput");
+const characterPreviewVisibleInput = requireElement(document.querySelector<HTMLInputElement>("#characterPreviewVisibleInput"), "#characterPreviewVisibleInput");
+const characterPreviewImageSelect = requireElement(document.querySelector<HTMLSelectElement>("#characterPreviewImageSelect"), "#characterPreviewImageSelect");
 const characterDepthInput = requireElement(document.querySelector<HTMLInputElement>("#characterDepthInput"), "#characterDepthInput");
 const propLayerSelect = requireElement(document.querySelector<HTMLSelectElement>("#propLayerSelect"), "#propLayerSelect");
 const propAssetSelect = requireElement(document.querySelector<HTMLSelectElement>("#propAssetSelect"), "#propAssetSelect");
@@ -179,8 +181,19 @@ function selectSavedAssetOption(select: HTMLSelectElement, savedPaths: string[])
  * Renders reusable scene asset choices for background, prop, and effect slots.
  */
 function renderAssetOptions() {
+  const baseAssets = filterAssetFiles(savedAssetFiles, ["base"], { includeCommon: false });
   const sceneAssets = filterAssetFiles(savedAssetFiles, ["scene"]);
   const sceneAndPartAssets = filterAssetFiles(savedAssetFiles, ["scene", "part"]);
+
+  const selectedCharacterPreviewImage = characterPreviewImageSelect.value;
+
+  characterPreviewImageSelect.replaceChildren(new Option(baseAssets.length > 0 ? "기준 이미지 없음" : "저장된 기본 이미지가 없어요.", ""));
+  appendAssetOptionGroups(characterPreviewImageSelect, baseAssets, { character: "캐릭터 기본 이미지" });
+  if (selectedCharacterPreviewImage && Array.from(characterPreviewImageSelect.options).some((option) => option.value === selectedCharacterPreviewImage)) {
+    characterPreviewImageSelect.value = selectedCharacterPreviewImage;
+  } else if (!selectedCharacterPreviewImage && baseAssets[0]) {
+    characterPreviewImageSelect.value = baseAssets[0].path;
+  }
 
   backgroundAssetSelect.replaceChildren(new Option(sceneAssets.length > 0 ? "배경 이미지 없음" : "무대 재료 이미지가 없어요.", ""));
   propAssetSelect.replaceChildren(new Option(sceneAndPartAssets.length > 0 ? "소품 이미지 선택" : "무대 재료/파츠 이미지가 없어요.", ""));
@@ -552,11 +565,22 @@ function createPreviewLayer(layer: RuntimeSceneLayer) {
 
   if (layer.role === "character") {
     element.classList.add("asset-scene-character-slot");
-    element.textContent = "캐릭터 자리";
     element.style.left = "42%";
     element.style.top = "26%";
     element.style.width = "20%";
     element.style.height = "58%";
+
+    if (characterPreviewVisibleInput.checked && characterPreviewImageSelect.value) {
+      element.classList.add("asset-scene-character-preview");
+
+      const image = document.createElement("img");
+
+      image.src = characterPreviewImageSelect.value;
+      image.alt = "무대 배치 기준 캐릭터 이미지";
+      element.append(image);
+    } else {
+      element.textContent = "캐릭터 자리";
+    }
   }
 
   if (layer.image) {
@@ -1036,6 +1060,8 @@ function init() {
     backgroundAssetSelect,
     backgroundColorInput,
     backgroundDepthInput,
+    characterPreviewVisibleInput,
+    characterPreviewImageSelect,
     characterDepthInput,
   ].forEach((input) => {
     input.addEventListener("input", renderOutputs);

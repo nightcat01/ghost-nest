@@ -86,17 +86,28 @@ type ExistingLayer = {
 type ExistingSurface = {
   surfaceId: string;
   image?: string;
+  sceneId?: string;
   expression?: string;
   alt?: string;
   layerCount: number;
 };
+type CharacterVisualSource = {
+  type: "image";
+  src: string;
+} | {
+  type: "scene";
+  sceneId: string;
+};
+type CharacterExpressionAsset = string | string[] | CharacterVisualSource | CharacterVisualSource[];
 type CharacterAssetsResponse = {
   ok?: boolean;
   error?: string;
   message?: string;
   assets?: {
+    expressions?: Record<string, CharacterExpressionAsset>;
     surfaces?: Record<string, {
       id?: string;
+      visual?: CharacterVisualSource;
       image?: string;
       expression?: string;
       alt?: string;
@@ -596,6 +607,51 @@ function hasLayerSelection() {
  */
 function hasSurfaceSelection() {
   return surfaceSelect.value !== "";
+}
+
+/**
+ * Returns image paths saved for a character expression, including visual-source assets.
+ */
+function getExpressionAssetPaths(
+  expressions: Record<string, CharacterExpressionAsset>,
+  expression: string,
+) {
+  const savedAsset = expressions[expression];
+  const candidates = Array.isArray(savedAsset)
+    ? savedAsset
+    : savedAsset
+      ? [savedAsset]
+      : [];
+
+  return candidates
+    .map((asset) => {
+      if (typeof asset === "string") {
+        return asset;
+      }
+
+      if (asset?.type === "image") {
+        return asset.src;
+      }
+
+      return "";
+    })
+    .filter(Boolean);
+}
+
+/**
+ * Infers the expression key for legacy surfaces that only stored a base image.
+ */
+function inferExpressionFromSurfaceImage(
+  expressions: Record<string, CharacterExpressionAsset>,
+  image: string,
+) {
+  if (!image) {
+    return "";
+  }
+
+  return Object.keys(expressions).find((expression) =>
+    getExpressionAssetPaths(expressions, expression).includes(image),
+  ) ?? "";
 }
 
 /**
@@ -1128,20 +1184,28 @@ async function loadCharacterAssets() {
       throw new Error(result.message ?? result.error ?? "캐릭터 레이어 정보를 불러오지 못했어요.");
     }
 
+    const expressions = result.assets?.expressions ?? {};
     const surfaces = result.assets?.surfaces ?? {};
 
     existingSurfaces = sortExistingSurfaces(Object.entries(surfaces).map(([surfaceId, surface]) => {
+      const image = surface.image ?? (surface.visual?.type === "image" ? surface.visual.src : "");
+      const sceneId = surface.visual?.type === "scene" ? surface.visual.sceneId : "";
+      const expression = surface.expression ?? inferExpressionFromSurfaceImage(expressions, image);
       const existingSurface: ExistingSurface = {
         surfaceId: surface.id ?? surfaceId,
         layerCount: Object.keys(surface.layers ?? {}).length,
       };
 
-      if (surface.image) {
-        existingSurface.image = surface.image;
+      if (image) {
+        existingSurface.image = image;
       }
 
-      if (surface.expression) {
-        existingSurface.expression = surface.expression;
+      if (sceneId) {
+        existingSurface.sceneId = sceneId;
+      }
+
+      if (expression) {
+        existingSurface.expression = expression;
       }
 
       if (surface.alt) {

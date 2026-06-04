@@ -56,8 +56,9 @@ export const rineSurfaces = {
   },
   "5": {
     "id": "5",
-    "image": "./src/characters/rine/assets/base/rine_standing_thinking.png",
-    "alt": "생각하는 표정의 리네"
+    "image": "./src/characters/rine/assets/base/rine_standing_defualt.png",
+    "alt": "생각하는 표정의 리네",
+    "expression": "neutral"
   },
   "8": {
     "id": "8",

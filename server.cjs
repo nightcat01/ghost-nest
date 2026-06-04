@@ -408,6 +408,16 @@ function getNanikaFeatureSetsPath() {
   );
 }
 
+function getNanikaConditionsPath() {
+  const generatedDirectory = path.resolve(root, "generated");
+
+  return ensureInsideDirectory(
+    path.join(generatedDirectory, "nanika-conditions.json"),
+    generatedDirectory,
+    "nanika_condition_path_outside_project",
+  );
+}
+
 function assertSafeNanikaMappingId(id) {
   const safeId = String(id ?? "").trim();
 
@@ -423,6 +433,16 @@ function assertSafeNanikaFeatureSetId(id) {
 
   if (!/^[a-zA-Z0-9_.:-]{1,128}$/.test(safeId)) {
     throw new Error("invalid_nanika_feature_set_id");
+  }
+
+  return safeId;
+}
+
+function assertSafeNanikaConditionId(id) {
+  const safeId = String(id ?? "").trim();
+
+  if (!/^[a-zA-Z0-9_.:-]{1,128}$/.test(safeId)) {
+    throw new Error("invalid_nanika_condition_id");
   }
 
   return safeId;
@@ -534,6 +554,42 @@ function normalizeNanikaMapping(mapping) {
   return normalized;
 }
 
+function normalizeNanikaCondition(condition) {
+  if (!condition || typeof condition !== "object" || Array.isArray(condition)) {
+    throw new Error("invalid_nanika_condition");
+  }
+
+  const id = assertSafeNanikaConditionId(condition.id);
+  const scope = String(condition.scope ?? "").trim();
+  const type = String(condition.type ?? "").trim();
+  const value = String(condition.value ?? "").trim();
+  const name = String(condition.name ?? "").trim();
+  const description = String(condition.description ?? "").trim();
+  const allowedScopes = new Set(["runtime", "character"]);
+  const allowedTypes = new Set(["url", "pageId"]);
+
+  if (!allowedScopes.has(scope)) {
+    throw new Error("invalid_nanika_condition_scope");
+  }
+
+  if (!allowedTypes.has(type)) {
+    throw new Error("invalid_nanika_condition_type");
+  }
+
+  if (!value) {
+    throw new Error("invalid_nanika_condition_value");
+  }
+
+  return {
+    id,
+    scope,
+    type,
+    value,
+    ...(name ? { name } : {}),
+    ...(description ? { description } : {}),
+  };
+}
+
 function normalizeNanikaFeatureSet(featureSet) {
   if (!featureSet || typeof featureSet !== "object" || Array.isArray(featureSet)) {
     throw new Error("invalid_nanika_feature_set");
@@ -606,6 +662,37 @@ async function writeNanikaMappings(mappings) {
   );
 
   return path.relative(root, mappingsPath).replaceAll(path.sep, "/");
+}
+
+async function readNanikaConditions() {
+  const conditionsPath = getNanikaConditionsPath();
+
+  try {
+    const source = await fs.promises.readFile(conditionsPath, "utf8");
+    const parsed = JSON.parse(source);
+    const conditions = Array.isArray(parsed) ? parsed : parsed.conditions;
+
+    return Array.isArray(conditions) ? conditions.map(normalizeNanikaCondition) : [];
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      return [];
+    }
+
+    throw new Error("invalid_nanika_conditions_file");
+  }
+}
+
+async function writeNanikaConditions(conditions) {
+  const conditionsPath = getNanikaConditionsPath();
+
+  await fs.promises.mkdir(path.dirname(conditionsPath), { recursive: true });
+  await fs.promises.writeFile(
+    conditionsPath,
+    `${JSON.stringify({ conditions }, null, 2)}\n`,
+    "utf8",
+  );
+
+  return path.relative(root, conditionsPath).replaceAll(path.sep, "/");
 }
 
 async function readNanikaFeatureSets() {
@@ -3424,6 +3511,118 @@ async function handleDeleteNanikaMapping(request, response) {
   return true;
 }
 
+async function handleNanikaConditions(request, response) {
+  if (request.method !== "GET") {
+    sendJson(response, 405, { ok: false, error: "method_not_allowed" });
+    return true;
+  }
+
+  try {
+    const conditions = await readNanikaConditions();
+
+    sendJson(response, 200, {
+      ok: true,
+      conditions,
+      path: path.relative(root, getNanikaConditionsPath()).replaceAll(path.sep, "/"),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "nanika_conditions_failed";
+
+    sendJson(response, 500, {
+      ok: false,
+      error: message,
+      message: "Nanika conditions could not be loaded.",
+    });
+  }
+
+  return true;
+}
+
+async function handleSaveNanikaCondition(request, response) {
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "method_not_allowed" });
+    return true;
+  }
+
+  try {
+    const body = await readRequestJson(request);
+    const condition = normalizeNanikaCondition(body.condition);
+    const conditions = await readNanikaConditions();
+    const nextConditions = [
+      ...conditions.filter((item) => item.id !== condition.id),
+      condition,
+    ];
+    const savedPath = await writeNanikaConditions(nextConditions);
+
+    sendJson(response, 200, {
+      ok: true,
+      message: "Nanika condition saved.",
+      condition,
+      conditions: nextConditions,
+      path: savedPath,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "save_nanika_condition_failed";
+    const statusCode = [
+      "invalid_json",
+      "invalid_nanika_condition",
+      "invalid_nanika_condition_id",
+      "invalid_nanika_condition_scope",
+      "invalid_nanika_condition_type",
+      "invalid_nanika_condition_value",
+      "invalid_nanika_conditions_file",
+      "nanika_condition_path_outside_project",
+    ].includes(message) ? 400 : 500;
+
+    sendJson(response, statusCode, {
+      ok: false,
+      error: message,
+      message: "Nanika condition could not be saved.",
+    });
+  }
+
+  return true;
+}
+
+async function handleDeleteNanikaCondition(request, response) {
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "method_not_allowed" });
+    return true;
+  }
+
+  try {
+    const body = await readRequestJson(request);
+    const conditionId = assertSafeNanikaConditionId(body.id);
+    const conditions = await readNanikaConditions();
+    const nextConditions = conditions.filter((condition) => condition.id !== conditionId);
+    const savedPath = await writeNanikaConditions(nextConditions);
+
+    sendJson(response, 200, {
+      ok: true,
+      message: "Nanika condition deleted.",
+      deletedId: conditionId,
+      conditions: nextConditions,
+      path: savedPath,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "delete_nanika_condition_failed";
+    const statusCode = [
+      "invalid_json",
+      "invalid_nanika_condition_id",
+      "invalid_nanika_conditions_file",
+      "nanika_condition_path_outside_project",
+    ].includes(message) ? 400 : 500;
+
+    sendJson(response, statusCode, {
+      ok: false,
+      error: message,
+      message: "Nanika condition could not be deleted.",
+    });
+  }
+
+  return true;
+}
+
 async function handleNanikaFeatureSets(request, response) {
   if (request.method !== "GET") {
     sendJson(response, 405, { ok: false, error: "method_not_allowed" });
@@ -3625,6 +3824,18 @@ async function handleApiRequest(request, response) {
 
   if (pathname === "/api/devtools/delete-nanika-mapping") {
     return handleDeleteNanikaMapping(request, response);
+  }
+
+  if (pathname === "/api/devtools/nanika-conditions") {
+    return handleNanikaConditions(request, response);
+  }
+
+  if (pathname === "/api/devtools/save-nanika-condition") {
+    return handleSaveNanikaCondition(request, response);
+  }
+
+  if (pathname === "/api/devtools/delete-nanika-condition") {
+    return handleDeleteNanikaCondition(request, response);
   }
 
   if (pathname === "/api/devtools/nanika-feature-sets") {

@@ -27,6 +27,7 @@ type ExistingSurface = {
   expression?: string;
   alt?: string;
   layerCount: number;
+  hasBaseVisual: boolean;
 };
 
 const newSurfaceSelectValue = "__new_surface__";
@@ -154,7 +155,41 @@ function getExpressionAssetPaths(expression: string) {
       ? [savedAsset]
       : [];
 
-  return candidates.filter((asset): asset is string => typeof asset === "string");
+  return candidates
+    .map((asset) => {
+      if (typeof asset === "string") {
+        return asset;
+      }
+
+      if (asset?.type === "image") {
+        return asset.src;
+      }
+
+      return "";
+    })
+    .filter(Boolean);
+}
+
+/**
+ * Applies the first image linked to the selected expression as the Set base.
+ */
+function applySelectedExpressionBaseImage(options: { overwrite?: boolean } = {}) {
+  const expression = surfaceExpressionSelect.value.trim();
+  const expressionAssetPaths = getExpressionAssetPaths(expression);
+  const nextImage = expressionAssetPaths[0] ?? "";
+  const currentImage = surfaceImageInput.value.trim();
+  const shouldOverwrite = options.overwrite === true
+    || !currentImage
+    || !expressionAssetPaths.includes(currentImage);
+
+  if (!expression || !nextImage || !shouldOverwrite) {
+    return;
+  }
+
+  surfaceImageInput.value = nextImage;
+  ensureBaseAssetOption(nextImage);
+  baseAssetSelect.value = nextImage;
+  surfaceSceneSelect.value = "";
 }
 
 /**
@@ -275,6 +310,17 @@ function renderBaseAssetOptions() {
 }
 
 /**
+ * Keeps an expression-linked image visible even when it is not in the asset file list.
+ */
+function ensureBaseAssetOption(assetPath: string) {
+  if (!assetPath || Array.from(baseAssetSelect.options).some((option) => option.value === assetPath)) {
+    return;
+  }
+
+  baseAssetSelect.append(new Option(`표정 연결 이미지 / ${assetPath.split("/").pop() ?? assetPath}`, assetPath));
+}
+
+/**
  * Renders expression options from the saved expression map.
  */
 function renderExpressionOptions() {
@@ -327,6 +373,24 @@ async function loadSavedAssetFiles() {
 }
 
 /**
+ * Builds a readable Set option label without mixing base image and part counts.
+ */
+function createSurfaceOptionLabel(surface: ExistingSurface) {
+  const visualLabel = surface.sceneId
+    ? `무대 조합 ${surface.sceneId}`
+    : surface.image
+      ? "기준 이미지 있음"
+      : "기준 화면 없음";
+
+  return [
+    surface.surfaceId,
+    surface.expression ? `표정 ${createExpressionLabel(surface.expression)}` : "",
+    visualLabel,
+    `파츠 ${surface.layerCount}개`,
+  ].filter(Boolean).join(" / ");
+}
+
+/**
  * Loads existing Set and Expression data for the selected character.
  */
 async function loadCharacterAssets() {
@@ -340,17 +404,29 @@ async function loadCharacterAssets() {
   renderExpressionOptions();
   renderSceneOptions();
   existingSurfaces = sortExistingSurfaces(Object.entries(surfaces).map(([surfaceId, surface]) => {
+    const layers = surface.layers ?? {};
+    const layerCount = Object.entries(layers)
+      .filter(([layerId]) => layerId !== "base")
+      .filter(([, layer]) => {
+        const candidate = layer as { image?: string; frames?: string[] } | undefined;
+
+        return Boolean(candidate?.image) || Boolean(candidate?.frames?.length);
+      })
+      .length;
+    const image = surface.image ?? (surface.visual?.type === "image" ? surface.visual.src : "");
+    const sceneId = surface.visual?.type === "scene" ? surface.visual.sceneId : "";
     const existingSurface: ExistingSurface = {
       surfaceId: surface.id ?? surfaceId,
-      layerCount: Object.keys(surface.layers ?? {}).length,
+      layerCount,
+      hasBaseVisual: Boolean(image || sceneId),
     };
 
-    if (surface.image) {
-      existingSurface.image = surface.image;
+    if (image) {
+      existingSurface.image = image;
     }
 
-    if (surface.visual?.type === "scene") {
-      existingSurface.sceneId = surface.visual.sceneId;
+    if (sceneId) {
+      existingSurface.sceneId = sceneId;
     }
 
     if (surface.expression) {
@@ -375,7 +451,7 @@ async function loadCharacterAssets() {
       `${surface.layerCount}개 파츠`,
     ].filter(Boolean).join(" / ");
 
-    surfaceSelect.append(new Option(label, surface.surfaceId));
+    surfaceSelect.append(new Option(createSurfaceOptionLabel(surface), surface.surfaceId));
   });
 
   await loadSavedAssetFiles();
@@ -426,8 +502,14 @@ function applySurfaceSelection() {
   surfaceExpressionSelect.value = surface?.expression ?? "";
   surfaceAltInput.value = surface?.alt ?? "";
   surfaceImageInput.value = surface?.image ?? "";
+  if (surface?.image) {
+    ensureBaseAssetOption(surface.image);
+  }
   baseAssetSelect.value = surface?.image ?? "";
   surfaceSceneSelect.value = surface?.sceneId ?? "";
+  if (!surface?.image && surface?.expression && !surface?.sceneId) {
+    applySelectedExpressionBaseImage({ overwrite: true });
+  }
   renderSurfaceIdPresetOptions(surfaceIdInput.value);
   renderOutputs();
 }
@@ -544,7 +626,11 @@ function init() {
   });
   surfaceIdInput.addEventListener("input", syncSurfaceIdPresetFromInput);
   surfaceIdInput.addEventListener("change", syncSurfaceIdPresetFromInput);
-  [surfaceExpressionSelect, surfaceAltInput, surfaceImageInput].forEach((input) => {
+  surfaceExpressionSelect.addEventListener("change", () => {
+    applySelectedExpressionBaseImage();
+    renderOutputs();
+  });
+  [surfaceAltInput, surfaceImageInput].forEach((input) => {
     input.addEventListener("input", renderOutputs);
     input.addEventListener("change", renderOutputs);
   });

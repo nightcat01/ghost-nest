@@ -2543,7 +2543,7 @@ body.fortune-embed-page {
   height: clamp(520px, calc(100vh - 340px), 760px);
   min-height: 420px;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   gap: 8px;
   min-width: 0;
   overflow: hidden;
@@ -4504,6 +4504,16 @@ body.fortune-embed-page {
   text-transform: uppercase;
 }
 
+.asset-scene-character-slot.asset-scene-character-preview {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.asset-scene-character-preview img {
+  object-fit: contain;
+}
+
 .asset-scene-summary {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -4817,6 +4827,55 @@ body.fortune-embed-page {
   border-color: rgba(178, 81, 52, 0.3);
   color: #8f331d;
   background: rgba(178, 81, 52, 0.1);
+}
+
+.nanika-condition-builder {
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid rgba(38, 35, 31, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.nanika-condition-builder summary {
+  color: var(--accent-strong);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.nanika-condition-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.nanika-condition-form label {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.nanika-condition-form input,
+.nanika-condition-form select {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid rgba(38, 35, 31, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--ink);
+  font: inherit;
+}
+
+.nanika-condition-list {
+  max-height: 220px;
+  display: grid;
+  gap: 8px;
+  overflow: auto;
 }
 
 .asset-lab-status[data-tone="success"] {
