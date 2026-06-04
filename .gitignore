@@ -6,3 +6,7 @@ dist/
 Thumbs.db
 .vscode/
 docs/next-work.md
+
+# Local AI harness and verification scratch files
+docs/ai/
+tmp-ui-check/

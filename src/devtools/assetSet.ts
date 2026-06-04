@@ -547,6 +547,7 @@ async function saveSurfaceConfig() {
 
     await loadCharacterAssets();
     surfaceSelect.value = surfaceSnippet.surfaceId;
+    applySurfaceSelection();
     status.textContent = `${result.saved?.path ?? "character index.ts"}에 상태 연결을 저장했어요.`;
   } catch (error) {
     status.textContent = error instanceof Error ? error.message : "상태 연결 저장 요청에 실패했어요.";
