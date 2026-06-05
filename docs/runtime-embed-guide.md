@@ -28,6 +28,95 @@ Use this roadmap when embedding Nanika into a host site such as Fortune Master.
 - Treat the host page as the layout owner. Nanika should not create runtime nodes outside the mount.
 - When a page already has a design system, set theme variables on the mount instead of importing host-global reset styles from Nanika.
 
+## Embed CSS Contract
+
+Host apps should treat the Nanika mount as a layout boundary. The host owns the outside box; Nanika owns character, speech, menu, and scene layout inside `.ghostnest-runtime`.
+
+Safe host responsibilities:
+
+- Size and position the host wrapper, for example `.fortune-nanika-root` or `.new-nanika-stage-root`.
+- Set `position`, `z-index`, `visibility`, and route-level overflow on the host wrapper.
+- Provide theme tokens and CSS custom properties on the wrapper or stage.
+- Set asset container size and page-specific min-height before creating the runtime.
+- Hide the wrapper until `ghostnest:ready` or `.character-stage[data-ready="true"]` is observed.
+
+Avoid overriding these runtime-owned layout selectors from host CSS:
+
+- `.ghostnest-runtime.character-stage`
+- `.ghostnest-runtime .character-sprite`
+- `.ghostnest-runtime .speech-balloon`
+- `.ghostnest-runtime .balloon-action-menu`
+- `.ghostnest-runtime .scene-layer-root`
+- `.ghostnest-runtime .character-sprite-layer`
+
+Avoid overriding these properties on the runtime-owned selectors unless you are intentionally replacing the layout preset:
+
+- `display`, `grid-template-areas`, `grid-area`
+- `align-self`, `justify-self`
+- `left`, `right`, `top`, `bottom`, `transform`
+- `margin-bottom`
+- `width`, `height`, `max-height`, `overflow`
+
+Prefer CSS variables and runtime options for custom styling:
+
+```css
+.fortune-nanika-root {
+  --runtime-area-width: 430px;
+  --runtime-area-height: 720px;
+  --ghostnest-fortune-prompt-border: rgba(245, 220, 155, 0.24);
+  --ghostnest-fortune-prompt-bg: rgba(18, 17, 27, 0.54);
+}
+```
+
+For narrow embeds, start with `runtimeSpeechPresets.fortuneEmbed`, then adjust `speechBalloonSize` rather than writing host CSS against `.speech-balloon`.
+
+## Runtime Ready State
+
+Every runtime stage starts with `data-ready="false"` and switches to `data-ready="true"` after the initial character/surface/scene render path has been applied. The stage also dispatches a bubbling `ghostnest:ready` event.
+
+```ts
+const root = document.querySelector("#fortuneNanikaRuntime");
+
+root?.addEventListener("ghostnest:ready", () => {
+  root.classList.add("is-nanika-ready");
+});
+
+createGhostRuntimeFromPreset(preset, {
+  root: "#fortuneNanikaRuntime",
+  hideUntilReady: true,
+});
+```
+
+When `hideUntilReady: true` is used, Nanika keeps the runtime stage hidden with `visibility: hidden` until it is ready. This prevents a blank character or empty speech box from flashing before the first render.
+
+## Character Placement
+
+For page-level placement, prefer `characterPlacement` over host CSS overrides. It uses a 9-area preset inside the runtime mount:
+
+```ts
+createGhostRuntimeFromPreset(preset, {
+  root: "#fortuneNanikaRuntime",
+  characterPlacement: {
+    placement: "bottom-center",
+    offsetX: 20,
+    offsetY: 12,
+  },
+});
+```
+
+The same placement can be changed from a mapping action:
+
+```ts
+{
+  type: "set_character_placement",
+  placement: "bottom-right",
+  offsetX: 16,
+  offsetY: 20
+}
+```
+
+Use `move_character` only when a developer explicitly wants pixel coordinates. Use `set_character_placement` for normal user-facing pages because it survives different host widths more predictably.
+
 ## GitHub Package Install
 
 GhostNest can be installed directly from GitHub while it is still private or pre-release.
@@ -237,6 +326,8 @@ Good candidates:
 - `initialSurface` for the starting character pose/state.
 - `initialExpression` for simple image-based characters.
 - `speechLayout` and `speechBalloonSize` for page-specific speech placement.
+- `characterPlacement` for 9-area character placement inside the mount.
+- `hideUntilReady` when the host should not show empty runtime DOM before Nanika is ready.
 - `controls.persistence: false` when the host page must ignore developer-tool localStorage settings.
 
 ```ts
@@ -249,10 +340,14 @@ const runtime = createGhostRuntimeFromPreset(preset, {
   root: "#fortuneNanikaRuntime",
   initialScene: pageState.initialScene,
   initialSurface: pageState.initialSurface,
+  characterPlacement: {
+    placement: "bottom-center",
+  },
+  hideUntilReady: true,
   controls: {
     persistence: false,
     devtools: false,
-    management: false,
+    managementMenu: false,
     diagnostics: false,
   },
 });
@@ -323,6 +418,33 @@ const runtime = createGhostRuntimeFromPreset(preset, {
 ```
 
 Use runtime profile conditions for page-level decisions. Use runtime rule conditions only after a profile has already been selected.
+
+## Management Menu Presets In Mappings
+
+Mapping files may store a management menu action as a lightweight placeholder, for example `open_management_menu` with `menuId: "demo.default"` and an empty `items` array. Hydrate those placeholders before passing rules into the runtime.
+
+```ts
+import {
+  createDemoManagementMenuItems,
+  createRuntimeRulesFromMappings,
+  hydrateDemoManagementMenuRules,
+} from "ghost-nest";
+
+const fallbackMenuItems = createDemoManagementMenuItems(character, {
+  includeDeveloperTools: false,
+});
+
+const rules = hydrateDemoManagementMenuRules(
+  createRuntimeRulesFromMappings(mappings),
+  fallbackMenuItems,
+);
+
+createGhostRuntimeFromPreset(preset, {
+  replaceRules: rules,
+});
+```
+
+Use `demo.default` or no `menuId` for the normal menu, `demo.user` for user-facing menu items, and `demo.developer` for developer-only tools. Host apps can also pass their own fallback menu items when they do not want the demo preset.
 
 ## Theme And CSS
 

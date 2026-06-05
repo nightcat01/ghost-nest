@@ -340,6 +340,17 @@ export const runtimeActionCatalog = [
     ],
   },
   {
+    type: "set_character_placement",
+    category: "character",
+    label: "캐릭터 위치 프리셋",
+    description: "런타임 영역 안에서 캐릭터를 9분할 위치 중 하나에 배치합니다.",
+    parameters: [
+      { name: "placement", type: "string", required: true, description: "top-left, middle-center, bottom-right 같은 9분할 위치입니다." },
+      { name: "offsetX", type: "number", description: "좌우 가장자리에서 떨어질 거리(px)입니다. 가운데 정렬이면 보정값으로만 사용합니다." },
+      { name: "offsetY", type: "number", description: "상하 가장자리에서 떨어질 거리(px)입니다. 가운데 정렬이면 보정값으로만 사용합니다." },
+    ],
+  },
+  {
     type: "change_balloon",
     category: "ui",
     label: "말풍선 테마 변경",

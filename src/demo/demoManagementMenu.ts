@@ -1,4 +1,4 @@
-import type { CharacterDefinition, ManagementMenuItem } from "../core/types.js";
+import type { CharacterDefinition, ManagementMenuItem, RuntimeAction, RuntimeRule } from "../core/types.js";
 import { createCharacterMenuItems } from "./menuPresets/characterMenuItems.js";
 import { createDeveloperMenuItems } from "./menuPresets/developerMenuItems.js";
 import { createDialogueMenuItems } from "./menuPresets/dialogueMenuItems.js";
@@ -11,6 +11,14 @@ export type DemoManagementMenuOptions = {
   includePluginMenus?: boolean;
   includeCharacterMenus?: boolean;
 };
+
+function isManagementMenuAction(action: RuntimeAction): action is Extract<RuntimeAction, { type: "open_management_menu" }> {
+  return action.type === "open_management_menu";
+}
+
+function isActionGroup(action: RuntimeAction): action is Extract<RuntimeAction, { type: "run_sequence" | "run_parallel" | "run_random" }> {
+  return action.type === "run_sequence" || action.type === "run_parallel" || action.type === "run_random";
+}
 
 function createDeveloperToolsMenuItem(): ManagementMenuItem {
   return {
@@ -63,4 +71,64 @@ export function createDemoUserMenuItems(character?: CharacterDefinition): Manage
  */
 export function createDemoDeveloperMenuItems(): ManagementMenuItem[] {
   return [createDeveloperToolsMenuItem()];
+}
+
+/**
+ * Resolves lightweight management menu placeholders saved by mapping tools.
+ * Hosts can store only a menu id in mappings and hydrate the real preset before runtime execution.
+ */
+export function resolveDemoManagementMenuItems(
+  menuId: string | undefined,
+  fallbackItems: ManagementMenuItem[] = createDemoManagementMenuItems(),
+): ManagementMenuItem[] {
+  if (menuId === "demo.user") {
+    return createDemoUserMenuItems();
+  }
+
+  if (menuId === "demo.developer") {
+    return createDemoDeveloperMenuItems();
+  }
+
+  return fallbackItems;
+}
+
+/**
+ * Fills demo management menu actions that were saved as empty mapping placeholders.
+ */
+export function hydrateDemoManagementMenuActions(
+  actions: RuntimeAction[],
+  fallbackItems: ManagementMenuItem[] = createDemoManagementMenuItems(),
+): RuntimeAction[] {
+  return actions.map((action) => {
+    if (isManagementMenuAction(action)) {
+      return {
+        ...action,
+        items: action.items.length > 0
+          ? action.items
+          : resolveDemoManagementMenuItems(action.menuId, fallbackItems),
+      };
+    }
+
+    if (isActionGroup(action) && Array.isArray(action.actions)) {
+      return {
+        ...action,
+        actions: hydrateDemoManagementMenuActions(action.actions, fallbackItems),
+      };
+    }
+
+    return action;
+  });
+}
+
+/**
+ * Applies management menu hydration to runtime rules loaded from external mapping files.
+ */
+export function hydrateDemoManagementMenuRules(
+  rules: RuntimeRule[],
+  fallbackItems: ManagementMenuItem[] = createDemoManagementMenuItems(),
+): RuntimeRule[] {
+  return rules.map((rule) => ({
+    ...rule,
+    actions: hydrateDemoManagementMenuActions(rule.actions, fallbackItems),
+  }));
 }

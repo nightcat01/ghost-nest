@@ -3,6 +3,14 @@ export { runtimeSpeechPresets } from "./runtime/runtimeLayoutPresets.js";
 export { createCharacterWithAssetBaseUrl } from "./core/assetUrls.js";
 export { nanikaPreset } from "./ghost/preset.js";
 export {
+  createDemoManagementMenuItems,
+  createDemoUserMenuItems,
+  createDemoDeveloperMenuItems,
+  hydrateDemoManagementMenuActions,
+  hydrateDemoManagementMenuRules,
+  resolveDemoManagementMenuItems,
+} from "./demo/demoManagementMenu.js";
+export {
   createGhostRuntimeFromPreset,
   createGhostRuntimeOptionsFromPreset,
   createNanikaRuntimeProfileOptions,

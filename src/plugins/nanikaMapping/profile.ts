@@ -1,6 +1,7 @@
 import { createRuntimeRuleFromMapping, createRuntimeRulesFromFeatureSets, type NanikaFeatureSet, type NanikaMapping } from "./mapping.js";
 import type {
   CharacterExpression,
+  CharacterStagePlacementOptions,
   RuntimeControlOptions,
   RuntimeRule,
   RuntimeUserPreferenceOptions,
@@ -69,7 +70,9 @@ export type NanikaProfileRuntimeOptions = {
   speechLayout?: SpeechLayoutOptions;
   speechBalloonSize?: Partial<SpeechBalloonSizeOptions>;
   spriteSize?: Partial<CharacterSpriteSizeOptions>;
+  characterPlacement?: CharacterStagePlacementOptions;
   balloonTheme?: string;
+  hideUntilReady?: boolean;
   includeDefaultRules?: boolean;
 };
 
@@ -293,9 +296,15 @@ function createOverridesFromProfile(
     ...(profile.spriteSize || characterProfile?.spriteSize
       ? { spriteSize: { ...(profile.spriteSize ?? {}), ...(characterProfile?.spriteSize ?? {}) } }
       : {}),
+    ...(characterProfile?.characterPlacement ?? profile.characterPlacement
+      ? { characterPlacement: characterProfile?.characterPlacement ?? profile.characterPlacement }
+      : {}),
     ...(characterProfile?.balloonTheme ?? profile.balloonTheme
       ? { balloonTheme: characterProfile?.balloonTheme ?? profile.balloonTheme }
       : {}),
+    ...(characterProfile?.hideUntilReady ?? profile.hideUntilReady) !== undefined
+      ? { hideUntilReady: characterProfile?.hideUntilReady ?? profile.hideUntilReady }
+      : {},
     ...(initial.scene ? { initialScene: initial.scene } : {}),
     ...(initial.surface ? { initialSurface: initial.surface } : {}),
     ...(initial.expression ? { initialExpression: initial.expression } : {}),

@@ -360,6 +360,12 @@ export type BuiltinRuntimeAction =
       y: number;
     }
   | {
+      type: "set_character_placement";
+      placement: CharacterStagePlacement;
+      offsetX?: number;
+      offsetY?: number;
+    }
+  | {
       type: "change_balloon";
       theme: string;
     }
@@ -563,6 +569,23 @@ export type CharacterSpriteSizeOptions = {
   mobileHeight: string;
 };
 
+export type CharacterStagePlacement =
+  | "top-left"
+  | "top-center"
+  | "top-right"
+  | "middle-left"
+  | "middle-center"
+  | "middle-right"
+  | "bottom-left"
+  | "bottom-center"
+  | "bottom-right";
+
+export type CharacterStagePlacementOptions = {
+  placement: CharacterStagePlacement;
+  offsetX?: number;
+  offsetY?: number;
+};
+
 export type RuntimeTimingOptions = {
   idleDelay: number;
   randomPromptDelay: number;
@@ -674,6 +697,8 @@ export type GhostRuntimeOptions = {
   speechLayout?: SpeechLayoutOptions;
   speechBalloonSize?: Partial<SpeechBalloonSizeOptions>;
   spriteSize?: Partial<CharacterSpriteSizeOptions>;
+  characterPlacement?: CharacterStagePlacementOptions;
+  hideUntilReady?: boolean;
   preferenceStorage?: RuntimePreferenceStorageOptions;
   includeDefaultRules?: boolean;
   rules?: RuntimeRule[];

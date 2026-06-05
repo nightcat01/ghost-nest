@@ -249,6 +249,7 @@ type NanikaResourceKind = "expression" | "surface" | "scene" | "layer" | "dialog
 type PaletteCategory = {
   id: PaletteCategoryId;
   label: string;
+  description: string;
 };
 
 type ResourceGroupPaletteItem = PaletteItem & {
@@ -461,6 +462,7 @@ const actionLabelMap: Record<string, string> = {
   start_timer: "타이머 시작",
   stop_timer: "타이머 중지",
   move_character: "캐릭터 위치 이동",
+  set_character_placement: "캐릭터 위치 프리셋",
   change_balloon: "말풍선 테마 변경",
   change_balloon_font_size: "말풍선 글자 크기 변경",
   change_speech_layout: "대사창 배치 변경",
@@ -498,11 +500,13 @@ const parameterLabelMap: Record<string, string> = {
   part: "터치 영역",
   theme: "말풍선 테마",
   mode: "대사창 방식",
-  placement: "대사창 위치",
+  placement: "배치 위치",
   display: "표시 방식",
   state: "상태",
   event: "이벤트",
   target: "UI 대상",
+  offsetX: "좌우 여백",
+  offsetY: "상하 여백",
 };
 
 const balloonThemeOptions: ParameterOption[] = [
@@ -520,6 +524,18 @@ const speechLayoutOptions: ParameterOption[] = [
 const speechPlacementOptions: ParameterOption[] = [
   { id: "below-character", label: "캐릭터 아래", description: "캐릭터 영역 아래에 대사창을 배치합니다." },
   { id: "overlay-bottom", label: "하단 오버레이", description: "캐릭터 영역 위 하단에 겹쳐 배치합니다." },
+];
+
+const characterPlacementOptions: ParameterOption[] = [
+  { id: "top-left", label: "좌측 상단", description: "런타임 영역의 좌측 상단에 캐릭터를 둡니다." },
+  { id: "top-center", label: "상단 중앙", description: "런타임 영역의 상단 중앙에 캐릭터를 둡니다." },
+  { id: "top-right", label: "우측 상단", description: "런타임 영역의 우측 상단에 캐릭터를 둡니다." },
+  { id: "middle-left", label: "좌측 중앙", description: "런타임 영역의 좌측 중앙에 캐릭터를 둡니다." },
+  { id: "middle-center", label: "정중앙", description: "런타임 영역의 가운데에 캐릭터를 둡니다." },
+  { id: "middle-right", label: "우측 중앙", description: "런타임 영역의 우측 중앙에 캐릭터를 둡니다." },
+  { id: "bottom-left", label: "좌측 하단", description: "런타임 영역의 좌측 하단에 캐릭터를 둡니다." },
+  { id: "bottom-center", label: "하단 중앙", description: "런타임 영역의 하단 중앙에 캐릭터를 둡니다." },
+  { id: "bottom-right", label: "우측 하단", description: "런타임 영역의 우측 하단에 캐릭터를 둡니다." },
 ];
 
 const managementMenuDisplayOptions: ParameterOption[] = [
@@ -667,6 +683,11 @@ function getCanvasCharacterId(node: CanvasNode | undefined) {
     return null;
   }
 
+  const idMeta = node.meta?.find((item) => item.startsWith("id: "));
+  if (idMeta) {
+    return idMeta.slice("id: ".length).trim() || null;
+  }
+
   const sourceId = getCanvasNodeSourceId(node);
   return sourceId || null;
 }
@@ -681,6 +702,10 @@ function isCurrentRegistryCharacterNode(node: CanvasNode | undefined) {
 
 function getActiveCanvasCharacterNode() {
   return currentEditorGraph?.nodes.find((node) => node.kind === "character" && !isUnassignedCharacterNode(node)) ?? null;
+}
+
+function getActiveCanvasCharacterId() {
+  return getCanvasCharacterId(getActiveCanvasCharacterNode() ?? undefined);
 }
 
 function hasLoadedCharacterResources(node: CanvasNode | undefined) {
@@ -1241,6 +1266,10 @@ function getParameterOptions(actionType: string, parameterName: string): Paramet
 
   if (actionType === "change_speech_layout" && parameterName === "placement") {
     return speechPlacementOptions;
+  }
+
+  if (actionType === "set_character_placement" && parameterName === "placement") {
+    return characterPlacementOptions;
   }
 
   if (actionType === "set_management_menu_display" && parameterName === "display") {
@@ -1967,17 +1996,17 @@ function createMappingCanvasGraph(mapping: RuntimeRule | NanikaMapping, source: 
 function createDraftSetupCanvasGraph(): CanvasGraph {
   return {
     title: "새 연결 만들기",
-    description: "런타임에서 사용할 캐릭터를 먼저 고른 뒤, 이벤트와 실행할 동작을 이어 붙입니다.",
+    description: "캐릭터 연결 지도를 먼저 연 뒤, 이벤트와 실행할 동작을 이어 붙입니다.",
     nodes: [
       createCanvasNode("runtime", "runtime", "Runtime", "나니카 실행 영역입니다.", 24, 96, ["start"]),
       createCanvasNode(
         "character-guide",
         "catalog",
-        "캐릭터를 선택하세요",
-        "오른쪽 카드덱의 캐릭터 탭에서 캐릭터 미정, 리네, 미야코 같은 캐릭터 컨텍스트를 먼저 고릅니다.",
+        "캐릭터 연결 지도를 여세요",
+        "오른쪽 카드덱의 캐릭터 지도 탭에서 캐릭터를 고르면 표정, 상태, 무대, 대사, 이벤트가 작업판에 펼쳐집니다.",
         280,
         96,
-        ["next: character"],
+        ["1. 캐릭터 지도 열기", "2. 이벤트와 동작 연결"],
       ),
     ],
     edges: [
@@ -2572,7 +2601,7 @@ function createCharacterCanvasGraph(): CanvasGraph {
     ? isRegistryCharacter ? registry.character.name : activeCharacterId
     : "캐릭터 미정";
   const characterDescription = activeCharacterId
-    ? isRegistryCharacter ? registry.character.description : `${activeCharacterId} 캐릭터 재료를 확인합니다.`
+    ? isRegistryCharacter ? registry.character.description : `${activeCharacterId} 캐릭터의 연결 지도와 전용 재료를 펼칩니다.`
     : "특정 캐릭터를 정하지 않은 공통 연결 context입니다.";
   const defaultExpression = isRegistryCharacter
     ? registry.character.defaultExpression
@@ -2582,7 +2611,7 @@ function createCharacterCanvasGraph(): CanvasGraph {
   const usageDetails = collectActionUsageDetails(configuredMappings);
   const graph: CanvasGraph = {
     title: `${characterName} 연결 작업판`,
-    description: "런타임에서 실제 캐릭터로 들어오고, 캐릭터 재료와 별도 무대 조합 재료로 이어집니다.",
+    description: "이 캐릭터가 언제 말하고, 어떤 표정/상태/무대/기능을 쓰는지 한 장의 연결 지도로 보여줍니다.",
     nodes: [
       createCanvasNode("runtime", "runtime", "나니카 실행", registry.preset.name, 32, 220, [
         `preset: ${registry.preset.id}`,
@@ -3176,6 +3205,14 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
     pendingConnectionNodeId = node.id;
     selectedPaletteCategory = getPreferredPaletteCategoryForKind(node.kind);
     selectedCanvasNodeForPopover = node;
+
+    const canvasCharacterId = getActiveCanvasCharacterId();
+    if (canvasCharacterId && canvasCharacterId !== activeCharacterResourceId) {
+      void activateCharacterResources(canvasCharacterId);
+      renderCanvasPopover(nodeElements, node);
+      return;
+    }
+
     renderEditorPalette();
     renderCanvasPopover(nodeElements, node);
   }
@@ -3902,9 +3939,9 @@ function selectEditorDraft() {
 
 function selectCharacterInEditor(reveal = true, readonly = false) {
   selectedPaletteCategory = "resources";
-  emptyEditorTitle = "선택된 항목 없음";
-  emptyEditorDescription = "카드를 선택하면 이 영역이 공통 편집 캔버스처럼 바뀝니다. 다음 단계에서는 이 재료를 드래그해서 연결하는 방식으로 확장할 수 있습니다.";
-  emptyEditorMeta = ["대기 중"];
+  emptyEditorTitle = "캐릭터 연결 지도를 열어주세요";
+  emptyEditorDescription = "오른쪽 카드덱에서 캐릭터를 고르면 해당 캐릭터의 표정, 상태, 무대 조합, 대사, 이벤트 연결이 작업판에 펼쳐집니다.";
+  emptyEditorMeta = ["캐릭터 지도", "좌에서 우로 연결"];
   setEditorSelection({ type: "character" }, reveal, readonly);
 }
 
@@ -3918,30 +3955,46 @@ function getPaletteItems(category: PaletteCategoryId): PaletteItem[] {
         kind: "character" as const,
         title: isCurrentCharacter ? registry.character.name : characterId,
         description: isCurrentCharacter
-          ? registry.character.description
-          : "캐릭터 context만 먼저 선택합니다. 이 devtool에 해당 캐릭터 자원이 로드되면 전용 재료를 사용할 수 있습니다.",
+          ? `${registry.character.description} 이 캐릭터의 연결 지도를 작업판에 펼칩니다.`
+          : "이 캐릭터의 연결 지도를 작업판에 열고, 로드된 전용 재료를 기준으로 매핑합니다.",
         meta: isCurrentCharacter
           ? [
             `id: ${registry.character.id}`,
             `default: ${registry.character.defaultExpression}`,
             `${registry.character.expressionCount} expressions`,
+            "연결 지도 열기",
           ]
           : [
             `id: ${characterId}`,
-            "전용 재료 미로드",
+            "전용 재료 로드 후 표시",
+            "연결 지도 열기",
           ],
       };
     });
 
-    return [
+    const characterItems: PaletteItem[] = [
       {
         id: unassignedCharacterId,
         kind: "character",
         title: "캐릭터 미정",
-        description: "특정 캐릭터를 정하지 않고 공통 이벤트와 공통 액션만 연결합니다.",
-        meta: ["공통 매핑", "캐릭터 전용 재료 숨김"],
+        description: "특정 캐릭터를 정하지 않고 공통 이벤트와 공통 액션만 연결하는 작업판을 엽니다.",
+        meta: ["공통 연결 지도", "캐릭터 전용 재료 숨김"],
       },
       ...knownCharacterItems,
+    ];
+
+    return [
+      ...characterItems,
+      ...createSavedConditionPaletteItems(),
+      ...createRuntimeConditionPaletteItems(),
+      ...createCharacterConditionPaletteItems(),
+      ...registry.events.map((event) => ({
+        id: event.event,
+        kind: "event" as const,
+        title: getReadableEventLabel(event.event),
+        description: event.description,
+        meta: [event.event],
+      })),
     ];
   }
 
@@ -4107,6 +4160,22 @@ function getAvailablePaletteCategories(categories: PaletteCategory[]) {
   return categories.filter((category) => getPaletteItems(category.id).some(isPaletteItemAllowedForPending));
 }
 
+function createPaletteCategoryGuide(category: PaletteCategory) {
+  const pendingSource = getPendingConnectionSourceNode();
+  let description = category.description;
+
+  if (pendingSource) {
+    const resourceKind = pendingSource.kind === "resource-group" ? getCanvasNodeResourceKind(pendingSource) : null;
+    const nextLabel = resourceKind && category.id === "resources"
+      ? `${getResourceKindLabel(resourceKind)} 항목`
+      : category.label;
+
+    description = `${pendingSource.title} 카드 다음에 붙일 수 있는 ${nextLabel}만 보여줍니다.`;
+  }
+
+  return createEditorSummary(category.label, description, pendingSource ? ["연결 가능한 카드만 표시"] : []);
+}
+
 function renderEditorPalette() {
   if (pendingConnectionNodeId) {
     mappingPaletteDeck.dataset.pendingSourceId = pendingConnectionNodeId;
@@ -4115,13 +4184,31 @@ function renderEditorPalette() {
   }
 
   const baseCategories: PaletteCategory[] = [
-    { id: "conditions", label: "조건" },
-    { id: "characters", label: "캐릭터" },
-    { id: "saved", label: "저장 연결" },
-    { id: "events", label: "이벤트" },
-    { id: "actions", label: "액션" },
-    { id: "feature-sets", label: "기능 묶음" },
-    { id: "resources", label: "캐릭터 재료" },
+    {
+      id: "characters",
+      label: "시작",
+      description: "캐릭터 연결 지도를 열거나, 조건과 이벤트를 골라 실행 흐름의 시작점을 만듭니다.",
+    },
+    {
+      id: "actions",
+      label: "실행",
+      description: "대사 출력, 표정 변경, 무대 변경, 메뉴 열기처럼 실제로 실행할 동작입니다.",
+    },
+    {
+      id: "resources",
+      label: "재료",
+      description: "현재 캐릭터가 가진 표정, 상태, 무대 조합, 파츠, 대사, 터치 영역입니다.",
+    },
+    {
+      id: "feature-sets",
+      label: "묶음",
+      description: "여러 저장 연결을 하나의 재사용 가능한 묶음으로 다룹니다.",
+    },
+    {
+      id: "saved",
+      label: "저장",
+      description: "이미 저장해 둔 이벤트-동작 연결을 다시 불러오거나 재사용합니다.",
+    },
   ];
   const categories = getAvailablePaletteCategories(baseCategories);
   if (!categories.some((category) => category.id === selectedPaletteCategory)) {
@@ -4141,16 +4228,18 @@ function renderEditorPalette() {
     return button;
   }));
 
+  const selectedCategory = categories.find((category) => category.id === selectedPaletteCategory) ?? categories[0] ?? baseCategories[0]!;
+  const guide = createPaletteCategoryGuide(selectedCategory);
   const items = getPaletteItems(selectedPaletteCategory).filter(isPaletteItemAllowedForPending);
   if (items.length === 0) {
-    mappingPaletteDeck.replaceChildren(createEditorSummary(
+    mappingPaletteDeck.replaceChildren(guide, createEditorSummary(
       "연결 가능한 카드 없음",
       pendingConnectionNodeId ? "선택한 카드에서 이어 붙일 수 있는 카드가 이 카테고리에 없습니다." : "아직 이 카테고리에 끌어올 카드가 없습니다.",
     ));
     return;
   }
 
-  mappingPaletteDeck.replaceChildren(...items.map((item) => {
+  mappingPaletteDeck.replaceChildren(guide, ...items.map((item) => {
     const card = document.createElement("button");
     card.className = "nanika-palette-card";
     card.type = "button";

@@ -1,4 +1,10 @@
-import type { ManagementMenuOptions, SpeechBalloonSizeOptions, SpeechLayoutOptions } from "../core/types.js";
+import type {
+  CharacterStagePlacement,
+  CharacterStagePlacementOptions,
+  ManagementMenuOptions,
+  SpeechBalloonSizeOptions,
+  SpeechLayoutOptions,
+} from "../core/types.js";
 
 export const managementMenuStorageKey = "managementMenu.options";
 export const runtimeUiStorageKey = "runtimeUi.options";
@@ -12,6 +18,7 @@ export type RuntimeUiPreferences = {
     x: number;
     y: number;
   };
+  characterPlacement?: CharacterStagePlacementOptions;
 };
 
 const speechBalloonSizeKeys = [
@@ -31,8 +38,24 @@ const speechBalloonSizeKeys = [
   "mobileActionMenuMaxHeight",
 ] as const satisfies ReadonlyArray<keyof SpeechBalloonSizeOptions>;
 
+const characterStagePlacements = [
+  "top-left",
+  "top-center",
+  "top-right",
+  "middle-left",
+  "middle-center",
+  "middle-right",
+  "bottom-left",
+  "bottom-center",
+  "bottom-right",
+] as const satisfies readonly CharacterStagePlacement[];
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isCharacterStagePlacement(value: unknown): value is CharacterStagePlacement {
+  return typeof value === "string" && characterStagePlacements.includes(value as CharacterStagePlacement);
 }
 
 export function cloneManagementMenuOptions(options: ManagementMenuOptions | undefined): ManagementMenuOptions {
@@ -127,6 +150,22 @@ export function readStoredRuntimeUiPreferences(value: unknown): RuntimeUiPrefere
     if (typeof x === "number" && typeof y === "number") {
       preferences.characterPosition = { x, y };
     }
+  }
+
+  if (isRecord(value.characterPlacement) && isCharacterStagePlacement(value.characterPlacement.placement)) {
+    const placement: CharacterStagePlacementOptions = {
+      placement: value.characterPlacement.placement,
+    };
+
+    if (typeof value.characterPlacement.offsetX === "number") {
+      placement.offsetX = value.characterPlacement.offsetX;
+    }
+
+    if (typeof value.characterPlacement.offsetY === "number") {
+      placement.offsetY = value.characterPlacement.offsetY;
+    }
+
+    preferences.characterPlacement = placement;
   }
 
   return preferences;

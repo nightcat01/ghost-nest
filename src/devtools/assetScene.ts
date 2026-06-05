@@ -100,6 +100,7 @@ const effectPlacementInputs = {
   height: requireElement(document.querySelector<HTMLInputElement>("#effectHeightInput"), "#effectHeightInput"),
 } satisfies ScenePlacementInputs;
 const preview = requireElement(document.querySelector<HTMLElement>("#scenePreview"), "#scenePreview");
+const sceneStackWarnings = requireElement(document.querySelector<HTMLElement>("#sceneStackWarnings"), "#sceneStackWarnings");
 const scenePreviewSizeInput = requireElement(document.querySelector<HTMLInputElement>("#scenePreviewSizeInput"), "#scenePreviewSizeInput");
 const scenePreviewZoomOutButton = requireElement(document.querySelector<HTMLButtonElement>("#scenePreviewZoomOutButton"), "#scenePreviewZoomOutButton");
 const scenePreviewZoomInButton = requireElement(document.querySelector<HTMLButtonElement>("#scenePreviewZoomInButton"), "#scenePreviewZoomInButton");
@@ -116,6 +117,13 @@ let propLayers: EditableSceneLayer[] = [];
 let effectLayers: EditableSceneLayer[] = [];
 let sceneDragState: SceneDragState | null = null;
 let scenePreviewSize = 760;
+
+const sceneDepthDefaults = {
+  background: 0,
+  character: 20,
+  prop: 30,
+  effect: 40,
+} as const;
 
 const defaultCharacterPreviewPlacement = {
   x: 31,
@@ -287,7 +295,7 @@ function readEditableLayerFromInputs(role: EditableSceneLayer["role"], id = crea
   const assetSelect = role === "prop" ? propAssetSelect : effectAssetSelect;
   const depthInput = role === "prop" ? propDepthInput : effectDepthInput;
   const placementInputs = role === "prop" ? propPlacementInputs : effectPlacementInputs;
-  const fallbackDepth = role === "prop" ? 30 : 40;
+  const fallbackDepth = role === "prop" ? sceneDepthDefaults.prop : sceneDepthDefaults.effect;
 
   return {
     id,
@@ -310,7 +318,7 @@ function applyEditableLayerToInputs(layer: EditableSceneLayer | null, role: Edit
     : { x: 0, y: 0, width: 100, height: 100, unit: "percent" as const };
 
   assetSelect.value = layer?.image ?? "";
-  depthInput.value = String(layer?.depth ?? (role === "prop" ? 30 : 40));
+  depthInput.value = String(layer?.depth ?? (role === "prop" ? sceneDepthDefaults.prop : sceneDepthDefaults.effect));
   writePlacement(placementInputs, layer?.placement ?? fallback);
 }
 
@@ -446,7 +454,7 @@ function createSceneSnippet() {
     layers.push({
       id: "background",
       role: "background",
-      depth: readNumber(backgroundDepthInput, 0),
+      depth: readNumber(backgroundDepthInput, sceneDepthDefaults.background),
       ...(backgroundImage ? { image: backgroundImage } : {}),
       ...(backgroundColor ? { color: backgroundColor } : {}),
     });
@@ -455,7 +463,7 @@ function createSceneSnippet() {
   layers.push({
     id: "character-slot",
     role: "character",
-    depth: readNumber(characterDepthInput, 20),
+    depth: readNumber(characterDepthInput, sceneDepthDefaults.character),
     placement: defaultCharacterPreviewPlacement,
   });
   layers.push(...createEditableRuntimeLayers());
@@ -468,6 +476,82 @@ function createSceneSnippet() {
       layers,
     } satisfies RuntimeScene,
   };
+}
+
+function getSceneLayerDepth(layer: RuntimeSceneLayer) {
+  if (typeof layer.depth === "number") {
+    return layer.depth;
+  }
+
+  if (layer.role === "background") {
+    return sceneDepthDefaults.background;
+  }
+
+  if (layer.role === "character") {
+    return sceneDepthDefaults.character;
+  }
+
+  if (layer.role === "effect") {
+    return sceneDepthDefaults.effect;
+  }
+
+  return sceneDepthDefaults.prop;
+}
+
+function getSceneLayerCoveragePercent(layer: RuntimeSceneLayer) {
+  const placement = layer.placement;
+
+  if (!placement) {
+    return 100;
+  }
+
+  return Math.min(100, Math.max(0, (placement.width * placement.height) / 100));
+}
+
+function createSceneStackWarnings(scene: RuntimeScene) {
+  const characterLayer = findLayer(scene, "character");
+  const characterDepth = getSceneLayerDepth(characterLayer ?? {
+    id: "character-slot",
+    role: "character",
+    depth: sceneDepthDefaults.character,
+  });
+  const warnings: string[] = [];
+
+  scene.layers
+    .filter((layer) => layer.role !== "character" && (layer.image || layer.color))
+    .forEach((layer) => {
+      const depth = getSceneLayerDepth(layer);
+      const coverage = getSceneLayerCoveragePercent(layer);
+
+      if (layer.role === "background" && depth >= characterDepth) {
+        warnings.push(`배경 ${layer.id}의 겹침 순서가 캐릭터(${characterDepth})보다 앞입니다. 배경은 보통 캐릭터보다 낮은 depth를 사용하세요.`);
+      }
+
+      if ((layer.role === "prop" || layer.role === "effect") && depth >= characterDepth && coverage >= 70) {
+        const layerLabel = layer.role === "prop" ? "소품" : "FX";
+
+        warnings.push(`${layerLabel} ${layer.id}가 화면의 ${Math.round(coverage)}%를 차지하면서 캐릭터보다 앞에 있습니다. 전체 이미지라면 배경으로 두거나 depth를 ${characterDepth}보다 낮게 두세요.`);
+      }
+    });
+
+  return warnings;
+}
+
+function renderSceneStackWarnings(warnings: string[]) {
+  sceneStackWarnings.replaceChildren();
+
+  if (warnings.length === 0) {
+    sceneStackWarnings.hidden = true;
+    return;
+  }
+
+  sceneStackWarnings.hidden = false;
+  warnings.forEach((warning) => {
+    const item = document.createElement("p");
+
+    item.textContent = warning;
+    sceneStackWarnings.append(item);
+  });
 }
 
 /**
@@ -628,6 +712,7 @@ function createPreviewLayer(layer: RuntimeSceneLayer) {
  */
 function renderOutputs() {
   const sceneSnippet = createSceneSnippet();
+  const warnings = createSceneStackWarnings(sceneSnippet.scene);
 
   preview.replaceChildren();
   sceneSnippet.scene.layers
@@ -642,6 +727,7 @@ function renderOutputs() {
     scenePath: `assets.scenes[${JSON.stringify(sceneSnippet.sceneId)}]`,
     scene: sceneSnippet.scene,
   }, null, 2);
+  renderSceneStackWarnings(warnings);
 }
 
 /**
@@ -661,7 +747,7 @@ function readEditableLayers(scene: RuntimeScene | undefined, role: EditableScene
       id: layer.id || `${role}-${index + 1}`,
       role,
       image: layer.image ?? "",
-      depth: layer.depth ?? (role === "prop" ? 30 : 40),
+      depth: layer.depth ?? (role === "prop" ? sceneDepthDefaults.prop : sceneDepthDefaults.effect),
       placement: clampPlacement({
         x: layer.placement?.x ?? (role === "prop" ? 20 : 0),
         y: layer.placement?.y ?? (role === "prop" ? 74 : 0),
@@ -683,8 +769,8 @@ function applySceneSelection() {
     defaultSceneInput.checked = !existingDefaultScene;
     backgroundAssetSelect.value = "";
     backgroundColorInput.value = "";
-    backgroundDepthInput.value = "0";
-    characterDepthInput.value = "20";
+    backgroundDepthInput.value = String(sceneDepthDefaults.background);
+    characterDepthInput.value = String(sceneDepthDefaults.character);
     propLayers = [];
     effectLayers = [];
     renderEditableLayerLists();
@@ -703,8 +789,8 @@ function applySceneSelection() {
   defaultSceneInput.checked = existingDefaultScene === sceneSelect.value;
   backgroundAssetSelect.value = backgroundLayer?.image ?? "";
   backgroundColorInput.value = backgroundLayer?.color ?? "";
-  backgroundDepthInput.value = String(backgroundLayer?.depth ?? 0);
-  characterDepthInput.value = String(characterLayer?.depth ?? 20);
+  backgroundDepthInput.value = String(backgroundLayer?.depth ?? sceneDepthDefaults.background);
+  characterDepthInput.value = String(characterLayer?.depth ?? sceneDepthDefaults.character);
   propLayers = readEditableLayers(scene, "prop");
   effectLayers = readEditableLayers(scene, "effect");
   renderEditableLayerLists();

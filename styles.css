@@ -646,6 +646,15 @@ body.fortune-embed-page {
   top: var(--character-stage-y, 24px);
 }
 
+.ghostnest-runtime.character-stage[data-position-mode="placement"] {
+  right: auto;
+  bottom: auto;
+}
+
+.ghostnest-runtime.character-stage[data-ready="false"][data-hide-until-ready="true"] {
+  visibility: hidden;
+}
+
 .ghostnest-runtime .scene-layer-root {
   position: absolute;
   inset: 0;
@@ -4578,6 +4587,27 @@ body.fortune-embed-page {
 
 .asset-scene-character-preview img {
   object-fit: contain;
+}
+
+.asset-scene-stack-warnings {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(174, 93, 34, 0.28);
+  border-radius: 8px;
+  color: #6f3d13;
+  background: rgba(255, 244, 226, 0.86);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.asset-scene-stack-warnings[hidden] {
+  display: none;
+}
+
+.asset-scene-stack-warnings p {
+  margin: 0;
 }
 
 .asset-scene-summary {

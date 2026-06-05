@@ -74,6 +74,12 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
   const elements = getRuntimeElements(options.selectors, options.root);
   const hadRuntimeScopeClass = elements.stage.classList.contains("ghostnest-runtime");
   elements.stage.classList.add("ghostnest-runtime");
+  elements.stage.dataset.ready = "false";
+  if (options.hideUntilReady) {
+    elements.stage.dataset.hideUntilReady = "true";
+  } else {
+    delete elements.stage.dataset.hideUntilReady;
+  }
   const eventBus = createEventBus();
   const pluginRegistry = new Map(options.plugins?.map((plugin) => [plugin.id, plugin]) ?? []);
   const rules = [
@@ -341,6 +347,7 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
     preferenceStorage: options.preferenceStorage,
     defaultRuntimeUiPreferences: {
       ...(options.balloonTheme ? { balloonTheme: options.balloonTheme } : {}),
+      ...(options.characterPlacement ? { characterPlacement: options.characterPlacement } : {}),
     },
     defaultSpeechBalloonSize: speechBalloonSize,
     controls,
@@ -457,6 +464,13 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
     renderCharacterState();
   }
   diagnostics.renderStatusPanel();
+  elements.stage.dataset.ready = "true";
+  elements.stage.dispatchEvent(new CustomEvent("ghostnest:ready", {
+    bubbles: true,
+    detail: {
+      characterId: options.character.profile.id,
+    },
+  }));
   eventBus.emit("runtime:ready");
 
   let isDestroyed = false;

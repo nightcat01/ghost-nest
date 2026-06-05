@@ -4,6 +4,8 @@ import type {
   ManagementMenuItem,
   ManagementMenuOptions,
   DialogueMessage,
+  CharacterStagePlacement,
+  CharacterStagePlacementOptions,
   RuntimeControlOptions,
   RuntimeNavigationOptions,
   RuntimeAction,
@@ -228,9 +230,70 @@ export function createActionRunner(context: ActionRunnerContext) {
       return;
     }
 
+    elements.stage.style.removeProperty("right");
+    elements.stage.style.removeProperty("bottom");
+    elements.stage.style.removeProperty("transform");
     elements.stage.style.setProperty("--character-stage-x", `${position.x}px`);
     elements.stage.style.setProperty("--character-stage-y", `${position.y}px`);
     elements.stage.dataset.positionMode = "custom";
+    delete elements.stage.dataset.characterPlacement;
+  }
+
+  function resolvePlacementAxis(placement: CharacterStagePlacement) {
+    const [block, inline] = placement.split("-") as [
+      "top" | "middle" | "bottom",
+      "left" | "center" | "right",
+    ];
+
+    return { block, inline };
+  }
+
+  function clearCharacterPositionStyles() {
+    elements.stage.style.removeProperty("left");
+    elements.stage.style.removeProperty("right");
+    elements.stage.style.removeProperty("top");
+    elements.stage.style.removeProperty("bottom");
+    elements.stage.style.removeProperty("transform");
+    elements.stage.style.removeProperty("--character-stage-x");
+    elements.stage.style.removeProperty("--character-stage-y");
+  }
+
+  function applyCharacterPlacement(placement: CharacterStagePlacementOptions | undefined) {
+    if (!userPreferences.characterPosition || !placement) {
+      return;
+    }
+
+    const { block, inline } = resolvePlacementAxis(placement.placement);
+    const offsetX = placement.offsetX ?? 24;
+    const offsetY = placement.offsetY ?? 24;
+    const transforms: string[] = [];
+
+    clearCharacterPositionStyles();
+
+    if (inline === "left") {
+      elements.stage.style.left = `${offsetX}px`;
+    } else if (inline === "right") {
+      elements.stage.style.right = `${offsetX}px`;
+    } else {
+      elements.stage.style.left = "50%";
+      transforms.push("translateX(-50%)");
+    }
+
+    if (block === "top") {
+      elements.stage.style.top = `${offsetY}px`;
+    } else if (block === "bottom") {
+      elements.stage.style.bottom = `${offsetY}px`;
+    } else {
+      elements.stage.style.top = "50%";
+      transforms.push("translateY(-50%)");
+    }
+
+    if (transforms.length > 0) {
+      elements.stage.style.transform = transforms.join(" ");
+    }
+
+    elements.stage.dataset.positionMode = "placement";
+    elements.stage.dataset.characterPlacement = placement.placement;
   }
 
   function applyRuntimeUiPreferences() {
@@ -238,6 +301,7 @@ export function createActionRunner(context: ActionRunnerContext) {
     applyBalloonFontSize(runtimeUiPreferences.balloonFontSize);
     applySpeechLayout(runtimeUiPreferences.speechLayout);
     applySpeechBalloonSize(runtimeUiPreferences.speechBalloonSize);
+    applyCharacterPlacement(runtimeUiPreferences.characterPlacement);
     applyCharacterPosition(runtimeUiPreferences.characterPosition);
   }
 
@@ -249,6 +313,7 @@ export function createActionRunner(context: ActionRunnerContext) {
         delete runtimeUiPreferences.speechLayout;
         delete runtimeUiPreferences.speechBalloonSize;
         delete runtimeUiPreferences.characterPosition;
+        delete runtimeUiPreferences.characterPlacement;
       }
 
       applyRuntimeUiPreferences();
@@ -300,6 +365,16 @@ export function createActionRunner(context: ActionRunnerContext) {
         delete runtimeUiPreferences.characterPosition;
       }
 
+      if (storedPreferences.characterPlacement) {
+        runtimeUiPreferences.characterPlacement = storedPreferences.characterPlacement;
+        delete runtimeUiPreferences.characterPosition;
+      } else if (defaultRuntimeUiPreferences?.characterPlacement) {
+        runtimeUiPreferences.characterPlacement = defaultRuntimeUiPreferences.characterPlacement;
+        delete runtimeUiPreferences.characterPosition;
+      } else {
+        delete runtimeUiPreferences.characterPlacement;
+      }
+
       applyRuntimeUiPreferences();
     } catch (error) {
       console.warn("[GhostNest] Failed to load runtime UI options.", error);
@@ -334,13 +409,14 @@ export function createActionRunner(context: ActionRunnerContext) {
     delete runtimeUiPreferences.speechLayout;
     delete runtimeUiPreferences.speechBalloonSize;
     delete runtimeUiPreferences.characterPosition;
+    delete runtimeUiPreferences.characterPlacement;
+    clearCharacterPositionStyles();
+    delete elements.stage.dataset.positionMode;
+    delete elements.stage.dataset.characterPlacement;
     if (canUseDefaultRuntimeUi) {
       Object.assign(runtimeUiPreferences, defaultRuntimeUiPreferences);
     }
     applyRuntimeUiPreferences();
-    elements.stage.style.removeProperty("--character-stage-x");
-    elements.stage.style.removeProperty("--character-stage-y");
-    delete elements.stage.dataset.positionMode;
   }
 
   function registerAction(type: string, handler: RuntimeActionHandler) {
@@ -674,7 +750,26 @@ export function createActionRunner(context: ActionRunnerContext) {
     await runtimeUiPreferencesReady;
 
     runtimeUiPreferences.characterPosition = { x: a.x, y: a.y };
+    delete runtimeUiPreferences.characterPlacement;
     applyCharacterPosition(runtimeUiPreferences.characterPosition);
+    await saveRuntimeUiPreferences();
+  });
+
+  registerAction("set_character_placement", async (action, _) => {
+    if (!userPreferences.characterPosition) {
+      return;
+    }
+
+    const a = action as Extract<BuiltinRuntimeAction, { type: "set_character_placement" }>;
+    await runtimeUiPreferencesReady;
+
+    runtimeUiPreferences.characterPlacement = {
+      placement: a.placement,
+      ...(typeof a.offsetX === "number" ? { offsetX: a.offsetX } : {}),
+      ...(typeof a.offsetY === "number" ? { offsetY: a.offsetY } : {}),
+    };
+    delete runtimeUiPreferences.characterPosition;
+    applyCharacterPlacement(runtimeUiPreferences.characterPlacement);
     await saveRuntimeUiPreferences();
   });
 

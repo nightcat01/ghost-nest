@@ -1,7 +1,7 @@
 import type { CharacterDefinition, GhostRuntime, ManagementMenuItem, RuntimeEventName, RuntimeRule } from "./core/types.js";
 import type { RuntimeAction } from "./core/types.js";
 import { nanikaPreset } from "./ghost/preset.js";
-import { createDemoManagementMenuItems } from "./demo/demoManagementMenu.js";
+import { createDemoManagementMenuItems, hydrateDemoManagementMenuRules } from "./demo/demoManagementMenu.js";
 import { createDemoRules } from "./demo/demoRules.js";
 import { mira } from "./characters/mira/index.js";
 import { rine } from "./characters/rine/index.js";
@@ -27,52 +27,18 @@ type NanikaMappingsResponse = {
   mappings?: NanikaMapping[];
 };
 
-function isManagementMenuAction(action: RuntimeAction): action is Extract<RuntimeAction, { type: "open_management_menu" }> {
-  return action.type === "open_management_menu";
-}
-
-function isActionGroup(action: RuntimeAction): action is Extract<RuntimeAction, { type: "run_sequence" | "run_parallel" | "run_random" }> {
-  return action.type === "run_sequence" || action.type === "run_parallel" || action.type === "run_random";
-}
-
 function isSwitchDemoCharacterAction(action: RuntimeAction): action is RuntimeAction & { characterId?: string } {
   return action.type === "switch_demo_character";
-}
-
-/**
- * Fills demo management menu actions that were saved as empty mapping placeholders.
- */
-function hydrateDemoManagementMenuActions(actions: RuntimeAction[], menuItems: ManagementMenuItem[]): RuntimeAction[] {
-  return actions.map((action) => {
-    if (isManagementMenuAction(action)) {
-      return {
-        ...action,
-        items: action.items.length > 0 ? action.items : menuItems,
-      };
-    }
-
-    if (isActionGroup(action) && Array.isArray(action.actions)) {
-      return {
-        ...action,
-        actions: hydrateDemoManagementMenuActions(action.actions, menuItems),
-      };
-    }
-
-    return action;
-  });
 }
 
 /**
  * Keeps the demo menu reachable when saved mappings are incomplete or store only a menu shell.
  */
 function normalizeSavedRuntimeRules(rules: RuntimeRule[], menuItems: ManagementMenuItem[]): RuntimeRule[] {
-  const hydratedRules = rules.map((rule) => ({
-    ...rule,
-    actions: hydrateDemoManagementMenuActions(rule.actions, menuItems),
-  }));
+  const hydratedRules = hydrateDemoManagementMenuRules(rules, menuItems);
   const hasRightClickMenu = hydratedRules.some((rule) => (
     rule.event === "character:right_click"
-    && rule.actions.some(isManagementMenuAction)
+    && rule.actions.some((action) => action.type === "open_management_menu")
   ));
 
   if (hasRightClickMenu) {
