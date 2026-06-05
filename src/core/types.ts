@@ -442,6 +442,14 @@ export type RuntimeRuleWhen = Partial<{
   command: RuntimeCommandId;
 }>;
 
+export type RuntimeContext = {
+  pageId?: string;
+  url?: string;
+  host?: Record<string, unknown>;
+};
+
+export type RuntimeUrlConditionOperator = "contains" | "startsWith" | "equals" | "pattern";
+
 export type RuntimeCondition =
   | {
       type: "feature_enabled";
@@ -458,6 +466,24 @@ export type RuntimeCondition =
       type: "cooldown";
       key: string;
       duration: number;
+    }
+  | {
+      type: "page_id";
+      value: string | string[];
+      negate?: boolean;
+    }
+  | {
+      type: "url";
+      value: string | string[];
+      operator?: RuntimeUrlConditionOperator;
+      negate?: boolean;
+    }
+  | {
+      type: "host_context";
+      key: string;
+      equals?: unknown;
+      truthy?: boolean;
+      negate?: boolean;
     };
 
 export type CharacterRuntimeMode =
@@ -630,6 +656,7 @@ export type GhostRuntimeOptions = {
   plugins?: RuntimePlugin[];
   root?: ParentNode | string;
   selectors: RuntimeSelectors;
+  context?: RuntimeContext;
   initialExpression?: CharacterExpression;
   initialSurface?: string;
   initialScene?: string;

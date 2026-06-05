@@ -7,7 +7,7 @@ type CharacterNavItem = {
 };
 
 type FlowStep = {
-  id: "character" | "expression" | "state" | "parts" | "stage";
+  id: "character" | "expression" | "dialogue" | "state" | "parts" | "stage";
   title: string;
   description: string;
 };
@@ -16,9 +16,10 @@ const navItems: CharacterNavItem[] = [
   { id: "home", href: "./dev-character.html", label: "제작 홈", group: "home" },
   { id: "create", href: "./dev-character-create.html", label: "캐릭터 만들기", group: "character", step: "1" },
   { id: "expression", href: "./dev-character-expression.html", label: "표정 만들기", group: "character", step: "2" },
-  { id: "set", href: "./dev-character-set.html", label: "상태 연결", group: "character", step: "3" },
-  { id: "layer", href: "./dev-assets-layer.html", label: "파츠 움직임", group: "material", step: "4" },
-  { id: "scene", href: "./dev-character-scene.html", label: "무대 조합", group: "material", step: "5" },
+  { id: "dialogue", href: "./dev-character-dialogue.html", label: "대사 만들기", group: "character", step: "3" },
+  { id: "set", href: "./dev-character-set.html", label: "상태 연결", group: "character", step: "4" },
+  { id: "layer", href: "./dev-assets-layer.html", label: "파츠 움직임", group: "material", step: "5" },
+  { id: "scene", href: "./dev-character-scene.html", label: "무대 조합", group: "material", step: "6" },
   { id: "crop", href: "./dev-assets-crop.html", label: "영역 선택", group: "support" },
 ];
 
@@ -32,6 +33,11 @@ const flowSteps: FlowStep[] = [
     id: "expression",
     title: "표정",
     description: "표정 이미지를 등록합니다.",
+  },
+  {
+    id: "dialogue",
+    title: "대사",
+    description: "말풍선 대사를 준비합니다.",
   },
   {
     id: "state",
@@ -83,6 +89,10 @@ function getCurrentFlowStep(currentPageId: string): FlowStep["id"] | null {
 
   if (currentPageId === "expression") {
     return "expression";
+  }
+
+  if (currentPageId === "dialogue") {
+    return "dialogue";
   }
 
   if (currentPageId === "set" || currentPageId === "composition") {

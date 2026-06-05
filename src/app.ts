@@ -1,10 +1,14 @@
-import type { GhostRuntime, RuntimeEventName, RuntimeRule } from "./core/types.js";
+import type { CharacterDefinition, GhostRuntime, ManagementMenuItem, RuntimeEventName, RuntimeRule } from "./core/types.js";
 import type { RuntimeAction } from "./core/types.js";
 import { nanikaPreset } from "./ghost/preset.js";
-import { managementMenuItems, nanikaRules } from "./ghost/actions.js";
+import { createDemoManagementMenuItems } from "./demo/demoManagementMenu.js";
+import { createDemoRules } from "./demo/demoRules.js";
+import { mira } from "./characters/mira/index.js";
+import { rine } from "./characters/rine/index.js";
 import {
   createGhostRuntimeFromPreset,
   createRuntimeRulesFromMappings,
+  type NanikaRuntimePreset,
   type NanikaMapping,
 } from "./plugins/nanikaMapping/index.js";
 import { runtimeSpeechPresets } from "./runtime/runtimeLayoutPresets.js";
@@ -14,6 +18,9 @@ type GhostNestWindow = Window & {
 };
 
 const ghostNestWindow = window as GhostNestWindow;
+
+const demoCharacters = [rine, mira] satisfies CharacterDefinition[];
+let currentDemoCharacterId = nanikaPreset.character.profile.id;
 
 type NanikaMappingsResponse = {
   ok?: boolean;
@@ -28,22 +35,26 @@ function isActionGroup(action: RuntimeAction): action is Extract<RuntimeAction, 
   return action.type === "run_sequence" || action.type === "run_parallel" || action.type === "run_random";
 }
 
+function isSwitchDemoCharacterAction(action: RuntimeAction): action is RuntimeAction & { characterId?: string } {
+  return action.type === "switch_demo_character";
+}
+
 /**
  * Fills demo management menu actions that were saved as empty mapping placeholders.
  */
-function hydrateDemoManagementMenuActions(actions: RuntimeAction[]): RuntimeAction[] {
+function hydrateDemoManagementMenuActions(actions: RuntimeAction[], menuItems: ManagementMenuItem[]): RuntimeAction[] {
   return actions.map((action) => {
     if (isManagementMenuAction(action)) {
       return {
         ...action,
-        items: action.items.length > 0 ? action.items : managementMenuItems,
+        items: action.items.length > 0 ? action.items : menuItems,
       };
     }
 
     if (isActionGroup(action) && Array.isArray(action.actions)) {
       return {
         ...action,
-        actions: hydrateDemoManagementMenuActions(action.actions),
+        actions: hydrateDemoManagementMenuActions(action.actions, menuItems),
       };
     }
 
@@ -54,10 +65,10 @@ function hydrateDemoManagementMenuActions(actions: RuntimeAction[]): RuntimeActi
 /**
  * Keeps the demo menu reachable when saved mappings are incomplete or store only a menu shell.
  */
-function normalizeSavedRuntimeRules(rules: RuntimeRule[]): RuntimeRule[] {
+function normalizeSavedRuntimeRules(rules: RuntimeRule[], menuItems: ManagementMenuItem[]): RuntimeRule[] {
   const hydratedRules = rules.map((rule) => ({
     ...rule,
-    actions: hydrateDemoManagementMenuActions(rule.actions),
+    actions: hydrateDemoManagementMenuActions(rule.actions, menuItems),
   }));
   const hasRightClickMenu = hydratedRules.some((rule) => (
     rule.event === "character:right_click"
@@ -68,9 +79,79 @@ function normalizeSavedRuntimeRules(rules: RuntimeRule[]): RuntimeRule[] {
     return hydratedRules;
   }
 
-  const defaultMenuRule = nanikaRules.find((rule) => rule.event === "character:right_click");
+  const defaultMenuRule = createDemoRules(menuItems).find((rule) => rule.event === "character:right_click");
 
   return defaultMenuRule ? [...hydratedRules, defaultMenuRule] : hydratedRules;
+}
+
+/**
+ * Finds a demo character by id, falling back to the preset character.
+ */
+function getDemoCharacter(characterId: string) {
+  return demoCharacters.find((character) => character.profile.id === characterId) ?? nanikaPreset.character;
+}
+
+/**
+ * Creates the second-step character switch menu for the runtime demo page.
+ */
+function createCharacterSwitchMenuItem(currentCharacter: CharacterDefinition): ManagementMenuItem {
+  const candidates = demoCharacters.filter((character) => character.profile.id !== currentCharacter.profile.id);
+
+  if (candidates.length === 0) {
+    return {
+      id: "change-character",
+      label: "캐릭터 변경",
+      description: "현재 전환할 수 있는 다른 데모 캐릭터가 없어요.",
+      actions: [
+        { type: "speak_text", text: "지금은 전환할 수 있는 다른 캐릭터가 없어요." },
+        { type: "log", label: "management.character_change.empty" },
+      ],
+    };
+  }
+
+  return {
+    id: "change-character",
+    label: "캐릭터 변경",
+    description: "현재 캐릭터를 제외한 데모 캐릭터 목록을 보여줍니다.",
+    children: candidates.map((character) => ({
+      id: `change-character-${character.profile.id}`,
+      label: character.profile.name,
+      description: `${character.profile.id} 캐릭터로 런타임을 다시 시작합니다.`,
+      actions: [
+        {
+          type: "switch_demo_character",
+          characterId: character.profile.id,
+        },
+      ],
+    })),
+  };
+}
+
+/**
+ * Replaces the generic character-change request item with the demo page switcher.
+ */
+function withDemoCharacterSwitcher(items: ManagementMenuItem[], currentCharacter: CharacterDefinition): ManagementMenuItem[] {
+  return items.map((item) => {
+    if (item.id === "change-character") {
+      return createCharacterSwitchMenuItem(currentCharacter);
+    }
+
+    return {
+      ...item,
+      ...(item.children ? { children: withDemoCharacterSwitcher(item.children, currentCharacter) } : {}),
+    };
+  });
+}
+
+/**
+ * Creates a runtime preset for the selected demo character.
+ */
+function createDemoRuntimePreset(character: CharacterDefinition, menuItems: ManagementMenuItem[]): NanikaRuntimePreset {
+  return {
+    ...nanikaPreset,
+    character,
+    rules: createDemoRules(menuItems),
+  };
 }
 
 /**
@@ -145,7 +226,7 @@ function createRuntimeTestRules(): RuntimeRule[] {
 /**
  * Loads developer-saved mappings so the runtime page follows the mapping editor.
  */
-async function loadSavedRuntimeRules() {
+async function loadSavedRuntimeRules(menuItems: ManagementMenuItem[]) {
   try {
     const response = await fetch("/api/devtools/nanika-mappings");
 
@@ -159,7 +240,7 @@ async function loadSavedRuntimeRules() {
       return null;
     }
 
-    return normalizeSavedRuntimeRules(createRuntimeRulesFromMappings(result.mappings ?? []));
+    return normalizeSavedRuntimeRules(createRuntimeRulesFromMappings(result.mappings ?? []), menuItems);
   } catch {
     return null;
   }
@@ -168,11 +249,17 @@ async function loadSavedRuntimeRules() {
 /**
  * Creates a fresh runtime instance after cleaning up the previous one.
  */
-async function bootRuntime() {
+async function bootRuntime(characterId = currentDemoCharacterId) {
   ghostNestWindow.__ghostNestRuntime__?.destroy();
+  currentDemoCharacterId = characterId;
+  const character = getDemoCharacter(characterId);
+  const menuItems = withDemoCharacterSwitcher(createDemoManagementMenuItems(character, {
+    includeDeveloperTools: true,
+  }), character);
+  const preset = createDemoRuntimePreset(character, menuItems);
   const testRules = createRuntimeTestRules();
-  const savedRules = await loadSavedRuntimeRules();
-  ghostNestWindow.__ghostNestRuntime__ = createGhostRuntimeFromPreset(nanikaPreset, {
+  const savedRules = await loadSavedRuntimeRules(menuItems);
+  const runtime = createGhostRuntimeFromPreset(preset, {
     ...(savedRules
       ? {
         replaceRules: [...savedRules, ...testRules],
@@ -184,6 +271,14 @@ async function bootRuntime() {
       }
       : { rules: testRules }),
   });
+  runtime.registerAction("switch_demo_character", (action) => {
+    const characterId = isSwitchDemoCharacterAction(action) && typeof action.characterId === "string"
+      ? action.characterId
+      : currentDemoCharacterId;
+
+    void bootRuntime(characterId);
+  });
+  ghostNestWindow.__ghostNestRuntime__ = runtime;
 
   return ghostNestWindow.__ghostNestRuntime__;
 }

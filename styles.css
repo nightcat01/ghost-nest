@@ -4024,6 +4024,67 @@ body.fortune-embed-page {
   overflow-wrap: anywhere;
 }
 
+.asset-dialogue-category-list {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 12px;
+}
+
+.asset-dialogue-category-card {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid rgba(57, 130, 124, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.asset-dialogue-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.asset-dialogue-category-header strong {
+  min-width: 0;
+  color: var(--text);
+  font-size: 0.98rem;
+}
+
+.asset-dialogue-category-header code {
+  max-width: 46%;
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-dialogue-category-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.asset-dialogue-category-card textarea {
+  min-width: 0;
+  width: 100%;
+  min-height: 104px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+#dialogueOutput {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .asset-scene-list {
   display: grid;
   gap: 8px;

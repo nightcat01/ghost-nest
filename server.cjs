@@ -150,6 +150,7 @@ function isCharacterDevtoolsStaticPath(pathname) {
     "/dev-character.html",
     "/dev-character-create.html",
     "/dev-character-expression.html",
+    "/dev-character-dialogue.html",
     "/dev-character-set.html",
     "/dev-character-scene.html",
     "/dev-character-composition.html",
@@ -562,11 +563,13 @@ function normalizeNanikaCondition(condition) {
   const id = assertSafeNanikaConditionId(condition.id);
   const scope = String(condition.scope ?? "").trim();
   const type = String(condition.type ?? "").trim();
+  const operator = String(condition.operator ?? "").trim();
   const value = String(condition.value ?? "").trim();
   const name = String(condition.name ?? "").trim();
   const description = String(condition.description ?? "").trim();
   const allowedScopes = new Set(["runtime", "character"]);
   const allowedTypes = new Set(["url", "pageId"]);
+  const allowedOperators = new Set(["contains", "startsWith", "equals", "pattern"]);
 
   if (!allowedScopes.has(scope)) {
     throw new Error("invalid_nanika_condition_scope");
@@ -580,10 +583,15 @@ function normalizeNanikaCondition(condition) {
     throw new Error("invalid_nanika_condition_value");
   }
 
+  const normalizedOperator = type === "url"
+    ? allowedOperators.has(operator) ? operator : "contains"
+    : "equals";
+
   return {
     id,
     scope,
     type,
+    operator: normalizedOperator,
     value,
     ...(name ? { name } : {}),
     ...(description ? { description } : {}),
@@ -1118,6 +1126,18 @@ function createCharacterBuildAssetFiles(characterId, assets) {
     surfaces: `export const ${names.surfaces} = ${JSON.stringify(assets.surfaces ?? {}, null, 2)};\n`,
     scenes: `export const ${names.defaultScene} = ${JSON.stringify(assets.defaultScene ?? "")};\n\nexport const ${names.scenes} = ${JSON.stringify(assets.scenes ?? {}, null, 2)};\n`,
   };
+}
+
+function createCharacterSourceLinesFile(characterId, lines) {
+  const exportName = toExportName(characterId);
+
+  return `import type { DialogueLineSet } from "../../core/types.js";\n\nexport const ${exportName}Lines: DialogueLineSet = ${JSON.stringify(lines, null, 2)};\n`;
+}
+
+function createCharacterBuildLinesFile(characterId, lines) {
+  const exportName = toExportName(characterId);
+
+  return `export const ${exportName}Lines = ${JSON.stringify(lines, null, 2)};\n`;
 }
 
 /**
@@ -1775,6 +1795,55 @@ function createDefaultCharacterLines(displayName) {
   };
 }
 
+function normalizeCharacterLines(lines) {
+  if (!lines || typeof lines !== "object" || Array.isArray(lines)) {
+    throw new Error("invalid_character_lines");
+  }
+
+  return Object.fromEntries(Object.entries(lines)
+    .map(([category, values]) => {
+      const safeCategory = String(category ?? "").trim();
+      const lineValues = Array.isArray(values)
+        ? values.map((line) => String(line ?? "").trim()).filter(Boolean)
+        : [];
+
+      return [safeCategory, lineValues];
+    })
+    .filter(([category, values]) => category && values.length > 0));
+}
+
+async function saveCharacterLines(body) {
+  const { safeCharacterId, characterSourcePath } = resolveCharacterSourcePath(body.characterId);
+  const characterBuildPath = resolveCharacterBuildPath(safeCharacterId);
+  const lines = normalizeCharacterLines(body.lines);
+  const sourceDirectory = path.dirname(characterSourcePath);
+
+  await fs.promises.writeFile(
+    path.join(sourceDirectory, "lines.ts"),
+    createCharacterSourceLinesFile(safeCharacterId, lines),
+    "utf8",
+  );
+  await fs.promises.writeFile(characterSourcePath, createCharacterIndexFile(safeCharacterId, { includeTypeImport: true }), "utf8");
+
+  if (characterBuildPath) {
+    const buildDirectory = path.dirname(characterBuildPath);
+
+    await fs.promises.writeFile(
+      path.join(buildDirectory, "lines.js"),
+      createCharacterBuildLinesFile(safeCharacterId, lines),
+      "utf8",
+    );
+    await fs.promises.writeFile(characterBuildPath, createCharacterIndexFile(safeCharacterId, { includeTypeImport: false }), "utf8");
+  }
+
+  return {
+    characterId: safeCharacterId,
+    path: path.relative(root, path.join(sourceDirectory, "lines.ts")).replaceAll(path.sep, "/"),
+    buildPath: characterBuildPath ? path.relative(root, path.join(path.dirname(characterBuildPath), "lines.js")).replaceAll(path.sep, "/") : null,
+    categories: Object.keys(lines),
+  };
+}
+
 function createCharacterSourceFiles(characterId, profile) {
   const exportName = toExportName(characterId);
   const displayName = String(profile.name ?? characterId).trim() || characterId;
@@ -1800,7 +1869,7 @@ function createCharacterSourceFiles(characterId, profile) {
       tone,
       defaultExpression: "neutral",
     }, null, 2)};\n`,
-    lines: `import type { DialogueLineSet } from "../../core/types.js";\n\nexport const ${exportName}Lines: DialogueLineSet = ${JSON.stringify(lines, null, 2)};\n`,
+    lines: createCharacterSourceLinesFile(characterId, lines),
     index: createCharacterIndexFile(characterId, { includeTypeImport: true }),
     assets: createCharacterSourceAssetFiles(characterId, assets),
   };
@@ -1831,7 +1900,7 @@ function createCharacterBuildFiles(characterId, profile) {
       tone,
       defaultExpression: "neutral",
     }, null, 2)};\n`,
-    lines: `export const ${exportName}Lines = ${JSON.stringify(lines, null, 2)};\n`,
+    lines: createCharacterBuildLinesFile(characterId, lines),
     index: createCharacterIndexFile(characterId, { includeTypeImport: false }),
     assets: createCharacterBuildAssetFiles(characterId, assets),
   };
@@ -3267,6 +3336,49 @@ async function handleSaveCharacterScene(request, response) {
   return true;
 }
 
+async function handleSaveCharacterLines(request, response) {
+  if (!isCharacterSettingsEnabled()) {
+    sendJson(response, 404, {
+      ok: false,
+      error: "extension_not_enabled",
+      message: "Character Settings extension is not enabled in ghost-nest.extensions.json.",
+    });
+    return true;
+  }
+
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "method_not_allowed" });
+    return true;
+  }
+
+  try {
+    const body = await readRequestJson(request);
+    const saved = await saveCharacterLines(body);
+
+    sendJson(response, 200, {
+      ok: true,
+      message: "Character lines saved.",
+      saved,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "save_character_lines_failed";
+    const statusCode = [
+      "invalid_json",
+      "invalid_character_id",
+      "character_source_not_found",
+      "invalid_character_lines",
+    ].includes(message) ? 400 : 500;
+
+    sendJson(response, statusCode, {
+      ok: false,
+      error: message,
+      message: "Character lines could not be saved.",
+    });
+  }
+
+  return true;
+}
+
 /**
  * Handles character layer delete requests for the dev asset tool.
  */
@@ -3792,6 +3904,10 @@ async function handleApiRequest(request, response) {
 
   if (pathname === "/api/devtools/save-character-scene") {
     return handleSaveCharacterScene(request, response);
+  }
+
+  if (pathname === "/api/devtools/save-character-lines") {
+    return handleSaveCharacterLines(request, response);
   }
 
   if (pathname === "/api/devtools/delete-character-surface") {

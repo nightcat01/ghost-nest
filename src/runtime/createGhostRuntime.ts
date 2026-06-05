@@ -363,6 +363,7 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
     eventBus,
     rules,
     controls,
+    context: options.context ?? {},
     state,
     ruleCooldowns,
     runActions,

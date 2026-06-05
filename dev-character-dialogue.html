@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GhostNest 대사 설정</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="asset-lab-shell">
+      <header class="asset-lab-header">
+        <div>
+          <p class="eyebrow">3단계 / 캐릭터 설정</p>
+          <h1>대사 만들기</h1>
+        </div>
+        <a class="asset-lab-back" href="./dev-character.html">제작 홈</a>
+      </header>
+
+      <nav class="asset-tool-nav" aria-label="Character setting pages" data-character-nav data-current-page="dialogue"></nav>
+
+      <section class="asset-lab-grid asset-character-editor-grid" aria-label="대사 설정">
+        <section class="asset-lab-panel">
+          <div class="asset-lab-section asset-step-intro">
+            <h2>이 단계에서 하는 일</h2>
+            <p class="asset-lab-help">
+              말풍선에 표시할 대사 묶음을 준비합니다. 매핑의 대사 카테고리 말하기 액션은 여기서 저장한 카테고리를 가져다 씁니다.
+            </p>
+            <ol class="asset-step-guide">
+              <li>캐릭터를 선택합니다.</li>
+              <li>기본 카테고리별 샘플 문장을 확인합니다.</li>
+              <li>필요한 문장을 수정하거나 새 카테고리를 추가합니다.</li>
+              <li>저장한 뒤 매핑에서 대사 재료로 연결합니다.</li>
+            </ol>
+            <div class="asset-step-result-map" aria-label="대사 결과 지도">
+              <article>
+                <strong>저장 결과</strong>
+                <span>lines.ts에 대사 카테고리와 문장 목록이 저장됩니다.</span>
+              </article>
+              <article>
+                <strong>다음 사용처</strong>
+                <span>기능 연결에서 speak 액션의 대사 재료로 사용합니다.</span>
+              </article>
+            </div>
+          </div>
+
+          <div class="asset-lab-section">
+            <h2>캐릭터</h2>
+            <p class="asset-lab-help">대사를 저장할 캐릭터를 선택합니다.</p>
+            <label>
+              캐릭터
+              <select id="characterSelect">
+                <option value="">캐릭터를 불러오는 중이에요.</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="asset-lab-section">
+            <h2>대사 카테고리</h2>
+            <p class="asset-lab-help">기본 카테고리는 나니카 기본 이벤트와 메뉴에 맞춰 준비되어 있어요. 한 줄이 대사 후보 하나입니다.</p>
+            <div class="asset-dialogue-category-list" id="dialogueCategoryList"></div>
+          </div>
+
+          <details class="asset-lab-section asset-lab-advanced">
+            <summary>새 카테고리 추가</summary>
+            <p class="asset-lab-help">기본 카테고리 외에 프로젝트 전용 대사가 필요할 때만 추가합니다.</p>
+            <div class="asset-lab-field-grid">
+              <label>
+                카테고리 key
+                <input id="customCategoryInput" type="text" placeholder="예: fortuneGreeting" autocomplete="off" />
+              </label>
+              <label>
+                첫 문장
+                <input id="customLineInput" type="text" placeholder="예: 오늘의 운세를 함께 볼까요?" autocomplete="off" />
+              </label>
+            </div>
+            <div class="asset-lab-actions">
+              <button type="button" id="addCategoryButton">카테고리 추가</button>
+            </div>
+          </details>
+
+          <div class="asset-lab-section asset-composition-save-section">
+            <div class="asset-lab-section-header">
+              <div>
+                <h2>저장</h2>
+                <p class="asset-lab-help">빈 줄은 저장하지 않습니다. 적어도 하나 이상의 카테고리에 문장이 있어야 해요.</p>
+              </div>
+              <div class="asset-lab-actions">
+                <button type="button" id="saveDialogueButton">대사 저장</button>
+              </div>
+            </div>
+            <p class="asset-lab-status" id="dialogueStatus" role="status">대사 설정을 불러오는 중입니다.</p>
+          </div>
+        </section>
+
+        <section class="asset-lab-panel">
+          <div class="asset-lab-section asset-sticky-preview">
+            <h2>저장 미리보기</h2>
+            <p class="asset-lab-help">현재 입력된 대사가 lines.ts에 저장될 형태입니다.</p>
+            <pre id="dialogueOutput" class="asset-json-output">{}</pre>
+          </div>
+        </section>
+      </section>
+    </main>
+    <script type="module" src="./dist/devtools/assetCharacterNav.js"></script>
+    <script type="module" src="./dist/devtools/assetDialogue.js"></script>
+  </body>
+</html>

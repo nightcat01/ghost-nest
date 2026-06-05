@@ -57,6 +57,7 @@
             <details class="nanika-condition-builder" id="conditionBuilder">
               <summary>조건 만들기</summary>
               <div class="nanika-condition-form">
+                <p class="asset-lab-help">조건 카드는 런타임, 캐릭터, 이벤트, 저장 연결 앞에 붙여서 조건을 통과할 때만 다음 기능이 실행되도록 만듭니다.</p>
                 <label>
                   조건 ID
                   <input id="conditionIdInput" type="text" value="page.home" />
@@ -77,6 +78,15 @@
                   <select id="conditionTypeSelect">
                     <option value="pageId">페이지 코드</option>
                     <option value="url">URL 포함</option>
+                  </select>
+                </label>
+                <label>
+                  URL 비교 방식
+                  <select id="conditionOperatorSelect">
+                    <option value="contains">URL 포함</option>
+                    <option value="startsWith">URL 시작</option>
+                    <option value="equals">URL 일치</option>
+                    <option value="pattern">URL 패턴</option>
                   </select>
                 </label>
                 <label>

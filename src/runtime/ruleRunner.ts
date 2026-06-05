@@ -2,6 +2,7 @@ import type {
   RuntimeAction,
   RuntimeCondition,
   RuntimeControlOptions,
+  RuntimeContext,
   RuntimeEventHandler,
   RuntimeEventName,
   RuntimeEventPayload,
@@ -20,6 +21,7 @@ type RuleRunnerOptions = {
   eventBus: RuntimeEventBus;
   rules: RuntimeRule[];
   controls: RuntimeControlOptions;
+  context: RuntimeContext;
   state: RuntimeState;
   ruleCooldowns: Map<string, number>;
   runActions: (actions: RuntimeAction[]) => void | Promise<void>;
@@ -38,9 +40,50 @@ function matchesRuleWhen(rule: RuntimeRule, payload: RuntimeEventPayload<Runtime
 
 function createConditionChecker({
   controls,
+  context,
   state,
   ruleCooldowns,
-}: Pick<RuleRunnerOptions, "controls" | "state" | "ruleCooldowns">) {
+}: Pick<RuleRunnerOptions, "controls" | "context" | "state" | "ruleCooldowns">) {
+  function matchesValue(value: string | undefined, expected: string | string[]) {
+    const expectedValues = Array.isArray(expected) ? expected : [expected];
+    return expectedValues.includes(value ?? "");
+  }
+
+  function escapeRegExp(value: string) {
+    return value.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
+  }
+
+  function matchesUrl(value: string | undefined, expected: string | string[], operator: "contains" | "startsWith" | "equals" | "pattern" = "contains") {
+    if (!value) {
+      return false;
+    }
+
+    const expectedValues = Array.isArray(expected) ? expected : [expected];
+    return expectedValues.some((candidate) => {
+      if (!candidate) {
+        return false;
+      }
+
+      if (operator === "startsWith") {
+        return value.startsWith(candidate);
+      }
+
+      if (operator === "equals") {
+        return value === candidate;
+      }
+
+      if (operator === "pattern") {
+        return new RegExp(`^${escapeRegExp(candidate).replace(/\*/g, ".*")}$`).test(value);
+      }
+
+      return value.includes(candidate);
+    });
+  }
+
+  function maybeNegate(passed: boolean, negate?: boolean) {
+    return negate ? !passed : passed;
+  }
+
   return function passesConditions(conditions: RuntimeCondition[] = []) {
     const now = Date.now();
     const passedCooldowns: Array<{ key: string; time: number }> = [];
@@ -69,6 +112,29 @@ function createConditionChecker({
 
           passedCooldowns.push({ key: condition.key, time: now });
           break;
+        case "page_id":
+          if (!maybeNegate(matchesValue(context.pageId, condition.value), condition.negate)) {
+            return false;
+          }
+          break;
+        case "url":
+          if (!maybeNegate(matchesUrl(context.url, condition.value, condition.operator), condition.negate)) {
+            return false;
+          }
+          break;
+        case "host_context": {
+          const value = context.host?.[condition.key];
+          const passed = "equals" in condition
+            ? value === condition.equals
+            : condition.truthy === false
+              ? !value
+              : Boolean(value);
+
+          if (!maybeNegate(passed, condition.negate)) {
+            return false;
+          }
+          break;
+        }
       }
     }
 

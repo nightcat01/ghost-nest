@@ -19,6 +19,7 @@ type CharacterProgress = {
   partCount: number;
   sceneAssetCount: number;
   expressionCount: number;
+  dialogueCount: number;
   stateCount: number;
   layerCount: number;
   stageCount: number;
@@ -62,6 +63,7 @@ const emptyProgress: CharacterProgress = {
   partCount: 0,
   sceneAssetCount: 0,
   expressionCount: 0,
+  dialogueCount: 0,
   stateCount: 0,
   layerCount: 0,
   stageCount: 0,
@@ -91,8 +93,19 @@ const steps: StepConfig[] = [
     detail: (progress) => `${progress.expressionCount}개 표정 / ${progress.baseCount}개 기본 이미지`,
   },
   {
+    id: "dialogue",
+    title: "3. 대사 만들기",
+    lane: "character",
+    description: "말풍선에서 사용할 기본 대사 묶음을 준비합니다. 매핑의 대사 액션이 여기 있는 카테고리를 사용합니다.",
+    href: "./dev-character-dialogue.html",
+    required: true,
+    requiresCharacter: true,
+    complete: (progress) => progress.dialogueCount > 0,
+    detail: (progress) => `${progress.dialogueCount}개 대사 묶음`,
+  },
+  {
     id: "state",
-    title: "3. 상태 연결하기",
+    title: "4. 상태 연결하기",
     lane: "character",
     description: "이미 만든 표정, 기본 이미지, 무대 조합을 런타임 표시 상태에 연결합니다.",
     href: "./dev-character-set.html",
@@ -114,7 +127,7 @@ const steps: StepConfig[] = [
   },
   {
     id: "layer",
-    title: "4. 파츠 움직임 만들기",
+    title: "5. 파츠 움직임 만들기",
     lane: "material",
     description: "눈 깜빡임, 입모양처럼 특정 캐릭터 상태 위에서 움직일 파츠를 만듭니다.",
     href: "./dev-assets-layer.html",
@@ -125,7 +138,7 @@ const steps: StepConfig[] = [
   },
   {
     id: "stage",
-    title: "5. 무대 조합 만들기",
+    title: "6. 무대 조합 만들기",
     lane: "material",
     description: "배경, 책상, 소품, FX를 한 묶음으로 배치해 캐릭터 주변 무대를 만듭니다.",
     href: "./dev-character-scene.html",
@@ -166,6 +179,7 @@ function createProgress(characterId: string, assetsResult: CharacterAssetsRespon
     partCount: characterFiles.filter((file) => file.kind === "part").length,
     sceneAssetCount: characterFiles.filter((file) => file.kind === "scene").length,
     expressionCount: Object.keys(assets.expressions ?? {}).length,
+    dialogueCount: Object.keys(assetsResult.lines ?? {}).length,
     stateCount: Object.keys(surfaces).length,
     layerCount: countLayers(surfaces),
     stageCount: Object.keys(scenes).length,
@@ -196,6 +210,7 @@ function renderSummary(progress: CharacterProgress) {
   summary.replaceChildren(
     createSummaryItem("기본 이미지", progress.baseCount, progress.baseCount > 0),
     createSummaryItem("표정", progress.expressionCount, progress.expressionCount > 0),
+    createSummaryItem("대사", progress.dialogueCount, progress.dialogueCount > 0),
     createSummaryItem("상태 연결", progress.stateCount, progress.stateCount > 0),
     createSummaryItem("파츠 움직임", progress.layerCount, progress.layerCount > 0),
     createSummaryItem("무대 조합", progress.stageCount, progress.stageCount > 0),
@@ -228,6 +243,7 @@ function renderReadinessMap(progress: CharacterProgress) {
     createReadinessNode("재료", `${progress.baseCount + progress.partCount + progress.sceneAssetCount}개 이미지 재료`, progress.baseCount > 0 ? "ready" : "missing"),
     createReadinessNode(characterLabel, progress.characterId ? "이 캐릭터를 기준으로 조합합니다." : "먼저 캐릭터를 만들거나 선택하세요.", progress.characterId ? "ready" : "missing"),
     createReadinessNode("표정", `${progress.expressionCount}개 표정 후보`, progress.expressionCount > 0 ? "ready" : "missing"),
+    createReadinessNode("대사", `${progress.dialogueCount}개 대사 묶음`, progress.dialogueCount > 0 ? "ready" : "missing"),
     createReadinessNode("상태 연결", `${progress.stateCount}개 실제 표시 상태`, progress.stateCount > 0 ? "ready" : "missing"),
     createReadinessNode("파츠 움직임", `${progress.layerCount}개 보조 움직임`, progress.layerCount > 0 ? "ready" : "optional"),
     createReadinessNode("무대 조합", `${progress.stageCount}개 배경/소품 묶음`, progress.stageCount > 0 ? "ready" : "optional"),

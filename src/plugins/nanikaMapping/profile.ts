@@ -15,15 +15,22 @@ export type NanikaProfileMatch = {
   enabled?: boolean;
   pageId?: string;
   pageIds?: string[];
+  urlContains?: string | string[];
+  urlStartsWith?: string | string[];
+  urlEquals?: string | string[];
   urlPattern?: string;
   urlPatterns?: string[];
   excludePageIds?: string[];
+  excludeUrlContains?: string[];
+  excludeUrlStartsWith?: string[];
+  excludeUrlEquals?: string[];
   excludeUrlPatterns?: string[];
 };
 
 export type NanikaProfileContext = {
   pageId?: string;
   url?: string;
+  host?: Record<string, unknown>;
 };
 
 export type NanikaCommonKeyKind =
@@ -131,15 +138,54 @@ function matchesAnyPattern(value: string | undefined, patterns: readonly string[
   return patterns.some((pattern) => matchesPattern(value, pattern));
 }
 
+function matchesAnyContains(value: string | undefined, fragments: readonly string[]) {
+  if (!value) {
+    return false;
+  }
+
+  return fragments.some((fragment) => fragment.length > 0 && value.includes(fragment));
+}
+
+function matchesAnyStartsWith(value: string | undefined, prefixes: readonly string[]) {
+  if (!value) {
+    return false;
+  }
+
+  return prefixes.some((prefix) => prefix.length > 0 && value.startsWith(prefix));
+}
+
+function matchesAnyEquals(value: string | undefined, candidates: readonly string[]) {
+  if (!value) {
+    return false;
+  }
+
+  return candidates.some((candidate) => candidate.length > 0 && value === candidate);
+}
+
 export function matchesNanikaProfileMatch(match: NanikaProfileMatch | undefined, context: NanikaProfileContext = {}) {
   if (match?.enabled === false) {
     return false;
   }
 
   const includedPageIds = [...toArray(match?.pageId), ...(match?.pageIds ?? [])];
+  const includedUrlContains = toArray(match?.urlContains);
+  const includedUrlStartsWith = toArray(match?.urlStartsWith);
+  const includedUrlEquals = toArray(match?.urlEquals);
   const includedUrlPatterns = [...toArray(match?.urlPattern), ...(match?.urlPatterns ?? [])];
 
   if (match?.excludePageIds?.includes(context.pageId ?? "")) {
+    return false;
+  }
+
+  if (matchesAnyContains(context.url, match?.excludeUrlContains ?? [])) {
+    return false;
+  }
+
+  if (matchesAnyStartsWith(context.url, match?.excludeUrlStartsWith ?? [])) {
+    return false;
+  }
+
+  if (matchesAnyEquals(context.url, match?.excludeUrlEquals ?? [])) {
     return false;
   }
 
@@ -148,6 +194,18 @@ export function matchesNanikaProfileMatch(match: NanikaProfileMatch | undefined,
   }
 
   if (includedPageIds.length > 0 && !includedPageIds.includes(context.pageId ?? "")) {
+    return false;
+  }
+
+  if (includedUrlContains.length > 0 && !matchesAnyContains(context.url, includedUrlContains)) {
+    return false;
+  }
+
+  if (includedUrlStartsWith.length > 0 && !matchesAnyStartsWith(context.url, includedUrlStartsWith)) {
+    return false;
+  }
+
+  if (includedUrlEquals.length > 0 && !matchesAnyEquals(context.url, includedUrlEquals)) {
     return false;
   }
 
@@ -212,6 +270,7 @@ function createOverridesFromProfile(
   profile: NanikaRuntimeProfile,
   characterProfile: NanikaCharacterProfile | undefined,
   rules: RuntimeRule[],
+  context: NanikaProfileContext,
 ): NanikaRuntimePresetOverrides {
   const initial = mergeInitialState(profile.initial, characterProfile?.initial);
 
@@ -243,6 +302,7 @@ function createOverridesFromProfile(
     ...(characterProfile?.includeDefaultRules ?? profile.includeDefaultRules) !== undefined
       ? { includeDefaultRules: characterProfile?.includeDefaultRules ?? profile.includeDefaultRules }
       : {},
+    context,
     replaceRules: rules,
   };
 }
@@ -293,7 +353,7 @@ export function createNanikaRuntimeProfileOptions({
     matched: true,
     profile,
     ...(characterProfile ? { characterProfile } : {}),
-    overrides: createOverridesFromProfile(profile, characterProfile, rules),
+    overrides: createOverridesFromProfile(profile, characterProfile, rules, context),
     warnings,
   };
 }

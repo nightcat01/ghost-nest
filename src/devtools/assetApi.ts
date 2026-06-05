@@ -107,6 +107,15 @@ export type CharacterAssetsResponse = DevApiResponse & {
   lines?: Record<string, string[]>;
 };
 
+export type CharacterLinesSaveResponse = DevApiResponse & {
+  saved?: {
+    characterId: string;
+    path: string;
+    buildPath: string | null;
+    categories: string[];
+  };
+};
+
 /**
  * Reads a dev API response while preserving useful server error text.
  */
@@ -218,4 +227,22 @@ export async function fetchAssetFiles(characterId: string) {
   }
 
   return result.files ?? [];
+}
+
+/**
+ * Saves the dialogue line set for one character.
+ */
+export async function saveCharacterLines(characterId: string, lines: Record<string, string[]>) {
+  const response = await fetch(createDevtoolsApiPath("/api/devtools/save-character-lines"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ characterId, lines }),
+  });
+  const result = await readApiJson<CharacterLinesSaveResponse>(response);
+
+  if (!response.ok || !result.ok) {
+    throw new Error(result.message ?? result.error ?? "캐릭터 대사를 저장하지 못했어요.");
+  }
+
+  return result.saved;
 }
