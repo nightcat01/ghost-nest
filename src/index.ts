@@ -3,6 +3,11 @@ export { runtimeSpeechPresets } from "./runtime/runtimeLayoutPresets.js";
 export { createCharacterWithAssetBaseUrl } from "./core/assetUrls.js";
 export { nanikaPreset } from "./ghost/preset.js";
 export {
+  bundledCharacters,
+  mira,
+  rine,
+} from "./characters/index.js";
+export {
   createDemoManagementMenuItems,
   createDemoUserMenuItems,
   createDemoDeveloperMenuItems,

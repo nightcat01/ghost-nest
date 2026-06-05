@@ -27,6 +27,24 @@ npm.cmd run dev
 
 브라우저에서 `http://127.0.0.1:4173`을 열면 됩니다.
 
+## Host asset 폴더 초기화
+
+GhostNest를 다른 앱에 embed할 때는 host 앱이 캐릭터 이미지를 브라우저에서 접근 가능한 public 경로에 둡니다. 권장 폴더만 빠르게 만들고 싶다면 host 앱 루트에서 CLI를 실행합니다.
+
+```bash
+npx ghost-nest init-assets --root public/assets/nanika
+```
+
+이 명령은 폴더만 만들고 기존 파일은 덮어쓰지 않습니다.
+
+공식 데모 캐릭터 에셋까지 복사하려면 다음 명령을 실행합니다.
+
+```bash
+npx ghost-nest export-demo-assets --character rine --root public/assets/nanika
+```
+
+기존 파일은 기본적으로 덮어쓰지 않습니다. 덮어써야 할 때만 `--force`를 사용합니다. 자세한 embed 경로 기준은 [docs/runtime-embed-guide.md](./docs/runtime-embed-guide.md)를 확인합니다.
+
 ## 개발자 시작점
 
 기능을 붙이는 개발자는 먼저 [GUIDE.md](./GUIDE.md)를 확인합니다.

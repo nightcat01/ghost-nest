@@ -6,6 +6,9 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "ghost-nest": "./bin/ghost-nest.mjs"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -15,7 +18,19 @@
     "./package.json": "./package.json"
   },
   "files": [
+    "bin",
     "dist",
+    "!dist/characters/*",
+    "dist/characters/index.*",
+    "dist/characters/rine",
+    "dist/characters/mira",
+    "src/characters/rine/assets/**/*.png",
+    "src/characters/rine/assets/**/*.webp",
+    "src/characters/rine/assets/**/*.jpg",
+    "src/characters/rine/assets/**/*.jpeg",
+    "src/characters/rine/assets/**/*.gif",
+    "src/characters/rine/assets/**/*.svg",
+    "src/characters/rine/assets/**/*.avif",
     "ghost-nest.extensions.json",
     "index.html",
     "dev-assets.html",

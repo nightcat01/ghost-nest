@@ -17,6 +17,18 @@ export type CharacterAssetBaseUrlOptions = {
   sourceCommonPrefix?: string;
 };
 
+const DEFAULT_CHARACTER_SOURCE_PREFIXES = [
+  "./src/characters/",
+  "/src/characters/",
+  "src/characters/",
+];
+
+const DEFAULT_COMMON_SOURCE_PREFIXES = [
+  "./src/assets/common/",
+  "/src/assets/common/",
+  "src/assets/common/",
+];
+
 function trimTrailingSlash(value: string) {
   return value.replace(/\/+$/, "");
 }
@@ -37,22 +49,63 @@ function normalizeAssetPath(value: string) {
   return value.replaceAll("\\", "/");
 }
 
+function ensureTrailingSlash(value: string) {
+  return value.endsWith("/") ? value : `${value}/`;
+}
+
+function trimLeadingDotSlash(value: string) {
+  return value.replace(/^(?:\.\/)+/, "");
+}
+
+function createSourcePrefixVariants(prefix: string) {
+  const normalizedPrefix = ensureTrailingSlash(normalizeAssetPath(prefix.trim()));
+  const barePrefix = trimLeadingDotSlash(trimLeadingSlash(normalizedPrefix));
+
+  return [
+    normalizedPrefix,
+    barePrefix,
+    `./${barePrefix}`,
+    `/${barePrefix}`,
+  ];
+}
+
+function createSourcePrefixCandidates(primaryPrefix: string | undefined, defaultPrefixes: string[]) {
+  return Array.from(
+    new Set([
+      ...(primaryPrefix ? createSourcePrefixVariants(primaryPrefix) : []),
+      ...defaultPrefixes.flatMap(createSourcePrefixVariants),
+    ]),
+  ).sort((left, right) => right.length - left.length);
+}
+
+function findSourcePrefix(value: string, prefixes: string[]) {
+  return prefixes.find((prefix) => value.startsWith(prefix));
+}
+
 function rewriteAssetUrl(value: string, options: CharacterAssetBaseUrlOptions) {
   if (!value || isExternalAssetUrl(value)) {
     return value;
   }
 
   const normalizedValue = normalizeAssetPath(value);
-  const sourceCharacterPrefix = normalizeAssetPath(options.sourceCharacterPrefix ?? "./src/characters/");
-  const sourceCommonPrefix = normalizeAssetPath(options.sourceCommonPrefix ?? "./src/assets/common/");
+  const sourceCharacterPrefixes = createSourcePrefixCandidates(
+    options.sourceCharacterPrefix,
+    DEFAULT_CHARACTER_SOURCE_PREFIXES,
+  );
+  const sourceCommonPrefixes = createSourcePrefixCandidates(
+    options.sourceCommonPrefix,
+    DEFAULT_COMMON_SOURCE_PREFIXES,
+  );
   const characterBaseUrl = options.charactersRootUrl ?? options.characterAssetBaseUrl;
+  const matchedCharacterPrefix = findSourcePrefix(normalizedValue, sourceCharacterPrefixes);
+  const matchedCommonPrefix = findSourcePrefix(normalizedValue, sourceCommonPrefixes);
 
-  if (characterBaseUrl && normalizedValue.startsWith(sourceCharacterPrefix)) {
-    return joinAssetUrl(characterBaseUrl, normalizedValue.slice(sourceCharacterPrefix.length));
+  if (characterBaseUrl && matchedCharacterPrefix) {
+    return joinAssetUrl(characterBaseUrl, normalizedValue.slice(matchedCharacterPrefix.length));
   }
 
-  if (options.commonAssetBaseUrl && normalizedValue.startsWith(sourceCommonPrefix)) {
-    return joinAssetUrl(options.commonAssetBaseUrl, normalizedValue.slice(sourceCommonPrefix.length));
+  if (options.commonAssetBaseUrl && matchedCommonPrefix) {
+    return joinAssetUrl(options.commonAssetBaseUrl, normalizedValue.slice(matchedCommonPrefix.length));
   }
 
   return value;

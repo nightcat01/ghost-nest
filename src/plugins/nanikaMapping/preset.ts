@@ -1,4 +1,5 @@
 import { createGhostRuntime } from "../../runtime/createGhostRuntime.js";
+import { createCharacterWithAssetBaseUrl, type CharacterAssetBaseUrlOptions } from "../../core/assetUrls.js";
 import { createCapabilityCatalogFromPlugins, type RuntimeCapabilityCatalogItem } from "./capabilityCatalog.js";
 import { createRuntimeRulesFromMappings, type NanikaMapping } from "./mapping.js";
 import type {
@@ -12,7 +13,9 @@ import type {
 export type NanikaRuntimePresetOptions = Omit<
   GhostRuntimeOptions,
   "character" | "rules"
->;
+> & {
+  assetBaseUrl?: CharacterAssetBaseUrlOptions;
+};
 
 export type NanikaRuntimePreset = {
   id: string;
@@ -68,13 +71,27 @@ export function createGhostRuntimeOptionsFromPreset(
   preset: NanikaRuntimePreset,
   overrides: NanikaRuntimePresetOverrides = {},
 ): GhostRuntimeOptions {
-  const { plugins: overridePlugins, rules: overrideRules, replaceRules, ...overrideOptions } = overrides;
-  const { plugins: optionPlugins, ...baseOptions } = preset.options;
+  const {
+    plugins: overridePlugins,
+    rules: overrideRules,
+    replaceRules,
+    assetBaseUrl: overrideAssetBaseUrl,
+    ...overrideOptions
+  } = overrides;
+  const {
+    plugins: optionPlugins,
+    assetBaseUrl: presetAssetBaseUrl,
+    ...baseOptions
+  } = preset.options;
+  const assetBaseUrl = overrideAssetBaseUrl ?? presetAssetBaseUrl;
+  const character = assetBaseUrl
+    ? createCharacterWithAssetBaseUrl(preset.character, assetBaseUrl)
+    : preset.character;
 
   return {
     ...baseOptions,
     ...overrideOptions,
-    character: preset.character,
+    character,
     plugins: uniquePluginsById([...(optionPlugins ?? []), ...(preset.plugins ?? []), ...(overridePlugins ?? [])]),
     rules: replaceRules ?? [...(preset.rules ?? []), ...(overrideRules ?? [])],
   };

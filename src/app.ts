@@ -1,10 +1,11 @@
 import type { CharacterDefinition, GhostRuntime, ManagementMenuItem, RuntimeEventName, RuntimeRule } from "./core/types.js";
 import type { RuntimeAction } from "./core/types.js";
+import type { CharacterAssetBaseUrlOptions } from "./core/assetUrls.js";
 import { nanikaPreset } from "./ghost/preset.js";
 import { createDemoManagementMenuItems, hydrateDemoManagementMenuRules } from "./demo/demoManagementMenu.js";
 import { createDemoRules } from "./demo/demoRules.js";
-import { mira } from "./characters/mira/index.js";
-import { rine } from "./characters/rine/index.js";
+import { bundledCharacters } from "./characters/index.js";
+import { createCharacterWithAssetBaseUrl } from "./core/assetUrls.js";
 import {
   createGhostRuntimeFromPreset,
   createRuntimeRulesFromMappings,
@@ -19,8 +20,9 @@ type GhostNestWindow = Window & {
 
 const ghostNestWindow = window as GhostNestWindow;
 
-let demoCharacters: CharacterDefinition[] = [rine, mira];
+let demoCharacters: CharacterDefinition[] = [...bundledCharacters];
 let demoCharactersReady: Promise<CharacterDefinition[]> | null = null;
+let demoAssetBaseUrlOptionsReady: Promise<CharacterAssetBaseUrlOptions | null> | null = null;
 let currentDemoCharacterId = nanikaPreset.character.profile.id;
 
 type NanikaMappingsResponse = {
@@ -31,6 +33,14 @@ type NanikaMappingsResponse = {
 type CharacterListResponse = {
   ok?: boolean;
   characters?: string[];
+};
+
+type CharacterWorkspaceResponse = {
+  ok?: boolean;
+  workspace?: {
+    browserSourcePrefix?: string;
+    browserCommonPrefix?: string;
+  };
 };
 
 function isSwitchDemoCharacterAction(action: RuntimeAction): action is RuntimeAction & { characterId?: string } {
@@ -117,6 +127,56 @@ async function loadAvailableDemoCharacters() {
   })();
 
   return demoCharactersReady;
+}
+
+function normalizeAssetRoot(value: string | undefined) {
+  const trimmedValue = value?.trim();
+
+  return trimmedValue || undefined;
+}
+
+async function loadDemoAssetBaseUrlOptions() {
+  if (demoAssetBaseUrlOptionsReady) {
+    return demoAssetBaseUrlOptionsReady;
+  }
+
+  demoAssetBaseUrlOptionsReady = (async () => {
+    try {
+      const response = await fetch("/api/devtools/character-workspace");
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const result = await response.json() as CharacterWorkspaceResponse;
+
+      if (!result.ok || !result.workspace) {
+        return null;
+      }
+
+      const charactersRootUrl = normalizeAssetRoot(result.workspace.browserSourcePrefix);
+      const commonAssetBaseUrl = normalizeAssetRoot(result.workspace.browserCommonPrefix);
+
+      return {
+        ...(charactersRootUrl ? { charactersRootUrl } : {}),
+        ...(commonAssetBaseUrl ? { commonAssetBaseUrl } : {}),
+      };
+    } catch {
+      return null;
+    }
+  })();
+
+  return demoAssetBaseUrlOptionsReady;
+}
+
+async function createRuntimeCharacter(character: CharacterDefinition) {
+  const assetBaseUrlOptions = await loadDemoAssetBaseUrlOptions();
+
+  if (!assetBaseUrlOptions?.charactersRootUrl && !assetBaseUrlOptions?.commonAssetBaseUrl) {
+    return character;
+  }
+
+  return createCharacterWithAssetBaseUrl(character, assetBaseUrlOptions);
 }
 
 /**
@@ -307,7 +367,7 @@ async function bootRuntime(characterId = currentDemoCharacterId) {
   ghostNestWindow.__ghostNestRuntime__?.destroy();
   await loadAvailableDemoCharacters();
   currentDemoCharacterId = characterId;
-  const character = getDemoCharacter(characterId);
+  const character = await createRuntimeCharacter(getDemoCharacter(characterId));
   const menuItems = withDemoCharacterSwitcher(createDemoManagementMenuItems(character, {
     includeDeveloperTools: true,
   }), character);

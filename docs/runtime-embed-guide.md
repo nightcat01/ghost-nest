@@ -129,11 +129,50 @@ The package builds `dist` during GitHub dependency installation through `prepare
 
 ```ts
 import {
-  createCharacterWithAssetBaseUrl,
   createGhostRuntimeFromPreset,
   nanikaPreset,
 } from "ghost-nest";
 ```
+
+## Asset Directory Init
+
+GhostNest does not create host app folders during `npm install`. If the host wants the recommended public asset structure, run the CLI explicitly from the host app root:
+
+```bash
+npx ghost-nest init-assets --root public/assets/nanika
+```
+
+This creates directories only. It does not overwrite files or copy character images.
+
+```txt
+public/assets/nanika/
+  characters/
+  common/
+    parts/
+    scenes/
+```
+
+The default root is `public/assets/nanika`, so this shorter command is equivalent:
+
+```bash
+npx ghost-nest init-assets
+```
+
+If the host uses another static root or a CDN sync folder, pass that path with `--root` and then set `assetBaseUrl` to the browser URL that serves it.
+
+To copy the bundled official demo character assets into that structure, run:
+
+```bash
+npx ghost-nest export-demo-assets --character rine --root public/assets/nanika
+```
+
+This copies packaged demo files into:
+
+```txt
+public/assets/nanika/characters/rine/assets/
+```
+
+Existing files are not overwritten by default. Use `--force` only when the host intentionally wants to refresh the demo assets.
 
 ## Host Route Ownership
 
@@ -183,23 +222,16 @@ For normal Fortune Master pages, no GhostNest route is needed. The page renders 
 
 ```tsx
 import {
-  createCharacterWithAssetBaseUrl,
   createGhostRuntimeFromPreset,
   nanikaPreset,
 } from "ghost-nest";
 
-const character = createCharacterWithAssetBaseUrl(nanikaPreset.character, {
-  charactersRootUrl: "/assets/nanika/characters",
-  commonAssetBaseUrl: "/assets/nanika/common",
-});
-
-const preset = {
-  ...nanikaPreset,
-  character,
-};
-
-createGhostRuntimeFromPreset(preset, {
+createGhostRuntimeFromPreset(nanikaPreset, {
   root: "#fortuneNanikaRuntime",
+  assetBaseUrl: {
+    charactersRootUrl: "/assets/nanika/characters",
+    commonAssetBaseUrl: "/assets/nanika/common",
+  },
   controls: {
     devtools: false,
   },
@@ -240,38 +272,37 @@ public/assets/nanika/common/parts/...
 public/assets/nanika/common/scenes/...
 ```
 
-Then configure:
+Then configure the runtime preset with `assetBaseUrl`:
 
 ```ts
-createCharacterWithAssetBaseUrl(character, {
-  charactersRootUrl: "/assets/nanika/characters",
-  commonAssetBaseUrl: "/assets/nanika/common",
+createGhostRuntimeFromPreset(preset, {
+  root: "#fortuneNanikaRuntime",
+  assetBaseUrl: {
+    charactersRootUrl: "/assets/nanika/characters",
+    commonAssetBaseUrl: "/assets/nanika/common",
+  },
 });
 ```
 
 `charactersRootUrl` is the path immediately before the character id. GhostNest will resolve character-owned assets below `/:characterId/assets/...`.
 
-Bundled demo character data still stores source-style asset paths such as `./src/characters/rine/assets/base/...`. A host app should copy the assets it wants to serve into its own public directory and rewrite the character paths before booting the runtime.
+Bundled demo character data may store source-style asset paths such as `./src/characters/rine/assets/base/...`, `src/characters/rine/assets/base/...`, or `/src/characters/rine/assets/base/...`. Host apps do not need to care which source-prefix style was saved. Set the character root and common root once, and GhostNest rewrites those known source prefixes before booting the runtime.
 
 ```ts
-const fortuneCharacter = createCharacterWithAssetBaseUrl(nanikaPreset.character, {
-  charactersRootUrl: "/assets/nanika/characters",
-  commonAssetBaseUrl: "/assets/nanika/common",
-});
-
-const fortunePreset = {
-  ...nanikaPreset,
-  character: fortuneCharacter,
-};
-
-const runtime = createGhostRuntimeFromPreset(fortunePreset, {
+const runtime = createGhostRuntimeFromPreset(nanikaPreset, {
   root: "#fortuneNanikaRuntime",
+  assetBaseUrl: {
+    charactersRootUrl: "/assets/nanika/characters",
+    commonAssetBaseUrl: "/assets/nanika/common",
+  },
 });
 ```
 
 `charactersRootUrl` points to the folder just before each character id. The older `characterAssetBaseUrl` option is still accepted as a backward-compatible alias.
 
-For Fortune Master, a practical first pass is to copy `src/characters/rine/assets/**` into `public/assets/nanika/characters/rine/assets/**`. Later, production characters can provide their own character definitions and use the same key/preset mapping flow.
+When the bundled runtime demo is opened through the GhostNest dev server, it also reads the saved character workspace setting from `/api/devtools/character-workspace` and applies the same rewrite internally. In consuming apps, prefer the `assetBaseUrl` runtime preset override. Use the lower-level `createCharacterWithAssetBaseUrl(...)` helper only when you need to rewrite a character definition before passing it to another system.
+
+For Fortune Master, a practical first pass is to run `npx ghost-nest export-demo-assets --character rine --root public/assets/nanika`. Later, production characters can provide their own character definitions and use the same key/preset mapping flow.
 
 ```ts
 const runtime = createGhostRuntimeFromPreset(preset, {
