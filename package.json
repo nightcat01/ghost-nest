@@ -17,6 +17,7 @@
   "files": [
     "dist",
     "ghost-nest.extensions.json",
+    "index.html",
     "dev-assets.html",
     "dev-character.html",
     "dev-character-create.html",
