@@ -659,16 +659,22 @@ body.fortune-embed-page {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  overflow: hidden;
 }
 
 .ghostnest-runtime .scene-layer {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  overflow: visible;
 }
 
 .ghostnest-runtime .scene-layer[data-placement="percent"] {
   inset: auto;
+}
+
+.ghostnest-runtime .scene-layer[data-overflow="hidden"] {
+  overflow: hidden;
 }
 
 .ghostnest-runtime .scene-layer img {
@@ -678,6 +684,18 @@ body.fortune-embed-page {
   object-fit: contain;
   object-position: bottom center;
   user-select: none;
+}
+
+.ghostnest-runtime .scene-layer[data-fit="fill"] img {
+  object-fit: fill;
+}
+
+.ghostnest-runtime .scene-layer[data-fit="cover"] img {
+  object-fit: cover;
+}
+
+.ghostnest-runtime .scene-layer[data-fit="contain"] img {
+  object-fit: contain;
 }
 
 .ghostnest-runtime .scene-layer-room-backdrop {
@@ -1351,10 +1369,15 @@ body.fortune-embed-page {
 .ghostnest-runtime .character-sprite-scene-layer {
   position: absolute;
   inset: 0;
+  overflow: visible;
 }
 
 .ghostnest-runtime .character-sprite-scene-layer[data-placement="percent"] {
   inset: auto;
+}
+
+.ghostnest-runtime .character-sprite-scene-layer[data-overflow="hidden"] {
+  overflow: hidden;
 }
 
 .ghostnest-runtime .character-sprite-scene-layer > img {
@@ -1367,6 +1390,18 @@ body.fortune-embed-page {
 
 .ghostnest-runtime .character-sprite-scene-layer[data-placement="percent"] > img {
   object-fit: fill;
+}
+
+.ghostnest-runtime .character-sprite-scene-layer[data-fit="fill"] > img {
+  object-fit: fill;
+}
+
+.ghostnest-runtime .character-sprite-scene-layer[data-fit="cover"] > img {
+  object-fit: cover;
+}
+
+.ghostnest-runtime .character-sprite-scene-layer[data-fit="contain"] > img {
+  object-fit: contain;
 }
 
 .ghostnest-runtime .character-sprite-layer[data-placement="percent"] {

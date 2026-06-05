@@ -38,6 +38,9 @@ type EditableSceneLayer = {
   role: "prop" | "effect";
   image: string;
   depth: number;
+  fit?: RuntimeSceneLayer["fit"];
+  objectPosition?: string;
+  overflow?: RuntimeSceneLayer["overflow"];
   placement: {
     x: number;
     y: number;
@@ -302,6 +305,9 @@ function readEditableLayerFromInputs(role: EditableSceneLayer["role"], id = crea
     role,
     image: assetSelect.value,
     depth: readNumber(depthInput, fallbackDepth),
+    fit: "fill",
+    objectPosition: "center",
+    overflow: "hidden",
     placement: readPlacement(placementInputs),
   };
 }
@@ -437,6 +443,9 @@ function createEditableRuntimeLayers() {
       role: layer.role,
       image: layer.image,
       depth: layer.depth,
+      fit: layer.fit ?? "fill",
+      objectPosition: layer.objectPosition ?? "center",
+      overflow: layer.overflow ?? "hidden",
       placement: layer.placement,
     } satisfies RuntimeSceneLayer));
 }
@@ -457,6 +466,9 @@ function createSceneSnippet() {
       depth: readNumber(backgroundDepthInput, sceneDepthDefaults.background),
       ...(backgroundImage ? { image: backgroundImage } : {}),
       ...(backgroundColor ? { color: backgroundColor } : {}),
+      fit: "cover",
+      objectPosition: "center",
+      overflow: "hidden",
     });
   }
 

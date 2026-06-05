@@ -126,6 +126,9 @@ export type RuntimeSceneLayer = {
   depth?: number;
   alt?: string;
   className?: string;
+  fit?: "contain" | "cover" | "fill";
+  objectPosition?: string;
+  overflow?: "hidden" | "visible";
   placement?: {
     x: number;
     y: number;

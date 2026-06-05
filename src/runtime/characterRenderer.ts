@@ -16,6 +16,30 @@ type CharacterRendererOptions = {
   character: CharacterDefinition;
 };
 
+function getSceneLayerFit(layer: RuntimeSceneLayer) {
+  if (layer.fit) {
+    return layer.fit;
+  }
+
+  if (layer.role === "background") {
+    return "cover";
+  }
+
+  return layer.placement ? "fill" : "contain";
+}
+
+function getSceneLayerOverflow(layer: RuntimeSceneLayer) {
+  if (layer.overflow) {
+    return layer.overflow;
+  }
+
+  if (layer.role === "background") {
+    return "hidden";
+  }
+
+  return layer.placement ? "hidden" : "visible";
+}
+
 function normalizeVisualSource(source: string | CharacterVisualSource | null | undefined): CharacterVisualSource | null {
   if (!source) {
     return null;
@@ -293,6 +317,8 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
     layerElement.className = "character-sprite-scene-layer";
     layerElement.dataset.layerId = layer.id;
     layerElement.dataset.layerRole = layer.role;
+    layerElement.dataset.fit = getSceneLayerFit(layer);
+    layerElement.dataset.overflow = getSceneLayerOverflow(layer);
     layerElement.style.zIndex = String(layer.depth ?? 0);
     applySceneLayerPlacement(layerElement, layer);
 
@@ -307,6 +333,9 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
       image.alt = layer.alt ?? "";
       image.draggable = false;
       image.setAttribute("aria-hidden", layer.alt ? "false" : "true");
+      if (layer.objectPosition) {
+        image.style.objectPosition = layer.objectPosition;
+      }
       layerElement.append(image);
     }
 

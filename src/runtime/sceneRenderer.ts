@@ -10,6 +10,30 @@ type SceneRendererOptions = {
 const defaultCharacterSceneDepth = 10;
 const defaultMaxSceneOverlays = 2;
 
+function getSceneLayerFit(layer: RuntimeSceneLayer) {
+  if (layer.fit) {
+    return layer.fit;
+  }
+
+  if (layer.role === "background") {
+    return "cover";
+  }
+
+  return layer.placement ? "fill" : "contain";
+}
+
+function getSceneLayerOverflow(layer: RuntimeSceneLayer) {
+  if (layer.overflow) {
+    return layer.overflow;
+  }
+
+  if (layer.role === "background") {
+    return "hidden";
+  }
+
+  return layer.placement ? "hidden" : "visible";
+}
+
 /**
  * Picks one scene definition from either a named scene, a named scene set, or the legacy layer list.
  */
@@ -72,6 +96,8 @@ function createSceneLayerElement(layer: RuntimeSceneLayer) {
   layerElement.className = ["scene-layer", layer.className].filter(Boolean).join(" ");
   layerElement.dataset.layerId = layer.id;
   layerElement.dataset.layerRole = layer.role;
+  layerElement.dataset.fit = getSceneLayerFit(layer);
+  layerElement.dataset.overflow = getSceneLayerOverflow(layer);
   layerElement.style.zIndex = String(layer.depth ?? 0);
   applySceneLayerPlacement(layerElement, layer);
 
@@ -86,6 +112,9 @@ function createSceneLayerElement(layer: RuntimeSceneLayer) {
     image.alt = layer.alt ?? "";
     image.draggable = false;
     image.setAttribute("aria-hidden", layer.alt ? "false" : "true");
+    if (layer.objectPosition) {
+      image.style.objectPosition = layer.objectPosition;
+    }
     layerElement.append(image);
   }
 

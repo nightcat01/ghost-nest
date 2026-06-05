@@ -112,6 +112,7 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
     : undefined;
   const runtimeScene = characterScene || options.scene
     ? {
+      ...(options.scene?.layers !== undefined ? { layers: options.scene.layers } : {}),
       ...(options.scene?.defaultScene !== undefined ? { defaultScene: options.scene.defaultScene } : {}),
       ...(characterScene?.defaultScene !== undefined ? { defaultScene: characterScene.defaultScene } : {}),
       ...((options.scene?.scenes || characterScene?.scenes)
