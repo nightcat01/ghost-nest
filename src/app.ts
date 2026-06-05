@@ -19,7 +19,8 @@ type GhostNestWindow = Window & {
 
 const ghostNestWindow = window as GhostNestWindow;
 
-const demoCharacters = [rine, mira] satisfies CharacterDefinition[];
+let demoCharacters: CharacterDefinition[] = [rine, mira];
+let demoCharactersReady: Promise<CharacterDefinition[]> | null = null;
 let currentDemoCharacterId = nanikaPreset.character.profile.id;
 
 type NanikaMappingsResponse = {
@@ -27,8 +28,95 @@ type NanikaMappingsResponse = {
   mappings?: NanikaMapping[];
 };
 
+type CharacterListResponse = {
+  ok?: boolean;
+  characters?: string[];
+};
+
 function isSwitchDemoCharacterAction(action: RuntimeAction): action is RuntimeAction & { characterId?: string } {
   return action.type === "switch_demo_character";
+}
+
+function isCharacterDefinition(value: unknown): value is CharacterDefinition {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Partial<CharacterDefinition>;
+
+  return Boolean(
+    candidate.profile
+    && typeof candidate.profile.id === "string"
+    && typeof candidate.profile.name === "string"
+    && candidate.lines
+    && typeof candidate.lines === "object",
+  );
+}
+
+async function loadCharacterDefinition(characterId: string): Promise<CharacterDefinition | null> {
+  try {
+    const module = await import(`./characters/${characterId}/index.js`) as Record<string, unknown>;
+    const namedExport = module[characterId];
+    const defaultExport = module.default;
+
+    if (isCharacterDefinition(defaultExport)) {
+      return defaultExport;
+    }
+
+    if (isCharacterDefinition(namedExport)) {
+      return namedExport;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function uniqueCharactersById(characters: CharacterDefinition[]) {
+  const seen = new Set<string>();
+
+  return characters.filter((character) => {
+    const { id } = character.profile;
+
+    if (seen.has(id)) {
+      return false;
+    }
+
+    seen.add(id);
+    return true;
+  });
+}
+
+async function loadAvailableDemoCharacters() {
+  if (demoCharactersReady) {
+    return demoCharactersReady;
+  }
+
+  demoCharactersReady = (async () => {
+    try {
+      const response = await fetch("/api/devtools/characters");
+
+      if (!response.ok) {
+        return demoCharacters;
+      }
+
+      const result = await response.json() as CharacterListResponse;
+      const characterIds = result.characters ?? [];
+      const loadedCharacters = await Promise.all(characterIds.map(loadCharacterDefinition));
+
+      demoCharacters = uniqueCharactersById([
+        ...loadedCharacters.filter(isCharacterDefinition),
+        ...demoCharacters,
+      ]);
+    } catch {
+      return demoCharacters;
+    }
+
+    return demoCharacters;
+  })();
+
+  return demoCharactersReady;
 }
 
 /**
@@ -217,6 +305,7 @@ async function loadSavedRuntimeRules(menuItems: ManagementMenuItem[]) {
  */
 async function bootRuntime(characterId = currentDemoCharacterId) {
   ghostNestWindow.__ghostNestRuntime__?.destroy();
+  await loadAvailableDemoCharacters();
   currentDemoCharacterId = characterId;
   const character = getDemoCharacter(characterId);
   const menuItems = withDemoCharacterSwitcher(createDemoManagementMenuItems(character, {
