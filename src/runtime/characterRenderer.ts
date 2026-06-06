@@ -16,6 +16,13 @@ type CharacterRendererOptions = {
   character: CharacterDefinition;
 };
 
+type CharacterImageFrame = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 function getSceneLayerFit(layer: RuntimeSceneLayer) {
   if (layer.fit) {
     return layer.fit;
@@ -140,8 +147,8 @@ function isFullCoverLayer(layer: CharacterLayer) {
   return Boolean(layer.coversBase && !layer.placement);
 }
 
-function shouldKeepLayerVisibleWhenInactive(layer: CharacterLayer) {
-  return Boolean(!isFullCoverLayer(layer) && !layer.idleIntervalMs);
+function shouldKeepLayerVisibleWhenInactive(layerId: CharacterLayerId, layer: CharacterLayer) {
+  return Boolean(layerId !== "mouth" && !isFullCoverLayer(layer) && !layer.idleIntervalMs);
 }
 
 function canRunIdleLayer(layerId: CharacterLayerId, layer: CharacterLayer) {
@@ -157,7 +164,7 @@ function resetLayerPlacement(layerElement: HTMLImageElement) {
   layerElement.dataset.placement = "full";
 }
 
-function applyLayerPlacement(layerElement: HTMLImageElement, layer: CharacterLayer) {
+function applyLayerPlacement(layerElement: HTMLImageElement, layer: CharacterLayer, imageFrame: CharacterImageFrame | null = null) {
   const placement = layer.placement;
 
   if (!placement) {
@@ -167,10 +174,17 @@ function applyLayerPlacement(layerElement: HTMLImageElement, layer: CharacterLay
   }
 
   layerElement.dataset.placement = placement.unit ?? "percent";
-  layerElement.style.left = `${placement.x}%`;
-  layerElement.style.top = `${placement.y}%`;
-  layerElement.style.width = `${placement.width}%`;
-  layerElement.style.height = `${placement.height}%`;
+  if ((placement.unit ?? "percent") === "percent" && imageFrame) {
+    layerElement.style.left = `${imageFrame.x + (imageFrame.width * placement.x) / 100}px`;
+    layerElement.style.top = `${imageFrame.y + (imageFrame.height * placement.y) / 100}px`;
+    layerElement.style.width = `${(imageFrame.width * placement.width) / 100}px`;
+    layerElement.style.height = `${(imageFrame.height * placement.height) / 100}px`;
+  } else {
+    layerElement.style.left = `${placement.x}%`;
+    layerElement.style.top = `${placement.y}%`;
+    layerElement.style.width = `${placement.width}%`;
+    layerElement.style.height = `${placement.height}%`;
+  }
   layerElement.style.zIndex = String(layer.depth ?? 10);
 }
 
@@ -226,11 +240,71 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
   let currentSurface: CharacterSurface | null = null;
   let currentVisualSource: CharacterVisualSource | null = null;
   let surfaceApplyToken = 0;
+  const resizeObserver = "ResizeObserver" in window
+    ? new ResizeObserver(() => refreshCurrentPartLayerPlacements())
+    : null;
 
   sceneVisualRoot.className = "character-sprite-scene";
   sceneVisualRoot.hidden = true;
   sceneVisualRoot.setAttribute("aria-hidden", "true");
   elements.sprite.insertBefore(sceneVisualRoot, elements.spriteImage);
+  elements.spriteImage.addEventListener("load", refreshCurrentPartLayerPlacements);
+  resizeObserver?.observe(elements.sprite);
+
+  function getCharacterImageFrame(): CharacterImageFrame | null {
+    const spriteWidth = elements.sprite.clientWidth;
+    const spriteHeight = elements.sprite.clientHeight;
+    const naturalWidth = elements.spriteImage.naturalWidth;
+    const naturalHeight = elements.spriteImage.naturalHeight;
+
+    if (spriteWidth <= 0 || spriteHeight <= 0 || naturalWidth <= 0 || naturalHeight <= 0) {
+      return null;
+    }
+
+    const spriteRatio = spriteWidth / spriteHeight;
+    const imageRatio = naturalWidth / naturalHeight;
+
+    if (spriteRatio > imageRatio) {
+      const height = spriteHeight;
+      const width = height * imageRatio;
+
+      return {
+        x: (spriteWidth - width) / 2,
+        y: 0,
+        width,
+        height,
+      };
+    }
+
+    const width = spriteWidth;
+    const height = width / imageRatio;
+
+    return {
+      x: 0,
+      y: spriteHeight - height,
+      width,
+      height,
+    };
+  }
+
+  function refreshCurrentPartLayerPlacements() {
+    if (!currentSurface) {
+      return;
+    }
+
+    const imageFrame = getCharacterImageFrame();
+
+    getRenderableLayerIds(currentSurface).forEach((layerId) => {
+      const layer = getSurfaceLayer(currentSurface, layerId);
+      const layerElement = spriteLayers.get(layerId);
+
+      if (!layer || !layerElement || layerElement.hidden) {
+        return;
+      }
+
+      applyLayerPlacement(layerElement, layer, imageFrame);
+    });
+  }
 
   function getLayerElement(layerId: CharacterLayerId) {
     const existingLayerElement = spriteLayers.get(layerId);
@@ -371,6 +445,12 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
     sceneVisualRoot.hidden = true;
     delete elements.sprite.dataset.visualType;
 
+    if (!visualSource) {
+      elements.spriteImage.removeAttribute("src");
+      elements.spriteImage.hidden = true;
+      return;
+    }
+
     if (visualSource?.type === "image" && elements.spriteImage.getAttribute("src") !== visualSource.src) {
       elements.spriteImage.src = visualSource.src;
     }
@@ -406,7 +486,7 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
         return;
       }
 
-      applyLayerPlacement(layerElement, layer);
+      applyLayerPlacement(layerElement, layer, getCharacterImageFrame());
       layerElement.src = layerImage;
       layerElement.hidden = false;
     });
@@ -457,7 +537,7 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
       layerElement.src = nextImage;
     }
 
-    applyLayerPlacement(layerElement, layer);
+    applyLayerPlacement(layerElement, layer, getCharacterImageFrame());
     layerElement.hidden = false;
 
     if (isActive && isFullCoverLayer(layer)) {
@@ -505,11 +585,11 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
     if (!isActive || !layer) {
       activeLayerIds.delete(layerId);
 
-      if (!hasActiveFullCoverLayer()) {
+      if (!hasActiveFullCoverLayer() && elements.spriteImage.getAttribute("src")) {
         elements.spriteImage.hidden = false;
       }
 
-      if (layer && shouldKeepLayerVisibleWhenInactive(layer)) {
+      if (layer && shouldKeepLayerVisibleWhenInactive(layerId, layer)) {
         applyPartFrame(layerId, layer, 0, false);
       } else if (layerElement) {
         layerElement.hidden = true;
@@ -638,6 +718,14 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
     surfaceApplyToken += 1;
     stopLayerAnimations();
     stopIdleLayerAnimations();
+    resizeObserver?.disconnect();
+    elements.spriteImage.removeEventListener("load", refreshCurrentPartLayerPlacements);
+    spriteLayers.forEach((layerElement, layerId) => {
+      if (layerId !== "base") {
+        layerElement.remove();
+      }
+    });
+    spriteLayers.clear();
     sceneVisualRoot.remove();
   }
 

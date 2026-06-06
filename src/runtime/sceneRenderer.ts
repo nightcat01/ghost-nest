@@ -62,6 +62,7 @@ function resolveScene(scene: RuntimeSceneOptions | undefined, preferredSceneId?:
   if (scene.layers) {
     return {
       id: "legacy",
+      ...(scene.canvas ? { canvas: scene.canvas } : {}),
       layers: scene.layers,
     };
   }
@@ -77,6 +78,10 @@ function applySceneLayerPlacement(element: HTMLElement, layer: RuntimeSceneLayer
 
   if (!placement) {
     element.dataset.placement = "full";
+    element.style.removeProperty("--scene-layer-x");
+    element.style.removeProperty("--scene-layer-y");
+    element.style.removeProperty("--scene-layer-width");
+    element.style.removeProperty("--scene-layer-height");
     return;
   }
 
@@ -85,6 +90,10 @@ function applySceneLayerPlacement(element: HTMLElement, layer: RuntimeSceneLayer
   element.style.top = `${placement.y}%`;
   element.style.width = `${placement.width}%`;
   element.style.height = `${placement.height}%`;
+  element.style.setProperty("--scene-layer-x", `${placement.x}`);
+  element.style.setProperty("--scene-layer-y", `${placement.y}`);
+  element.style.setProperty("--scene-layer-width", `${placement.width}`);
+  element.style.setProperty("--scene-layer-height", `${placement.height}`);
 }
 
 /**
@@ -92,8 +101,13 @@ function applySceneLayerPlacement(element: HTMLElement, layer: RuntimeSceneLayer
  */
 function createSceneLayerElement(layer: RuntimeSceneLayer) {
   const layerElement = document.createElement("div");
+  const classNames = [
+    "scene-layer",
+    layer.placement ? "scene-composition-layer" : "",
+    layer.className,
+  ].filter(Boolean);
 
-  layerElement.className = ["scene-layer", layer.className].filter(Boolean).join(" ");
+  layerElement.className = classNames.join(" ");
   layerElement.dataset.layerId = layer.id;
   layerElement.dataset.layerRole = layer.role;
   layerElement.dataset.fit = getSceneLayerFit(layer);
@@ -133,32 +147,96 @@ function isRenderableSceneLayer(layer: RuntimeSceneLayer) {
 }
 
 /**
- * Finds the depth assigned to the character slot in a scene layer stack.
+ * Finds the scene slot that controls where the runtime character should sit.
  */
-function getCharacterSceneDepth(layers: RuntimeSceneLayer[]) {
-  return layers.find((layer) => layer.role === "character")?.depth ?? defaultCharacterSceneDepth;
+function getCharacterSceneLayer(layers: RuntimeSceneLayer[]) {
+  return layers.find((layer) => layer.role === "character") ?? null;
+}
+
+/**
+ * Applies only the scene character depth. Scene placement must not resize or move the runtime sprite.
+ */
+function applyCharacterSceneSlot(element: HTMLElement, layer: RuntimeSceneLayer | null) {
+  element.style.setProperty("--character-scene-depth", String(layer?.depth ?? defaultCharacterSceneDepth));
+  element.style.removeProperty("--scene-character-x");
+  element.style.removeProperty("--scene-character-y");
+  element.style.removeProperty("--scene-character-width");
+  element.style.removeProperty("--scene-character-height");
+  delete element.dataset.sceneCharacterPlacement;
+}
+
+/**
+ * Applies the authored scene canvas size so percent placements use the same coordinate ratio at runtime.
+ */
+function applySceneCanvas(element: HTMLElement, scene: RuntimeScene | null) {
+  const canvas = scene?.canvas;
+
+  if (!canvas || canvas.width <= 0 || canvas.height <= 0) {
+    element.style.removeProperty("--scene-canvas-width");
+    element.style.removeProperty("--scene-canvas-height");
+    element.style.removeProperty("--scene-canvas-aspect-ratio");
+    delete element.dataset.sceneCanvas;
+    return;
+  }
+
+  element.dataset.sceneCanvas = "authored";
+  element.style.setProperty("--scene-canvas-width", `${canvas.width}px`);
+  element.style.setProperty("--scene-canvas-height", `${canvas.height}px`);
+  element.style.setProperty("--scene-canvas-aspect-ratio", `${canvas.width} / ${canvas.height}`);
 }
 
 /**
  * Renders stage-level composition layers such as backgrounds, desks, foreground props, and effects.
  */
 export function createSceneRenderer({ elements, scene, initialScene }: SceneRendererOptions) {
-  const layerRoot = document.createElement("div");
+  const viewport = document.createElement("div");
+  const backLayerRoot = document.createElement("div");
+  const frontLayerRoot = document.createElement("div");
+  const originalSpriteParent = elements.sprite.parentElement;
+  const originalSpriteNextSibling = elements.sprite.nextSibling;
   let selectedScene = resolveScene(scene, initialScene);
   const overlayScenes = new Map<string, RuntimeScene>();
   const overlayTimers = new Map<string, number>();
 
-  layerRoot.className = "scene-layer-root";
-  layerRoot.setAttribute("aria-hidden", "true");
-  elements.stage.prepend(layerRoot);
+  viewport.className = "scene-viewport";
+  backLayerRoot.className = "scene-layer-root scene-layer-root-back";
+  frontLayerRoot.className = "scene-layer-root scene-layer-root-front";
+  backLayerRoot.setAttribute("aria-hidden", "true");
+  frontLayerRoot.setAttribute("aria-hidden", "true");
+  viewport.append(backLayerRoot, frontLayerRoot);
+  elements.stage.prepend(viewport);
+
+  function appendSceneLayer(layer: RuntimeSceneLayer, characterDepth: number, options: { overlaySlot?: string; overlayId?: string } = {}) {
+    const element = createSceneLayerElement(layer);
+    const targetRoot = (layer.depth ?? 0) > characterDepth ? frontLayerRoot : backLayerRoot;
+
+    if (options.overlaySlot) {
+      element.dataset.sceneOverlaySlot = options.overlaySlot;
+    }
+
+    if (options.overlayId) {
+      element.dataset.sceneOverlayId = options.overlayId;
+    }
+
+    targetRoot.append(element);
+  }
 
   /**
    * Rebuilds the stage layer stack from runtime configuration.
    */
   function render() {
-    layerRoot.replaceChildren();
+    const characterLayer = getCharacterSceneLayer(selectedScene?.layers ?? []);
+    const characterDepth = characterLayer?.depth ?? defaultCharacterSceneDepth;
+    const hasSceneLayers = Boolean(selectedScene?.layers?.some((layer) => layer.role !== "character" && isRenderableSceneLayer(layer)));
+
+    backLayerRoot.replaceChildren();
+    frontLayerRoot.replaceChildren();
     elements.stage.dataset.sceneId = selectedScene?.id ?? "";
-    elements.stage.style.setProperty("--character-scene-depth", String(getCharacterSceneDepth(selectedScene?.layers ?? [])));
+    elements.stage.dataset.sceneActive = selectedScene && (hasSceneLayers || Boolean(characterLayer?.placement)) ? "true" : "false";
+    applySceneCanvas(elements.stage, selectedScene);
+    applyCharacterSceneSlot(elements.stage, characterLayer);
+    backLayerRoot.style.zIndex = String(characterDepth - 1);
+    frontLayerRoot.style.zIndex = String(characterDepth + 1);
 
     selectedScene?.layers
       ?.slice()
@@ -166,7 +244,7 @@ export function createSceneRenderer({ elements, scene, initialScene }: SceneRend
       .filter(isRenderableSceneLayer)
       .sort((current, next) => (current.depth ?? 0) - (next.depth ?? 0))
       .forEach((layer) => {
-        layerRoot.append(createSceneLayerElement(layer));
+        appendSceneLayer(layer, characterDepth);
       });
 
     Array.from(overlayScenes.entries()).forEach(([slot, overlayScene]) => {
@@ -176,11 +254,7 @@ export function createSceneRenderer({ elements, scene, initialScene }: SceneRend
         .filter(isRenderableSceneLayer)
         .sort((current, next) => (current.depth ?? 0) - (next.depth ?? 0))
         .forEach((layer) => {
-          const element = createSceneLayerElement(layer);
-
-          element.dataset.sceneOverlaySlot = slot;
-          element.dataset.sceneOverlayId = overlayScene.id;
-          layerRoot.append(element);
+          appendSceneLayer(layer, characterDepth, { overlaySlot: slot, overlayId: overlayScene.id });
         });
     });
   }
@@ -191,7 +265,10 @@ export function createSceneRenderer({ elements, scene, initialScene }: SceneRend
   function destroy() {
     overlayTimers.forEach((timerId) => window.clearTimeout(timerId));
     overlayTimers.clear();
-    layerRoot.remove();
+    if (originalSpriteParent && elements.sprite.parentElement !== originalSpriteParent) {
+      originalSpriteParent.insertBefore(elements.sprite, originalSpriteNextSibling);
+    }
+    viewport.remove();
   }
 
   function setScene(sceneId: string) {

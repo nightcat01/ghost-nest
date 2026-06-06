@@ -437,6 +437,42 @@ function renderRegionControls() {
 }
 
 /**
+ * Moves the existing preview boxes without rebuilding image nodes during drag.
+ */
+function updatePreviewRegionPlacement() {
+  const elementsToMove = layerPreview.querySelectorAll<HTMLElement>(".asset-composite-overlay, .asset-composite-region");
+
+  if (elementsToMove.length === 0) {
+    return false;
+  }
+
+  elementsToMove.forEach((element) => {
+    element.style.left = `${currentRegion.x}%`;
+    element.style.top = `${currentRegion.y}%`;
+    element.style.width = `${currentRegion.width}%`;
+    element.style.height = `${currentRegion.height}%`;
+  });
+
+  return true;
+}
+
+/**
+ * Refreshes text outputs that depend on the current region without replacing the preview stage.
+ */
+function renderRegionMetadata() {
+  if (getLayerId() === "mouth" && idleIntervalInput.value !== "0") {
+    idleIntervalInput.value = "0";
+  }
+
+  selectedFrameIndex = Math.min(selectedFrameIndex, Math.max(0, partImages.length - 1));
+  isPreviewingBaseFrame = canPreviewBaseFrame() ? isPreviewingBaseFrame : false;
+  layerOutput.textContent = JSON.stringify(createLayerSnippet(), null, 2);
+  manifestOutput.textContent = JSON.stringify(createManifestSnippet(), null, 2);
+  renderSummary();
+  saveLayerSettings();
+}
+
+/**
  * Keeps dragged region values inside the preview stage.
  */
 function clampRegion(region: TargetRegion): TargetRegion {
@@ -461,7 +497,10 @@ function applyRegion(region: TargetRegion) {
   currentRegion = clampRegion(region);
   saveStoredRegion(currentRegion);
   renderRegionControls();
-  renderOutputs();
+  if (!updatePreviewRegionPlacement()) {
+    renderPreview();
+  }
+  renderRegionMetadata();
 }
 
 /**
@@ -518,6 +557,7 @@ function resizeRegionFromPointer(mode: RegionDragMode, startRegion: TargetRegion
 function startRegionDrag(event: PointerEvent, stage: HTMLElement, mode: RegionDragMode) {
   event.preventDefault();
   stopPlayback();
+  (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
   regionDragState = {
     mode,
     startClientX: event.clientX,

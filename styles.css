@@ -38,6 +38,22 @@ body.fortune-embed-page {
     sans-serif;
 }
 
+body.runtime-embed-page {
+  min-height: 100vh;
+  margin: 0;
+  color: #26231f;
+  background:
+    linear-gradient(135deg, rgba(63, 127, 122, 0.16), transparent 34%),
+    linear-gradient(315deg, rgba(113, 105, 95, 0.12), transparent 36%),
+    #f6f3ee;
+  font-family:
+    "Pretendard",
+    "Apple SD Gothic Neo",
+    "Malgun Gothic",
+    system-ui,
+    sans-serif;
+}
+
 .app-shell,
 .asset-lab-shell {
   color: var(--ink);
@@ -147,6 +163,14 @@ body.fortune-embed-page {
   font-size: clamp(2rem, 4vw, 3rem);
   line-height: 1.16;
   letter-spacing: 0;
+}
+
+.scene-header-note {
+  max-width: 360px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 .runtime-monitor {
@@ -521,10 +545,6 @@ body.fortune-embed-page {
   justify-items: center;
 }
 
-.fortune-nanika-mount .fortune-nanika-sprite {
-  margin-bottom: 82px;
-}
-
 .fortune-nanika-mount .fortune-nanika-speech {
   align-self: end;
   margin: 0 0 16px;
@@ -541,6 +561,186 @@ body.fortune-embed-page {
   color: #fff7e4;
   font-size: 0.9rem;
   line-height: 1.45;
+}
+
+.embed-demo-shell {
+  min-height: 100vh;
+  padding: 28px;
+  display: grid;
+  place-items: center;
+}
+
+.embed-demo-card {
+  width: min(100%, 1080px);
+  min-height: min(720px, calc(100vh - 56px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 18px;
+  padding: 22px;
+  overflow: hidden;
+  border: 1px solid rgba(38, 35, 31, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 250, 242, 0.88);
+  box-shadow: 0 24px 70px rgba(38, 35, 31, 0.14);
+}
+
+.embed-demo-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.embed-demo-header h1 {
+  margin: 0 0 8px;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.embed-demo-header p {
+  max-width: 620px;
+  margin: 0;
+  color: #71695f;
+  line-height: 1.55;
+}
+
+.embed-demo-header button,
+.embed-demo-home-link,
+.embed-demo-actions button {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid rgba(63, 127, 122, 0.3);
+  border-radius: 8px;
+  color: #fff;
+  background: #3f7f7a;
+  cursor: pointer;
+}
+
+.embed-demo-home-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: #235f5a;
+  background: rgba(63, 127, 122, 0.12);
+}
+
+.embed-demo-content {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.1fr);
+  gap: 18px;
+}
+
+.embed-demo-copy,
+.embed-nanika-mount,
+.embed-demo-notes > div {
+  border: 1px solid rgba(38, 35, 31, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.embed-demo-copy {
+  min-height: 0;
+  padding: 20px;
+}
+
+.embed-demo-copy h2 {
+  margin: 0 0 10px;
+  font-size: 1.25rem;
+}
+
+.embed-demo-copy p {
+  margin: 0 0 18px;
+  color: #71695f;
+  line-height: 1.62;
+}
+
+.embed-demo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.embed-demo-actions button:nth-child(2) {
+  color: #235f5a;
+  background: rgba(63, 127, 122, 0.12);
+}
+
+.embed-nanika-mount {
+  height: auto;
+  min-height: 520px;
+  margin-top: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(63, 127, 122, 0.16), transparent 38%),
+    linear-gradient(180deg, rgba(255, 250, 242, 0.96), rgba(246, 243, 238, 0.96));
+}
+
+.embed-nanika-mount .fortune-nanika-stage {
+  width: var(--speech-stage-width, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+}
+
+.embed-nanika-mount .fortune-nanika-speech {
+  color: #26231f;
+  background: rgba(255, 250, 242, 0.88);
+}
+
+.embed-nanika-mount .fortune-nanika-speech span {
+  color: #235f5a;
+}
+
+.embed-nanika-mount .fortune-nanika-speech p {
+  color: #26231f;
+}
+
+.embed-demo-notes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.embed-demo-notes > div {
+  min-height: 74px;
+  padding: 14px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+}
+
+.embed-demo-notes strong {
+  color: #235f5a;
+}
+
+.embed-demo-notes span {
+  color: #71695f;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 820px) {
+  .embed-demo-shell {
+    padding: 14px;
+  }
+
+  .embed-demo-card {
+    min-height: auto;
+    padding: 14px;
+  }
+
+  .embed-demo-header {
+    display: grid;
+  }
+
+  .embed-demo-content,
+  .embed-demo-notes {
+    grid-template-columns: 1fr;
+  }
+
+  .embed-nanika-mount {
+    min-height: 460px;
+  }
 }
 
 .fortune-feature-section {
@@ -624,8 +824,10 @@ body.fortune-embed-page {
 
 .ghostnest-runtime.character-stage {
   position: absolute;
-  right: 24px;
+  left: 50%;
+  right: auto;
   bottom: 24px;
+  transform: translateX(-50%);
   width: min(92vw, var(--speech-stage-width, 420px), var(--runtime-area-width, 420px));
   max-height: calc(var(--runtime-area-height, 100vh) - 48px);
   display: grid;
@@ -644,15 +846,36 @@ body.fortune-embed-page {
   bottom: auto;
   left: var(--character-stage-x, 24px);
   top: var(--character-stage-y, 24px);
+  transform: none;
 }
 
 .ghostnest-runtime.character-stage[data-position-mode="placement"] {
+  left: auto;
   right: auto;
   bottom: auto;
+  transform: none;
+}
+
+.ghostnest-runtime.character-stage[data-position-mode="placement"][data-character-placement$="-center"] .character-sprite {
+  justify-self: center;
 }
 
 .ghostnest-runtime.character-stage[data-ready="false"][data-hide-until-ready="true"] {
   visibility: hidden;
+}
+
+.ghostnest-runtime .scene-viewport {
+  grid-area: sprite;
+  position: relative;
+  width: 100%;
+  height: var(--character-sprite-height, 330px);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.ghostnest-runtime.character-stage[data-scene-canvas="authored"] .scene-viewport {
+  aspect-ratio: var(--scene-canvas-aspect-ratio);
+  height: auto;
 }
 
 .ghostnest-runtime .scene-layer-root {
@@ -667,6 +890,13 @@ body.fortune-embed-page {
   inset: 0;
   pointer-events: none;
   overflow: visible;
+}
+
+.ghostnest-runtime .scene-composition-layer {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
 }
 
 .ghostnest-runtime .scene-layer[data-placement="percent"] {
@@ -684,6 +914,10 @@ body.fortune-embed-page {
   object-fit: contain;
   object-position: bottom center;
   user-select: none;
+}
+
+.ghostnest-runtime .scene-composition-layer img {
+  object-position: center center;
 }
 
 .ghostnest-runtime .scene-layer[data-fit="fill"] img {
@@ -799,6 +1033,13 @@ body.fortune-embed-page {
 
 .ghostnest-runtime.character-stage[data-speech-layout="dialogue-box"][data-speech-placement="overlay-bottom"] {
   grid-template-areas: "stack";
+}
+
+.ghostnest-runtime.character-stage[data-speech-layout="dialogue-box"][data-speech-placement="overlay-bottom"] .scene-viewport {
+  grid-area: stack;
+  align-self: end;
+  justify-self: center;
+  margin-bottom: 72px;
 }
 
 .ghostnest-runtime.character-stage[data-speech-layout="dialogue-box"][data-speech-placement="overlay-bottom"] .character-sprite {
@@ -5537,10 +5778,6 @@ body.fortune-embed-page {
     height: clamp(336px, 47dvh, 430px);
   }
 
-  .fortune-nanika-mount .fortune-nanika-sprite {
-    margin-bottom: clamp(68px, 10dvh, 82px);
-  }
-
   .fortune-nanika-mount .fortune-nanika-speech {
     margin-bottom: 14px;
   }
@@ -5894,10 +6131,6 @@ body.fortune-embed-page {
 
   .fortune-nanika-mount {
     height: clamp(300px, 45dvh, 360px);
-  }
-
-  .fortune-nanika-mount .fortune-nanika-sprite {
-    margin-bottom: 64px;
   }
 
   .fortune-nanika-mount .fortune-nanika-speech {

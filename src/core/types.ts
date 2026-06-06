@@ -140,11 +140,16 @@ export type RuntimeSceneLayer = {
 
 export type RuntimeScene = {
   id: string;
+  canvas?: {
+    width: number;
+    height: number;
+  };
   layers: RuntimeSceneLayer[];
 };
 
 export type RuntimeSceneOptions = {
   defaultScene?: string;
+  canvas?: RuntimeScene["canvas"];
   layers?: RuntimeSceneLayer[];
   scenes?: Record<string, RuntimeScene>;
   sceneSets?: Record<string, RuntimeScene[]>;

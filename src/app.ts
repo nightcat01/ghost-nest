@@ -375,14 +375,17 @@ async function bootRuntime(characterId = currentDemoCharacterId) {
   const testRules = createRuntimeTestRules();
   const savedRules = await loadSavedRuntimeRules(menuItems);
   const runtime = createGhostRuntimeFromPreset(preset, {
+    characterPlacement: {
+      placement: "bottom-center",
+    },
+    preferenceStorage: {
+      runtimeUi: "preset",
+      managementMenu: "preset",
+    },
     ...(savedRules
       ? {
         replaceRules: [...savedRules, ...testRules],
         includeDefaultRules: false,
-        preferenceStorage: {
-          runtimeUi: "preset",
-          managementMenu: "preset",
-        },
       }
       : { rules: testRules }),
   });

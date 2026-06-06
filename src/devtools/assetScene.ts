@@ -267,6 +267,22 @@ function writePlacement(inputs: ScenePlacementInputs, placement: EditableSceneLa
 }
 
 /**
+ * Updates one existing preview layer in place so dragging does not recreate or reload images.
+ */
+function updatePreviewLayerPlacement(layer: EditableSceneLayer) {
+  const element = preview.querySelector<HTMLElement>(`.asset-scene-preview-layer[data-scene-layer-id="${CSS.escape(layer.id)}"]`);
+
+  if (!element) {
+    return;
+  }
+
+  element.style.left = `${layer.placement.x}%`;
+  element.style.top = `${layer.placement.y}%`;
+  element.style.width = `${layer.placement.width}%`;
+  element.style.height = `${layer.placement.height}%`;
+}
+
+/**
  * Returns the selected editable layer from one role list.
  */
 function getSelectedEditableLayer(role: EditableSceneLayer["role"]) {
@@ -274,6 +290,15 @@ function getSelectedEditableLayer(role: EditableSceneLayer["role"]) {
   const select = role === "prop" ? propLayerSelect : effectLayerSelect;
 
   return layers.find((layer) => layer.id === select.value) ?? null;
+}
+
+/**
+ * Looks up the current layer value so repeated drags do not reuse stale preview closures.
+ */
+function getEditableLayerById(role: EditableSceneLayer["role"], layerId: string) {
+  const layers = role === "prop" ? propLayers : effectLayers;
+
+  return layers.find((layer) => layer.id === layerId) ?? null;
 }
 
 /**
@@ -458,6 +483,9 @@ function createSceneSnippet() {
   const layers: RuntimeSceneLayer[] = [];
   const backgroundImage = backgroundAssetSelect.value;
   const backgroundColor = backgroundColorInput.value.trim();
+  const previewRect = preview.getBoundingClientRect();
+  const canvasWidth = Math.max(1, Math.round(previewRect.width || scenePreviewSize));
+  const canvasHeight = Math.max(1, Math.round(previewRect.height || preview.clientHeight || scenePreviewSize));
 
   if (backgroundImage || backgroundColor) {
     layers.push({
@@ -485,6 +513,10 @@ function createSceneSnippet() {
     defaultScene: defaultSceneInput.checked,
     scene: {
       id: sceneId,
+      canvas: {
+        width: canvasWidth,
+        height: canvasHeight,
+      },
       layers,
     } satisfies RuntimeScene,
   };
@@ -586,15 +618,20 @@ function applyPreviewPlacement(element: HTMLElement, layer: RuntimeSceneLayer) {
  */
 function startSceneLayerDrag(event: PointerEvent, layer: EditableSceneLayer, mode: SceneDragMode) {
   const stageRect = preview.getBoundingClientRect();
+  const currentLayer = getEditableLayerById(layer.role, layer.id) ?? layer;
+  const select = layer.role === "prop" ? propLayerSelect : effectLayerSelect;
+
+  select.value = currentLayer.id;
+  applyEditableLayerToInputs(currentLayer, currentLayer.role);
 
   sceneDragState = {
-    layerId: layer.id,
-    role: layer.role,
+    layerId: currentLayer.id,
+    role: currentLayer.role,
     mode,
     startClientX: event.clientX,
     startClientY: event.clientY,
     stageRect,
-    startPlacement: { ...layer.placement },
+    startPlacement: { ...currentLayer.placement },
   };
   (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
   event.preventDefault();
@@ -642,15 +679,24 @@ function handleSceneLayerDrag(event: PointerEvent) {
   }
 
   upsertEditableLayer({ ...layer, placement: clampPlacement(nextPlacement) });
-  renderEditableLayerLists();
-  applyEditableLayerToInputs(getSelectedEditableLayer(sceneDragState.role), sceneDragState.role);
-  renderOutputs();
+  const updatedLayer = getSelectedEditableLayer(sceneDragState.role);
+
+  if (updatedLayer) {
+    updatePreviewLayerPlacement(updatedLayer);
+    writePlacement(sceneDragState.role === "prop" ? propPlacementInputs : effectPlacementInputs, updatedLayer.placement);
+  }
 }
 
 /**
  * Stops scene layer dragging.
  */
 function stopSceneLayerDrag() {
+  if (sceneDragState) {
+    renderEditableLayerLists();
+    applyEditableLayerToInputs(getSelectedEditableLayer(sceneDragState.role), sceneDragState.role);
+    renderSceneMetadata();
+  }
+
   sceneDragState = null;
 }
 
@@ -661,6 +707,9 @@ function createPreviewLayer(layer: RuntimeSceneLayer) {
   const element = document.createElement("div");
 
   element.className = "asset-scene-preview-layer";
+  element.dataset.sceneLayerId = layer.id;
+  element.dataset.fit = layer.fit ?? "fill";
+  element.dataset.overflow = layer.overflow ?? "hidden";
   element.style.zIndex = String(layer.depth ?? 0);
   applyPreviewPlacement(element, layer);
 
@@ -719,12 +768,30 @@ function createPreviewLayer(layer: RuntimeSceneLayer) {
   return element;
 }
 
+function createSceneOutputPayload(sceneSnippet: ReturnType<typeof createSceneSnippet>) {
+  return {
+    defaultScene: sceneSnippet.defaultScene ? sceneSnippet.sceneId : "",
+    scenePath: `assets.scenes[${JSON.stringify(sceneSnippet.sceneId)}]`,
+    scene: sceneSnippet.scene,
+  };
+}
+
+/**
+ * Refreshes JSON output and stacking warnings without recreating preview images.
+ */
+function renderSceneMetadata() {
+  const sceneSnippet = createSceneSnippet();
+  const warnings = createSceneStackWarnings(sceneSnippet.scene);
+
+  output.textContent = JSON.stringify(createSceneOutputPayload(sceneSnippet), null, 2);
+  renderSceneStackWarnings(warnings);
+}
+
 /**
  * Refreshes the scene preview and JSON output.
  */
 function renderOutputs() {
   const sceneSnippet = createSceneSnippet();
-  const warnings = createSceneStackWarnings(sceneSnippet.scene);
 
   preview.replaceChildren();
   sceneSnippet.scene.layers
@@ -734,12 +801,7 @@ function renderOutputs() {
       preview.append(createPreviewLayer(layer));
     });
 
-  output.textContent = JSON.stringify({
-    defaultScene: sceneSnippet.defaultScene ? sceneSnippet.sceneId : "",
-    scenePath: `assets.scenes[${JSON.stringify(sceneSnippet.sceneId)}]`,
-    scene: sceneSnippet.scene,
-  }, null, 2);
-  renderSceneStackWarnings(warnings);
+  renderSceneMetadata();
 }
 
 /**
