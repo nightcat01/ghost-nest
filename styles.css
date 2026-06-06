@@ -839,6 +839,7 @@ body.runtime-embed-page {
   gap: 12px;
   align-items: end;
   overflow: visible;
+  pointer-events: none;
 }
 
 .ghostnest-runtime.character-stage[data-position-mode="custom"] {
@@ -962,6 +963,7 @@ body.runtime-embed-page {
   position: relative;
   z-index: 20;
   box-sizing: border-box;
+  pointer-events: auto;
   width: min(var(--speech-balloon-width, 100%), var(--speech-balloon-max-width, 100%));
   min-height: var(--speech-balloon-min-height, 104px);
   max-height: var(--speech-balloon-max-height, min(320px, var(--floating-content-max-height, calc(100vh - var(--character-sprite-height, 330px) - 96px))));
@@ -1022,7 +1024,7 @@ body.runtime-embed-page {
 .ghostnest-runtime.character-stage[data-speech-layout="dialogue-box"] .balloon-action-menu {
   max-height: min(
     var(--speech-balloon-action-menu-max-height, 128px),
-    calc(var(--speech-dialogue-max-height, 180px) - var(--speech-dialogue-min-height, 96px) + 92px)
+    max(64px, calc(var(--speech-dialogue-max-height, 180px) - var(--speech-dialogue-min-height, 96px) + 92px))
   );
   min-height: 0;
   overflow-y: auto;
@@ -1132,6 +1134,8 @@ body.runtime-embed-page {
 }
 
 .ghostnest-runtime.character-stage[data-balloon-theme="fortune_prompt"][data-speech-layout="dialogue-box"] .balloon-action-menu {
+  flex-basis: 100%;
+  width: 100%;
   margin-top: 10px;
 }
 
@@ -1225,17 +1229,24 @@ body.runtime-embed-page {
 .ghostnest-runtime .balloon-action-menu {
   --balloon-action-button-min-width: 104px;
   display: flex;
+  flex: 0 0 100%;
   flex-wrap: wrap;
   align-content: flex-start;
   align-items: stretch;
   gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid rgba(38, 35, 31, 0.12);
-  max-height: var(--speech-balloon-action-menu-max-height, 168px);
+  max-height: min(
+    var(--speech-balloon-action-menu-max-height, 168px),
+    max(68px, calc(var(--speech-balloon-max-height, 260px) - var(--speech-balloon-min-height, 104px) + 72px))
+  );
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   padding-right: 4px;
 }
 
@@ -1295,6 +1306,7 @@ body.runtime-embed-page {
   overflow: hidden;
   overscroll-behavior: contain;
   z-index: 8;
+  pointer-events: auto;
 }
 
 .ghostnest-runtime.character-stage[data-floating-layout="compact"] {
@@ -1566,6 +1578,7 @@ body.runtime-embed-page {
   height: var(--character-sprite-height, 330px);
   position: relative;
   z-index: var(--character-scene-depth, 10);
+  pointer-events: auto;
   border: 0;
   background: transparent;
   cursor: pointer;

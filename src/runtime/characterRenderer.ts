@@ -475,7 +475,7 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
     getRenderableLayerIds(surface).forEach((layerId) => {
       const layer = getSurfaceLayer(surface, layerId);
 
-      if (!layer || layer.coversBase || layer.idleIntervalMs) {
+      if (!layer || layerId === "mouth" || layer.coversBase || layer.idleIntervalMs) {
         return;
       }
 
@@ -612,11 +612,25 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
     let frameIndex = frameCount > 1 ? 1 : 0;
     applyPartFrame(layerId, layer, frameIndex, true);
 
-    if (frameCount <= 1) {
+    if (frameCount <= 1 && layerId !== "mouth") {
       return;
     }
 
     const timerId = window.setInterval(() => {
+      if (frameCount === 1) {
+        const currentLayerElement = spriteLayers.get(layerId);
+
+        if (!currentLayerElement) {
+          return;
+        }
+
+        currentLayerElement.hidden = !currentLayerElement.hidden;
+        if (!currentLayerElement.hidden) {
+          applyPartFrame(layerId, layer, 0, true);
+        }
+        return;
+      }
+
       frameIndex = (frameIndex + 1) % frameCount;
       applyPartFrame(layerId, layer, frameIndex, true);
     }, layer.intervalMs ?? 140);

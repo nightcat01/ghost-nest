@@ -291,6 +291,23 @@ function createRuntimeTestRules(): RuntimeRule[] {
       ],
     },
     {
+      id: "test.layout.dialogue_below",
+      event: "test:layout:dialogue_below",
+      actions: [
+        {
+          type: "change_speech_layout",
+          ...runtimeSpeechPresets.dialogueBelow.layout,
+        },
+        {
+          type: "set_speech_balloon_size",
+          size: runtimeSpeechPresets.dialogueBelow.size,
+        },
+        { type: "change_balloon", theme: "fortune_prompt" },
+        { type: "speak_text", text: "하단 대사창 모드예요. 캐릭터 아래쪽에 대사창을 분리해서 보여줄게요." },
+        { type: "log", label: "test:layout.dialogue_below" },
+      ],
+    },
+    {
       id: "test.layout.floating_compact",
       event: "test:layout:floating_compact",
       actions: [
@@ -376,7 +393,7 @@ async function bootRuntime(characterId = currentDemoCharacterId) {
   const savedRules = await loadSavedRuntimeRules(menuItems);
   const runtime = createGhostRuntimeFromPreset(preset, {
     characterPlacement: {
-      placement: "bottom-center",
+      placement: "bottom-right",
     },
     preferenceStorage: {
       runtimeUi: "preset",
@@ -439,6 +456,11 @@ function applyRuntimeSurface(surfaceId: string) {
 function runRuntimeTestAction(action: string) {
   if (action === "dialogue-overlay") {
     emitRuntimeEvent("test:layout:dialogue_overlay");
+    return;
+  }
+
+  if (action === "dialogue-below") {
+    emitRuntimeEvent("test:layout:dialogue_below");
     return;
   }
 
