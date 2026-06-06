@@ -608,6 +608,7 @@ export type RuntimeControlOptions = {
   characterClick: boolean;
   characterTouch: boolean;
   characterRightClick: boolean;
+  characterHoverEffect: boolean;
   commandButtons: boolean;
   commandHoverDescription: boolean;
   areaHoverDescription: boolean;

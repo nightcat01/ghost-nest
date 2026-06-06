@@ -36,6 +36,29 @@ import type {
 } from "../core/types.js";
 
 /**
+ * Creates the default restore button when the host page does not provide one.
+ */
+function createDefaultRestoreBadge() {
+  const badge = document.createElement("button");
+  const icon = document.createElement("span");
+  const label = document.createElement("span");
+
+  badge.type = "button";
+  badge.className = "restore-badge";
+  badge.hidden = true;
+  badge.setAttribute("aria-label", "나니카 다시 불러오기");
+  badge.dataset.runtimeGenerated = "true";
+  icon.className = "badge-icon";
+  icon.textContent = "↩";
+  label.className = "restore-badge-label";
+  label.textContent = "다시 불러오기";
+  badge.append(icon, label);
+  document.body.append(badge);
+
+  return badge;
+}
+
+/**
  * 캐릭터 데이터, 플러그인, DOM selector를 받아 웹 캐릭터 런타임을 생성합니다.
  */
 export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
@@ -72,9 +95,16 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
   };
   const maxLogItems = options.maxLogItems ?? defaultMaxLogItems;
   const elements = getRuntimeElements(options.selectors, options.root);
+  const generatedRestoreBadge = elements.restoreBadge ? null : createDefaultRestoreBadge();
+
+  if (generatedRestoreBadge) {
+    elements.restoreBadge = generatedRestoreBadge;
+  }
+
   const hadRuntimeScopeClass = elements.stage.classList.contains("ghostnest-runtime");
   elements.stage.classList.add("ghostnest-runtime");
   elements.stage.dataset.ready = "false";
+  elements.stage.dataset.characterHoverEffect = controls.characterHoverEffect ? "on" : "off";
   if (options.hideUntilReady) {
     elements.stage.dataset.hideUntilReady = "true";
   } else {
@@ -438,6 +468,10 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
     characterRenderer.destroy();
     if (!hadRuntimeScopeClass) {
       elements.stage.classList.remove("ghostnest-runtime");
+    }
+
+    if (generatedRestoreBadge) {
+      generatedRestoreBadge.remove();
     }
 
     actionTimers.forEach((timerId) => window.clearTimeout(timerId));

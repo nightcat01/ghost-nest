@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GhostNest 메뉴 설정</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="asset-lab-shell">
+      <header class="asset-lab-header">
+        <div>
+          <p class="eyebrow">Menu Settings Plugin</p>
+          <h1>메뉴 설정</h1>
+        </div>
+        <a class="asset-lab-back" href="./dev-assets.html">플러그인 목록</a>
+      </header>
+
+      <nav class="asset-plugin-nav" aria-label="Menu settings plugin navigation">
+        <a href="./dev-assets.html">개발 플러그인</a>
+        <span aria-hidden="true">/</span>
+        <strong>메뉴 설정</strong>
+      </nav>
+
+      <section class="asset-lab-grid asset-menu-settings-grid" aria-label="메뉴 설정">
+        <section class="asset-lab-panel">
+          <div class="asset-lab-section asset-step-intro">
+            <h2>말풍선이나 패널에 띄울 메뉴 묶음을 확인합니다.</h2>
+            <p class="asset-lab-help">
+              메뉴는 런타임 액션을 모아 둔 선택지입니다. 사용자 메뉴, 개발자 메뉴, 전체 데모 메뉴를 나눠서 보고
+              매핑 화면이나 호스트 앱에서 사용할 JSON 초안으로 복사할 수 있습니다.
+            </p>
+          </div>
+
+          <div class="asset-lab-section">
+            <h2>기준 캐릭터</h2>
+            <p class="asset-lab-help">캐릭터별 표정, surface, scene 메뉴가 포함되는지 확인하려면 캐릭터를 선택합니다.</p>
+            <label>
+              캐릭터
+              <select id="characterSelect">
+                <option value="">캐릭터를 불러오는 중입니다.</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="asset-lab-section">
+            <h2>메뉴 종류</h2>
+            <div class="asset-menu-mode-list" id="menuModeList" role="tablist" aria-label="메뉴 종류"></div>
+          </div>
+
+          <div class="asset-lab-section">
+            <div class="asset-lab-section-header">
+              <div>
+                <h2>메뉴 트리</h2>
+                <p class="asset-lab-help">각 카드는 실제 메뉴 항목입니다. 하위 메뉴와 실행 액션 수를 함께 보여줍니다.</p>
+              </div>
+              <div class="asset-lab-actions">
+                <button type="button" id="copyMenuJsonButton">JSON 복사</button>
+              </div>
+            </div>
+            <div class="asset-menu-tree" id="menuTree" aria-live="polite"></div>
+            <p class="asset-lab-status" id="menuStatus" role="status">메뉴 설정을 불러오는 중입니다.</p>
+          </div>
+        </section>
+
+        <section class="asset-lab-panel">
+          <div class="asset-lab-section asset-sticky-preview">
+            <h2>저장/매핑용 JSON</h2>
+            <p class="asset-lab-help">
+              지금은 메뉴를 직접 파일로 저장하지 않고, 매핑이나 호스트 앱 설정에 넣을 수 있는 초안을 확인합니다.
+            </p>
+            <pre id="menuOutput" class="asset-json-output">{}</pre>
+          </div>
+        </section>
+      </section>
+    </main>
+    <script type="module" src="./dist/devtools/assetMenuSettings.js"></script>
+  </body>
+</html>

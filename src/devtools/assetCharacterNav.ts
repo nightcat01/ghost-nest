@@ -21,6 +21,7 @@ const navItems: CharacterNavItem[] = [
   { id: "layer", href: "./dev-assets-layer.html", label: "파츠 움직임", group: "material", step: "5" },
   { id: "scene", href: "./dev-character-scene.html", label: "무대 조합", group: "material", step: "6" },
   { id: "crop", href: "./dev-assets-crop.html", label: "영역 선택", group: "support" },
+  { id: "hitbox", href: "./dev-character-hitbox.html", label: "터치 영역", group: "support" },
 ];
 
 const flowSteps: FlowStep[] = [
@@ -100,6 +101,10 @@ function getCurrentFlowStep(currentPageId: string): FlowStep["id"] | null {
   }
 
   if (currentPageId === "layer" || currentPageId === "crop") {
+    return "parts";
+  }
+
+  if (currentPageId === "hitbox") {
     return "parts";
   }
 

@@ -2,6 +2,7 @@ import type { ManagementMenuItem } from "../../core/types.js";
 import { enabledExtensions } from "../../ghost/nanika.config.js";
 import { createCharacterSettingsMenuItem } from "../../plugins/characterSettings/index.js";
 import { createComfyAssetGeneratorMenuItem } from "../../plugins/comfyAssetGenerator/index.js";
+import { createMenuSettingsMenuItem } from "../../plugins/menuSettings/index.js";
 import { createNanikaMappingMenuItem } from "../../plugins/nanikaMapping/index.js";
 
 /**
@@ -65,6 +66,10 @@ export function createDeveloperMenuItems(): ManagementMenuItem[] {
 
   if (enabledExtensions["comfy-asset-generator"]?.enabled) {
     menuItems.push(createComfyAssetGeneratorMenuItem());
+  }
+
+  if (enabledExtensions["menu-settings"]?.enabled) {
+    menuItems.push(createMenuSettingsMenuItem());
   }
 
   if (enabledExtensions["nanika-mapping"]?.enabled) {

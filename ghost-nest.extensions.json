@@ -23,6 +23,9 @@
         "workflowPath": "src/devtools/layer-part-workflow.api.json"
       }
     },
+    "menu-settings": {
+      "enabled": true
+    },
     "nanika-mapping": {
       "enabled": true
     }

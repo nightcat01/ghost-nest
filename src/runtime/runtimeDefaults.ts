@@ -24,6 +24,7 @@ export const defaultControls = {
   characterClick: true,
   characterTouch: true,
   characterRightClick: true,
+  characterHoverEffect: true,
   commandButtons: true,
   commandHoverDescription: true,
   areaHoverDescription: true,

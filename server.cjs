@@ -154,6 +154,8 @@ function isCharacterDevtoolsStaticPath(pathname) {
     "/dev-character-set.html",
     "/dev-character-scene.html",
     "/dev-character-composition.html",
+    "/dev-character-hitbox.html",
+    "/dev-menu-settings.html",
     "/dev-nanika-mapping.html",
     "/dev-assets.html",
     "/dev-assets-comfy.html",
@@ -1418,6 +1420,61 @@ function deleteSceneInAssets(assets, sceneId) {
 
   if (nextAssets.defaultScene === sceneId) {
     delete nextAssets.defaultScene;
+  }
+
+  return nextAssets;
+}
+
+function normalizeHitAreaValue(area) {
+  if (!area || typeof area !== "object" || Array.isArray(area)) {
+    throw new Error("invalid_character_hit_area");
+  }
+
+  const minX = Number(area.minX);
+  const maxX = Number(area.maxX);
+  const minY = Number(area.minY);
+  const maxY = Number(area.maxY);
+
+  if (![minX, maxX, minY, maxY].every(Number.isFinite)) {
+    throw new Error("invalid_character_hit_area");
+  }
+
+  const normalizedMinX = Math.max(0, Math.min(1, minX));
+  const normalizedMaxX = Math.max(0, Math.min(1, maxX));
+  const normalizedMinY = Math.max(0, Math.min(1, minY));
+  const normalizedMaxY = Math.max(0, Math.min(1, maxY));
+
+  if (normalizedMinX >= normalizedMaxX || normalizedMinY >= normalizedMaxY) {
+    throw new Error("invalid_character_hit_area");
+  }
+
+  return {
+    minX: normalizedMinX,
+    maxX: normalizedMaxX,
+    minY: normalizedMinY,
+    maxY: normalizedMaxY,
+  };
+}
+
+function normalizeHitAreas(hitAreas) {
+  if (!hitAreas || typeof hitAreas !== "object" || Array.isArray(hitAreas)) {
+    throw new Error("invalid_character_hit_areas");
+  }
+
+  return Object.fromEntries(
+    Object.entries(hitAreas)
+      .map(([part, area]) => [String(part).trim(), normalizeHitAreaValue(area)])
+      .filter(([part]) => part.length > 0),
+  );
+}
+
+function upsertHitAreasInAssets(assets, hitAreas) {
+  const nextAssets = { ...assets };
+
+  if (Object.keys(hitAreas).length > 0) {
+    nextAssets.hitAreas = hitAreas;
+  } else {
+    delete nextAssets.hitAreas;
   }
 
   return nextAssets;
@@ -3379,6 +3436,56 @@ async function handleSaveCharacterLines(request, response) {
   return true;
 }
 
+async function handleSaveCharacterHitAreas(request, response) {
+  if (!isCharacterSettingsEnabled()) {
+    sendJson(response, 404, {
+      ok: false,
+      error: "extension_not_enabled",
+      message: "Character Settings extension is not enabled in ghost-nest.extensions.json.",
+    });
+    return true;
+  }
+
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "method_not_allowed" });
+    return true;
+  }
+
+  try {
+    const body = await readRequestJson(request);
+    const hitAreas = normalizeHitAreas(body.hitAreas);
+    const saved = await saveCharacterAssets(body, (assets) => upsertHitAreasInAssets(assets, hitAreas));
+
+    sendJson(response, 200, {
+      ok: true,
+      message: "Character hit areas saved.",
+      saved: {
+        ...saved,
+        parts: Object.keys(hitAreas),
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "save_character_hit_areas_failed";
+    const statusCode = [
+      "invalid_json",
+      "invalid_character_id",
+      "character_source_not_found",
+      "invalid_character_hit_areas",
+      "invalid_character_hit_area",
+      "character_assets_not_found",
+      "object_block_not_found",
+    ].includes(message) ? 400 : 500;
+
+    sendJson(response, statusCode, {
+      ok: false,
+      error: message,
+      message: "Character hit areas could not be saved.",
+    });
+  }
+
+  return true;
+}
+
 /**
  * Handles character layer delete requests for the dev asset tool.
  */
@@ -3908,6 +4015,10 @@ async function handleApiRequest(request, response) {
 
   if (pathname === "/api/devtools/save-character-lines") {
     return handleSaveCharacterLines(request, response);
+  }
+
+  if (pathname === "/api/devtools/save-character-hit-areas") {
+    return handleSaveCharacterHitAreas(request, response);
   }
 
   if (pathname === "/api/devtools/delete-character-surface") {

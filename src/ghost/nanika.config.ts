@@ -13,11 +13,13 @@ import type {
 import { createDemoPlugins } from "../demo/demoPlugins.js";
 import { characterSettingsExtensionConfig } from "../plugins/characterSettings/index.js";
 import { comfyAssetGeneratorExtensionConfig } from "../plugins/comfyAssetGenerator/index.js";
+import { menuSettingsExtensionConfig } from "../plugins/menuSettings/index.js";
 import { nanikaMappingExtensionConfig } from "../plugins/nanikaMapping/index.js";
 
 export const enabledExtensions = {
   "character-settings": characterSettingsExtensionConfig,
   "comfy-asset-generator": comfyAssetGeneratorExtensionConfig,
+  "menu-settings": menuSettingsExtensionConfig,
   "nanika-mapping": nanikaMappingExtensionConfig,
 } as const;
 

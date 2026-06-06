@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GhostNest 터치 영역 설정</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="asset-lab-shell">
+      <header class="asset-lab-header">
+        <div>
+          <p class="eyebrow">캐릭터 설정 / 보조 도구</p>
+          <h1>터치 영역 설정</h1>
+        </div>
+        <a class="asset-lab-back" href="./dev-character.html">제작 홈</a>
+      </header>
+
+      <nav class="asset-tool-nav" aria-label="Character setting pages" data-character-nav data-current-page="hitbox"></nav>
+
+      <section class="asset-lab-grid asset-hitbox-editor-grid" aria-label="터치 영역 설정">
+        <section class="asset-lab-panel">
+          <div class="asset-lab-section asset-step-intro">
+            <h2>캐릭터를 눌렀을 때 반응할 영역을 정합니다.</h2>
+            <p class="asset-lab-help">
+              머리, 얼굴, 몸처럼 클릭 가능한 영역을 캐릭터 이미지 위에 맞춥니다.
+              저장하면 캐릭터의 <code>assets.hitAreas</code>로 반영되어 런타임 클릭 이벤트가 같은 영역을 사용합니다.
+            </p>
+          </div>
+
+          <div class="asset-lab-section">
+            <h2>캐릭터</h2>
+            <label>
+              편집할 캐릭터
+              <select id="characterSelect">
+                <option value="">캐릭터를 불러오는 중입니다.</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="asset-lab-section">
+            <div class="asset-lab-section-header">
+              <div>
+                <h2>영역 목록</h2>
+                <p class="asset-lab-help">영역은 0~100% 좌표로 저장됩니다. X/Y는 왼쪽 위, W/H는 영역 크기입니다.</p>
+              </div>
+              <div class="asset-lab-actions">
+                <button type="button" id="addHitAreaButton">영역 추가</button>
+              </div>
+            </div>
+            <div class="asset-hitbox-list" id="hitAreaList" aria-live="polite"></div>
+          </div>
+
+          <div class="asset-lab-section asset-composition-save-section">
+            <div class="asset-lab-section-header">
+              <div>
+                <h2>저장</h2>
+                <p class="asset-lab-help">현재 보이는 영역을 캐릭터 터치 영역으로 저장합니다.</p>
+              </div>
+              <div class="asset-lab-actions">
+                <button type="button" id="saveHitAreasButton">터치 영역 저장</button>
+              </div>
+            </div>
+            <p class="asset-lab-status" id="hitboxStatus" role="status">터치 영역 설정을 불러오는 중입니다.</p>
+          </div>
+        </section>
+
+        <section class="asset-lab-panel">
+          <div class="asset-lab-section asset-sticky-preview">
+            <h2>미리보기</h2>
+            <p class="asset-lab-help">캐릭터 이미지 위에서 각 터치 영역이 어디에 놓이는지 확인합니다.</p>
+            <div class="asset-hitbox-preview" id="hitboxPreview">
+              <div class="asset-hitbox-stage">
+                <img id="hitboxPreviewImage" alt="캐릭터 미리보기" />
+                <div class="asset-hitbox-overlay" id="hitboxOverlay" aria-hidden="true"></div>
+              </div>
+            </div>
+            <pre id="hitboxOutput" class="asset-json-output">{}</pre>
+          </div>
+        </section>
+      </section>
+    </main>
+    <script type="module" src="./dist/devtools/assetCharacterNav.js"></script>
+    <script type="module" src="./dist/devtools/assetHitbox.js"></script>
+  </body>
+</html>

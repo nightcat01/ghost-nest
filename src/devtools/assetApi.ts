@@ -116,6 +116,15 @@ export type CharacterLinesSaveResponse = DevApiResponse & {
   };
 };
 
+export type CharacterHitAreasSaveResponse = DevApiResponse & {
+  saved?: {
+    characterId: string;
+    path: string;
+    buildPath: string | null;
+    parts: string[];
+  };
+};
+
 /**
  * Reads a dev API response while preserving useful server error text.
  */
@@ -213,6 +222,24 @@ export async function fetchCharacterAssets(characterId: string) {
   }
 
   return result;
+}
+
+/**
+ * Saves character hit areas into the character asset meta file.
+ */
+export async function saveCharacterHitAreas(characterId: string, hitAreas: Record<string, unknown>) {
+  const response = await fetch(createDevtoolsApiPath("/api/devtools/save-character-hit-areas"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ characterId, hitAreas }),
+  });
+  const result = await readApiJson<CharacterHitAreasSaveResponse>(response);
+
+  if (!response.ok || !result.ok) {
+    throw new Error(result.message ?? result.error ?? "히트박스 설정을 저장하지 못했어요.");
+  }
+
+  return result.saved;
 }
 
 /**
