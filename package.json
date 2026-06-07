@@ -61,7 +61,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "postbuild": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Copy-Item -LiteralPath ghost-nest.extensions.json -Destination dist/ghost-nest.extensions.json -Force; New-Item -ItemType Directory -Force -Path dist/devtools | Out-Null; Copy-Item -LiteralPath src/devtools/layer-part-workflow.api.json -Destination dist/devtools/layer-part-workflow.api.json -Force; Copy-Item -LiteralPath src/devtools/layer-part-workflow.sdxl-inpaint.api.json -Destination dist/devtools/layer-part-workflow.sdxl-inpaint.api.json -Force; Copy-Item -LiteralPath src/devtools/layer-part-workflow.sdxl-general.api.json -Destination dist/devtools/layer-part-workflow.sdxl-general.api.json -Force; Copy-Item -LiteralPath src/devtools/layer-part-workflow.sd15-inpaint.api.json -Destination dist/devtools/layer-part-workflow.sd15-inpaint.api.json -Force\"",
+    "postbuild": "node scripts/postbuild.mjs",
     "dev": "node server.cjs",
     "check": "tsc --noEmit",
     "verify:ui": "node scripts/verify-ui.mjs",
