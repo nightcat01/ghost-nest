@@ -90,6 +90,8 @@ await runtime.setCharacter(nextCharacter, {
 | [ACTION_LIFECYCLE.md](./ACTION_LIFECYCLE.md) | 액션의 시작, 종료, 후속 액션 기준 |
 | [EXTERNAL_RESULT_MAPPING.md](./EXTERNAL_RESULT_MAPPING.md) | AI/API/DB 결과를 액션으로 연결하는 예시 |
 | [STORAGE_AND_SETTINGS.md](./STORAGE_AND_SETTINGS.md) | 저장값, 사용자 설정, StorageAdapter 경계 |
+| [docs/nanika-data-adapter.md](./docs/nanika-data-adapter.md) | 파일/DB 저장소를 같은 Nanika data adapter 계약으로 다루는 기준 |
+| [docs/nanika-postgres/README.supabase.md](./docs/nanika-postgres/README.supabase.md) | PostgreSQL/Supabase 기반 Nanika metadata schema와 seed 예시 |
 | [UI_RENDERER_BOUNDARY.md](./UI_RENDERER_BOUNDARY.md) | UI renderer 교체 경계 |
 | [DIALOGUE_SCRIPT_GUIDE.md](./DIALOGUE_SCRIPT_GUIDE.md) | JSON 대사 연출 포맷 |
 | [ASSET_GENERATOR_SETUP.md](./ASSET_GENERATOR_SETUP.md) | Asset Generator 확장과 ComfyUI bridge 설정 |

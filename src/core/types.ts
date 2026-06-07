@@ -671,6 +671,34 @@ export type StorageAdapter = {
   remove: (key: string) => void | Promise<void>;
 };
 
+export type NanikaDataScope =
+  | "characters"
+  | "characterAssets"
+  | "mappings"
+  | "featureSets"
+  | "conditions"
+  | "runtimeProfiles"
+  | "menus"
+  | "preferences"
+  | "workspace";
+
+export type NanikaListOptions = {
+  characterId?: string;
+  kind?: string;
+  enabled?: boolean;
+  [key: string]: unknown;
+};
+
+export type NanikaDataAdapter = {
+  get: <T = unknown>(key: string) => T | null | Promise<T | null>;
+  set: <T = unknown>(key: string, value: T) => void | Promise<void>;
+  remove: (key: string) => void | Promise<void>;
+  list: <T = unknown>(scope: NanikaDataScope, options?: NanikaListOptions) => T[] | Promise<T[]>;
+  getItem: <T = unknown>(scope: NanikaDataScope, id: string) => T | null | Promise<T | null>;
+  saveItem: <T = unknown>(scope: NanikaDataScope, id: string, value: T) => void | Promise<void>;
+  deleteItem: (scope: NanikaDataScope, id: string) => void | Promise<void>;
+};
+
 export type RuntimePreferenceStorageMode = "stored" | "preset" | "disabled";
 
 export type RuntimePreferenceStorageOptions = {

@@ -13,10 +13,9 @@ import {
   createDevtoolsApiPath,
   fetchCharacterAssets,
   fetchCharacterList,
-  readApiJson,
   type CharacterAssetsResponse,
-  type DevApiResponse,
 } from "./assetApi.js";
+import { deleteNanikaDataItem, listNanikaData, saveNanikaDataItem } from "./nanikaDataClient.js";
 import { requireElement } from "./assetShared.js";
 import type { RuntimeAction, RuntimeCondition, RuntimeControlOptions, RuntimeEventName, RuntimeRule } from "../core/types.js";
 import type {
@@ -29,20 +28,6 @@ import type {
   RuntimeActionParameterCatalogItem,
 } from "../plugins/nanikaMapping/index.js";
 
-type NanikaMappingsResponse = DevApiResponse & {
-  mappings?: NanikaMapping[];
-  mapping?: NanikaMapping;
-  deletedId?: string;
-  path?: string;
-};
-
-type NanikaFeatureSetsResponse = DevApiResponse & {
-  featureSets?: NanikaFeatureSet[];
-  featureSet?: NanikaFeatureSet;
-  deletedId?: string;
-  path?: string;
-};
-
 type NanikaCondition = {
   id: string;
   scope: "runtime" | "character";
@@ -51,13 +36,6 @@ type NanikaCondition = {
   value: string;
   name?: string;
   description?: string;
-};
-
-type NanikaConditionsResponse = DevApiResponse & {
-  conditions?: NanikaCondition[];
-  condition?: NanikaCondition;
-  deletedId?: string;
-  path?: string;
 };
 
 type DraftMappingResult = {
@@ -2522,18 +2500,9 @@ async function saveMappingsFromCharacterCanvas() {
 
   const savedIds: string[] = [];
   for (const mapping of mappings) {
-    const response = await fetch(createDevtoolsApiPath("/api/devtools/save-nanika-mapping"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mapping }),
-    });
-    const result = await readApiJson<NanikaMappingsResponse>(response);
+    const result = await saveNanikaDataItem<NanikaMapping>("mappings", mapping.id, mapping);
 
-    if (!response.ok || !result.ok) {
-      throw new Error(result.message ?? result.error ?? `${mapping.id} 연결을 저장하지 못했어요.`);
-    }
-
-    savedMappings = result.mappings ?? [];
+    savedMappings = result.items;
     savedMappingsLoaded = true;
     savedIds.push(mapping.id);
   }
@@ -5472,18 +5441,9 @@ async function saveClonedFeatureSet() {
   };
 
   try {
-    const response = await fetch(createDevtoolsApiPath("/api/devtools/save-nanika-feature-set"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ featureSet }),
-    });
-    const result = await readApiJson<NanikaFeatureSetsResponse>(response);
+    const result = await saveNanikaDataItem<NanikaFeatureSet>("featureSets", featureSet.id, featureSet);
 
-    if (!response.ok || !result.ok) {
-      throw new Error(result.message ?? result.error ?? "기능 묶음 복제본을 저장하지 못했어요.");
-    }
-
-    savedFeatureSets = result.featureSets ?? [];
+    savedFeatureSets = result.items;
     featureSetIdInput.value = featureSet.id;
     featureSetNameInput.value = featureSet.name ?? featureSet.id;
     renderFeatureSets(result.path);
@@ -6699,14 +6659,9 @@ async function loadConditions() {
   conditionStatus.dataset.state = "ready";
 
   try {
-    const response = await fetch(createDevtoolsApiPath("/api/devtools/nanika-conditions"));
-    const result = await readApiJson<NanikaConditionsResponse>(response);
+    const result = await listNanikaData<NanikaCondition>("conditions");
 
-    if (!response.ok || !result.ok) {
-      throw new Error(result.message ?? result.error ?? "조건을 불러오지 못했습니다.");
-    }
-
-    savedConditions = result.conditions ?? [];
+    savedConditions = result.items;
     renderConditions(result.path);
     renderEditorPalette();
     refreshOverview();
@@ -6733,18 +6688,9 @@ async function saveCondition() {
   conditionStatus.textContent = "조건을 저장하는 중입니다.";
 
   try {
-    const response = await fetch(createDevtoolsApiPath("/api/devtools/save-nanika-condition"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ condition }),
-    });
-    const result = await readApiJson<NanikaConditionsResponse>(response);
+    const result = await saveNanikaDataItem<NanikaCondition>("conditions", condition.id, condition);
 
-    if (!response.ok || !result.ok) {
-      throw new Error(result.message ?? result.error ?? "조건을 저장하지 못했습니다.");
-    }
-
-    savedConditions = result.conditions ?? [];
+    savedConditions = result.items;
     renderConditions(result.path);
     renderEditorPalette();
     refreshOverview();
@@ -6760,18 +6706,9 @@ async function saveCondition() {
 
 async function deleteCondition(conditionId: string) {
   try {
-    const response = await fetch(createDevtoolsApiPath("/api/devtools/delete-nanika-condition"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: conditionId }),
-    });
-    const result = await readApiJson<NanikaConditionsResponse>(response);
+    const result = await deleteNanikaDataItem<NanikaCondition>("conditions", conditionId);
 
-    if (!response.ok || !result.ok) {
-      throw new Error(result.message ?? result.error ?? "조건을 삭제하지 못했습니다.");
-    }
-
-    savedConditions = result.conditions ?? [];
+    savedConditions = result.items;
     renderConditions(result.path);
     renderEditorPalette();
     refreshOverview();
@@ -6788,14 +6725,9 @@ async function loadSavedMappings() {
   savedMappingStatus.dataset.state = "ready";
 
   try {
-    const response = await fetch(createDevtoolsApiPath("/api/devtools/nanika-mappings"));
-    const result = await readApiJson<NanikaMappingsResponse>(response);
+    const result = await listNanikaData<NanikaMapping>("mappings");
 
-    if (!response.ok || !result.ok) {
-      throw new Error(result.message ?? result.error ?? "저장된 매핑을 불러오지 못했습니다.");
-    }
-
-    savedMappings = result.mappings ?? [];
+    savedMappings = result.items;
     savedMappingsLoaded = true;
     saveCanvasStatesToStorage();
     renderSavedMappings(result.path);
@@ -6822,18 +6754,9 @@ async function saveDraftMapping() {
   }
 
   try {
-    const response = await fetch(createDevtoolsApiPath("/api/devtools/save-nanika-mapping"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mapping: lastDraftResult.mapping }),
-    });
-    const result = await readApiJson<NanikaMappingsResponse>(response);
+    const result = await saveNanikaDataItem<NanikaMapping>("mappings", lastDraftResult.mapping.id, lastDraftResult.mapping);
 
-    if (!response.ok || !result.ok) {
-      throw new Error(result.message ?? result.error ?? "매핑을 저장하지 못했습니다.");
-    }
-
-    savedMappings = result.mappings ?? [];
+    savedMappings = result.items;
     savedMappingsLoaded = true;
     renderSavedMappings(result.path);
     refreshOverview();
@@ -6849,18 +6772,9 @@ async function saveDraftMapping() {
 
 async function deleteSavedMapping(mappingId: string) {
   try {
-    const response = await fetch(createDevtoolsApiPath("/api/devtools/delete-nanika-mapping"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: mappingId }),
-    });
-    const result = await readApiJson<NanikaMappingsResponse>(response);
+    const result = await deleteNanikaDataItem<NanikaMapping>("mappings", mappingId);
 
-    if (!response.ok || !result.ok) {
-      throw new Error(result.message ?? result.error ?? "저장 연결을 삭제하지 못했습니다.");
-    }
-
-    savedMappings = result.mappings ?? [];
+    savedMappings = result.items;
     savedMappingsLoaded = true;
     renderSavedMappings(result.path);
     refreshOverview();
@@ -6877,14 +6791,9 @@ async function loadFeatureSets() {
   featureSetStatus.dataset.state = "ready";
 
   try {
-    const response = await fetch(createDevtoolsApiPath("/api/devtools/nanika-feature-sets"));
-    const result = await readApiJson<NanikaFeatureSetsResponse>(response);
+    const result = await listNanikaData<NanikaFeatureSet>("featureSets");
 
-    if (!response.ok || !result.ok) {
-      throw new Error(result.message ?? result.error ?? "저장된 기능 묶음을 불러오지 못했습니다.");
-    }
-
-    savedFeatureSets = result.featureSets ?? [];
+    savedFeatureSets = result.items;
     saveCanvasStatesToStorage();
     renderFeatureSets(result.path);
     refreshOverview();
@@ -6920,18 +6829,9 @@ async function saveFeatureSet() {
   }
 
   try {
-    const response = await fetch(createDevtoolsApiPath("/api/devtools/save-nanika-feature-set"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ featureSet }),
-    });
-    const result = await readApiJson<NanikaFeatureSetsResponse>(response);
+    const result = await saveNanikaDataItem<NanikaFeatureSet>("featureSets", featureSet.id, featureSet);
 
-    if (!response.ok || !result.ok) {
-      throw new Error(result.message ?? result.error ?? "기능 묶음을 저장하지 못했습니다.");
-    }
-
-    savedFeatureSets = result.featureSets ?? [];
+    savedFeatureSets = result.items;
     renderFeatureSets(result.path);
     refreshOverview();
     featureSetStatus.textContent = `${featureSet.id} 기능 묶음을 저장했어요.`;
@@ -6944,18 +6844,9 @@ async function saveFeatureSet() {
 
 async function deleteFeatureSet(featureSetId: string) {
   try {
-    const response = await fetch(createDevtoolsApiPath("/api/devtools/delete-nanika-feature-set"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: featureSetId }),
-    });
-    const result = await readApiJson<NanikaFeatureSetsResponse>(response);
+    const result = await deleteNanikaDataItem<NanikaFeatureSet>("featureSets", featureSetId);
 
-    if (!response.ok || !result.ok) {
-      throw new Error(result.message ?? result.error ?? "기능 묶음을 삭제하지 못했습니다.");
-    }
-
-    savedFeatureSets = result.featureSets ?? [];
+    savedFeatureSets = result.items;
     renderFeatureSets(result.path);
     refreshOverview();
     featureSetStatus.textContent = `${featureSetId} 기능 묶음을 삭제했어요.`;
@@ -7382,18 +7273,9 @@ async function saveMappingFromEditorCanvas(mapping: NanikaMapping) {
   }
 
   try {
-    const response = await fetch(createDevtoolsApiPath("/api/devtools/save-nanika-mapping"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mapping: nextMapping }),
-    });
-    const result = await readApiJson<NanikaMappingsResponse>(response);
+    const result = await saveNanikaDataItem<NanikaMapping>("mappings", nextMapping.id, nextMapping);
 
-    if (!response.ok || !result.ok) {
-      throw new Error(result.message ?? result.error ?? "작업판 변경을 mapping에 저장하지 못했어요.");
-    }
-
-    savedMappings = result.mappings ?? [];
+    savedMappings = result.items;
     savedMappingsLoaded = true;
     syncSavedMappingCanvasStateAfterSave(previousGraph, nextMapping);
     saveCanvasStatesToStorage();

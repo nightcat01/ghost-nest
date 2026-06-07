@@ -736,6 +736,112 @@ async function writeNanikaFeatureSets(featureSets) {
   return path.relative(root, featureSetsPath).replaceAll(path.sep, "/");
 }
 
+function getFileNanikaDataScope(scope) {
+  const normalizedScope = String(scope ?? "").trim();
+
+  if (normalizedScope === "mappings") {
+    return {
+      itemKey: "mapping",
+      itemsKey: "mappings",
+      invalidIdError: "invalid_nanika_mapping_id",
+      normalize: normalizeNanikaMapping,
+      read: readNanikaMappings,
+      write: writeNanikaMappings,
+      assertId: assertSafeNanikaMappingId,
+    };
+  }
+
+  if (normalizedScope === "featureSets") {
+    return {
+      itemKey: "featureSet",
+      itemsKey: "featureSets",
+      invalidIdError: "invalid_nanika_feature_set_id",
+      normalize: normalizeNanikaFeatureSet,
+      read: readNanikaFeatureSets,
+      write: writeNanikaFeatureSets,
+      assertId: assertSafeNanikaFeatureSetId,
+    };
+  }
+
+  if (normalizedScope === "conditions") {
+    return {
+      itemKey: "condition",
+      itemsKey: "conditions",
+      invalidIdError: "invalid_nanika_condition_id",
+      normalize: normalizeNanikaCondition,
+      read: readNanikaConditions,
+      write: writeNanikaConditions,
+      assertId: assertSafeNanikaConditionId,
+    };
+  }
+
+  throw new Error("unsupported_nanika_data_scope");
+}
+
+function createFileNanikaDataAdapter() {
+  return {
+    async list(scope) {
+      const scopeConfig = getFileNanikaDataScope(scope);
+      return scopeConfig.read();
+    },
+    async getItem(scope, id) {
+      const scopeConfig = getFileNanikaDataScope(scope);
+      const safeId = scopeConfig.assertId(id);
+      const items = await scopeConfig.read();
+
+      return items.find((item) => item.id === safeId) ?? null;
+    },
+    async saveItem(scope, id, value) {
+      const scopeConfig = getFileNanikaDataScope(scope);
+      const rawItem = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+      const item = scopeConfig.normalize({ ...rawItem, id: id ?? rawItem.id });
+      const items = await scopeConfig.read();
+      const nextItems = [
+        ...items.filter((candidate) => candidate.id !== item.id),
+        item,
+      ];
+
+      await scopeConfig.write(nextItems);
+    },
+    async deleteItem(scope, id) {
+      const scopeConfig = getFileNanikaDataScope(scope);
+      const safeId = scopeConfig.assertId(id);
+      const items = await scopeConfig.read();
+      const nextItems = items.filter((item) => item.id !== safeId);
+
+      await scopeConfig.write(nextItems);
+    },
+  };
+}
+
+function getNanikaDataScopePath(scope) {
+  if (scope === "mappings") {
+    return getNanikaMappingsPath();
+  }
+
+  if (scope === "featureSets") {
+    return getNanikaFeatureSetsPath();
+  }
+
+  if (scope === "conditions") {
+    return getNanikaConditionsPath();
+  }
+
+  throw new Error("unsupported_nanika_data_scope");
+}
+
+function getNanikaDataResponsePath(scope) {
+  try {
+    return path.relative(root, getNanikaDataScopePath(scope)).replaceAll(path.sep, "/");
+  } catch {
+    return undefined;
+  }
+}
+
+function resolveNanikaDataAdapter() {
+  return createFileNanikaDataAdapter();
+}
+
 function readRequestJson(request) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -3957,12 +4063,133 @@ async function handleDeleteNanikaFeatureSet(request, response) {
   return true;
 }
 
+function parseNanikaDataPath(pathname) {
+  const match = pathname.match(/^\/api\/nanika\/data\/([^/]+)(?:\/([^/]+))?$/);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    scope: decodeURIComponent(match[1]),
+    id: match[2] ? decodeURIComponent(match[2]) : undefined,
+  };
+}
+
+async function handleNanikaData(request, response, pathname) {
+  const parsedPath = parseNanikaDataPath(pathname);
+
+  if (!parsedPath) {
+    return false;
+  }
+
+  try {
+    const adapter = resolveNanikaDataAdapter();
+
+    if (request.method === "GET" && parsedPath.id) {
+      const item = await adapter.getItem(parsedPath.scope, parsedPath.id);
+
+      sendJson(response, 200, {
+        ok: true,
+        scope: parsedPath.scope,
+        item,
+        path: getNanikaDataResponsePath(parsedPath.scope),
+      });
+      return true;
+    }
+
+    if (request.method === "GET") {
+      const items = await adapter.list(parsedPath.scope);
+
+      sendJson(response, 200, {
+        ok: true,
+        scope: parsedPath.scope,
+        items,
+        path: getNanikaDataResponsePath(parsedPath.scope),
+      });
+      return true;
+    }
+
+    if (request.method === "PUT" && parsedPath.id) {
+      const body = await readRequestJson(request);
+      const value = Object.prototype.hasOwnProperty.call(body, "value") ? body.value : body;
+      await adapter.saveItem(parsedPath.scope, parsedPath.id, value);
+      const item = await adapter.getItem(parsedPath.scope, parsedPath.id);
+      const items = await adapter.list(parsedPath.scope);
+
+      sendJson(response, 200, {
+        ok: true,
+        message: "Nanika data item saved.",
+        scope: parsedPath.scope,
+        item,
+        items,
+        path: getNanikaDataResponsePath(parsedPath.scope),
+      });
+      return true;
+    }
+
+    if (request.method === "DELETE" && parsedPath.id) {
+      await adapter.deleteItem(parsedPath.scope, parsedPath.id);
+      const items = await adapter.list(parsedPath.scope);
+
+      sendJson(response, 200, {
+        ok: true,
+        message: "Nanika data item deleted.",
+        scope: parsedPath.scope,
+        deletedId: parsedPath.id,
+        items,
+        path: getNanikaDataResponsePath(parsedPath.scope),
+      });
+      return true;
+    }
+
+    sendJson(response, 405, { ok: false, error: "method_not_allowed" });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "nanika_data_failed";
+    const statusCode = [
+      "invalid_json",
+      "unsupported_nanika_data_scope",
+      "invalid_nanika_mapping",
+      "invalid_nanika_mapping_id",
+      "invalid_nanika_mapping_event",
+      "invalid_nanika_mapping_action",
+      "invalid_nanika_mapping_actions",
+      "invalid_nanika_condition",
+      "invalid_nanika_condition_id",
+      "invalid_nanika_condition_scope",
+      "invalid_nanika_condition_type",
+      "invalid_nanika_condition_value",
+      "invalid_nanika_feature_set",
+      "invalid_nanika_feature_set_id",
+      "invalid_nanika_feature_set_mappings",
+      "invalid_nanika_mappings_file",
+      "invalid_nanika_conditions_file",
+      "invalid_nanika_feature_sets_file",
+      "nanika_mapping_path_outside_project",
+      "nanika_condition_path_outside_project",
+      "nanika_feature_set_path_outside_project",
+    ].includes(message) ? 400 : 500;
+
+    sendJson(response, statusCode, {
+      ok: false,
+      error: message,
+      message: "Nanika data request failed.",
+    });
+  }
+
+  return true;
+}
+
 async function handleApiRequest(request, response) {
   const pathname = stripConfiguredBasePath(new URL(request.url, `http://127.0.0.1:${port}`).pathname);
 
-  if (pathname.startsWith("/api/devtools/") && !isCharacterDevtoolsRequestAllowed(request)) {
+  if ((pathname.startsWith("/api/devtools/") || pathname.startsWith("/api/nanika/data/")) && !isCharacterDevtoolsRequestAllowed(request)) {
     sendDevtoolsForbidden(response, request);
     return true;
+  }
+
+  if (pathname.startsWith("/api/nanika/data/")) {
+    return handleNanikaData(request, response, pathname);
   }
 
   if (pathname === "/api/devtools/generate-layer-part") {

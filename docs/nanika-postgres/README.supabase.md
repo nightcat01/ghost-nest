@@ -9,8 +9,12 @@
 | File | Role |
 | --- | --- |
 | `schema.sql` | Postgres table, index, trigger, runtime JSON view |
+| `data-api-functions.sql` | Optional RPC helper functions for `/api/nanika/data/:scope` |
 | `seed-fortune-rine.sql` | Fortune Master + Rine minimal demo data |
+| `seed-current-generated.sql` | Current `generated/nanika-*.json` mapping and feature set seed |
 | `policies.supabase.sql` | Optional Supabase RLS policies |
+| `apply-current-generated.sql` | All-in-one SQL for schema, helper functions, current generated seed, and RLS |
+| `data-api-adapter.example.ts` | Supabase-backed `NanikaDataAdapter` example |
 
 ## Apply Order
 
@@ -20,14 +24,22 @@ Supabase SQL editor 또는 migration에서 아래 순서로 실행합니다.
 -- 1. Base schema
 \i docs/nanika-postgres/schema.sql
 
--- 2. Optional seed
+-- 2. Optional data API helper functions
+\i docs/nanika-postgres/data-api-functions.sql
+
+-- 3. Optional seed
 \i docs/nanika-postgres/seed-fortune-rine.sql
 
--- 3. Optional Supabase RLS
+-- 3-b. Optional seed from current local generated files
+\i docs/nanika-postgres/seed-current-generated.sql
+
+-- 4. Optional Supabase RLS
 \i docs/nanika-postgres/policies.supabase.sql
 ```
 
 Supabase SQL editor에서는 `\i`를 사용할 수 없으니 파일 내용을 순서대로 붙여넣어 실행하세요.
+
+현재 로컬 `generated` 기준으로 바로 시작하려면 `apply-current-generated.sql` 하나를 Supabase SQL editor에 붙여넣어도 됩니다.
 
 ## Runtime Read Queries
 
@@ -48,6 +60,13 @@ order by sort_order, id;
 ```
 
 ```sql
+select condition_json
+from public.nanika_condition_definitions
+where enabled = true
+order by sort_order, id;
+```
+
+```sql
 select profile_json
 from public.nanika_runtime_profile_definitions
 where enabled = true
@@ -60,12 +79,13 @@ where enabled = true
 | --- | --- |
 | `mapping_json` | `NanikaMapping` |
 | `feature_set_json` | `NanikaFeatureSet` |
+| `condition_json` | Nanika condition card data |
 | `profile_json` | `NanikaRuntimeProfile` |
 
 ## Supabase JS Example
 
 ```ts
-const [{ data: mappingRows }, { data: featureSetRows }, { data: profileRows }] = await Promise.all([
+const [{ data: mappingRows }, { data: featureSetRows }, { data: conditionRows }, { data: profileRows }] = await Promise.all([
   supabase
     .from("nanika_mapping_definitions")
     .select("mapping_json")
@@ -79,6 +99,12 @@ const [{ data: mappingRows }, { data: featureSetRows }, { data: profileRows }] =
     .order("sort_order")
     .order("id"),
   supabase
+    .from("nanika_condition_definitions")
+    .select("condition_json")
+    .eq("enabled", true)
+    .order("sort_order")
+    .order("id"),
+  supabase
     .from("nanika_runtime_profile_definitions")
     .select("profile_json")
     .eq("enabled", true)
@@ -88,10 +114,13 @@ const [{ data: mappingRows }, { data: featureSetRows }, { data: profileRows }] =
 
 const mappings = mappingRows?.map((row) => row.mapping_json) ?? [];
 const featureSets = featureSetRows?.map((row) => row.feature_set_json) ?? [];
+const conditions = conditionRows?.map((row) => row.condition_json) ?? [];
 const profile = profileRows?.profile_json;
 ```
 
 이후 기존 런타임 조립 흐름을 그대로 사용합니다.
+
+`conditions`는 devtools의 조건 카드 목록으로 다시 넘길 때 사용합니다. 런타임 rule에 이미 포함된 `mapping.conditions`와는 별개로, 저장 가능한 조건 재료 목록입니다.
 
 ```ts
 const result = createNanikaRuntimeProfileOptions({

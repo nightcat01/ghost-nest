@@ -114,6 +114,28 @@ create table if not exists public.nanika_feature_sets (
     check (requirements_json is null or jsonb_typeof(requirements_json) = 'array')
 );
 
+create table if not exists public.nanika_conditions (
+  id text primary key,
+  scope text not null,
+  type text not null,
+  operator text not null,
+  value text not null,
+  name text,
+  description text,
+  enabled boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint nanika_conditions_id_format
+    check (id ~ '^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$'),
+  constraint nanika_conditions_scope_check
+    check (scope in ('runtime', 'character')),
+  constraint nanika_conditions_type_check
+    check (type in ('url', 'pageId')),
+  constraint nanika_conditions_operator_check
+    check (operator in ('contains', 'startsWith', 'equals', 'pattern'))
+);
+
 create table if not exists public.nanika_runtime_profiles (
   id text primary key,
   name text,
@@ -189,6 +211,9 @@ create index if not exists nanika_mappings_actions_gin_idx
 create index if not exists nanika_feature_sets_mapping_ids_gin_idx
   on public.nanika_feature_sets using gin (mapping_ids);
 
+create index if not exists nanika_conditions_scope_idx
+  on public.nanika_conditions (scope, type, enabled);
+
 create index if not exists nanika_runtime_profiles_enabled_idx
   on public.nanika_runtime_profiles (enabled, sort_order, id);
 
@@ -236,6 +261,11 @@ for each row execute function public.nanika_touch_updated_at();
 drop trigger if exists nanika_feature_sets_touch_updated_at on public.nanika_feature_sets;
 create trigger nanika_feature_sets_touch_updated_at
 before update on public.nanika_feature_sets
+for each row execute function public.nanika_touch_updated_at();
+
+drop trigger if exists nanika_conditions_touch_updated_at on public.nanika_conditions;
+create trigger nanika_conditions_touch_updated_at
+before update on public.nanika_conditions
 for each row execute function public.nanika_touch_updated_at();
 
 drop trigger if exists nanika_runtime_profiles_touch_updated_at on public.nanika_runtime_profiles;
@@ -294,6 +324,23 @@ select
   sort_order,
   updated_at
 from public.nanika_feature_sets;
+
+create or replace view public.nanika_condition_definitions as
+select
+  id,
+  jsonb_strip_nulls(jsonb_build_object(
+    'id', id,
+    'scope', scope,
+    'type', type,
+    'operator', operator,
+    'value', value,
+    'name', name,
+    'description', description
+  )) as condition_json,
+  enabled,
+  sort_order,
+  updated_at
+from public.nanika_conditions;
 
 create or replace view public.nanika_runtime_profile_definitions as
 select
