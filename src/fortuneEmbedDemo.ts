@@ -30,6 +30,7 @@ const runtimeStatus = document.querySelector<HTMLElement>("#fortuneRuntimeStatus
 let runtimeBootCount = 0;
 let embedCharacters: CharacterDefinition[] = [nanikaPreset.character, ...bundledCharacters];
 let embedCharactersReady: Promise<CharacterDefinition[]> | null = null;
+let hasLoadedEmbedCharacterCatalog = false;
 let embedAssetBaseUrlOptionsReady: Promise<CharacterAssetBaseUrlOptions | null> | null = null;
 let currentEmbedPageId = "home";
 let currentEmbedCharacterId = nanikaPreset.character.profile.id;
@@ -127,6 +128,7 @@ async function loadAvailableEmbedCharacters() {
         ...loadedCharacters.filter(isCharacterDefinition),
         ...embedCharacters,
       ]);
+      hasLoadedEmbedCharacterCatalog = true;
     } catch {
       return embedCharacters;
     }
@@ -309,16 +311,21 @@ function createEmbedRuntimeProfile(pageId: string, character: CharacterDefinitio
 
 function createEmbedCharacterSwitchMenuItem(currentCharacter: CharacterDefinition): ManagementMenuItem {
   const candidates = embedCharacters.filter((character) => character.profile.id !== currentCharacter.profile.id);
+  const loadCatalogItem: ManagementMenuItem = {
+    id: "load-embed-characters",
+    label: "저장 캐릭터 불러오기",
+    description: "필요할 때만 캐릭터 목록을 불러와 초기 로딩을 가볍게 유지합니다.",
+    actions: [
+      { type: "load_embed_characters" },
+    ],
+  };
 
-  if (candidates.length === 0) {
+  if (!hasLoadedEmbedCharacterCatalog && candidates.length === 0) {
     return {
       id: "change-character",
       label: "캐릭터 변경",
-      description: "현재 전환할 수 있는 다른 캐릭터가 없습니다.",
-      actions: [
-        { type: "speak_text", text: "지금은 전환할 수 있는 다른 캐릭터가 없어요." },
-        { type: "log", label: "embed.character_change.empty" },
-      ],
+      description: "저장된 캐릭터 목록은 선택할 때 불러옵니다.",
+      children: [loadCatalogItem],
     };
   }
 
@@ -326,17 +333,31 @@ function createEmbedCharacterSwitchMenuItem(currentCharacter: CharacterDefinitio
     id: "change-character",
     label: "캐릭터 변경",
     description: "이 임베드 데모에서 사용할 캐릭터를 선택합니다.",
-    children: candidates.map((character) => ({
-      id: `change-character-${character.profile.id}`,
-      label: character.profile.name,
-      description: `${character.profile.name} 캐릭터로 런타임을 다시 시작합니다.`,
-      actions: [
-        {
-          type: "switch_embed_character",
-          characterId: character.profile.id,
-        },
-      ],
-    })),
+    children: [
+      ...(!hasLoadedEmbedCharacterCatalog ? [loadCatalogItem] : []),
+      ...candidates.map((character) => ({
+        id: `change-character-${character.profile.id}`,
+        label: character.profile.name,
+        description: `${character.profile.name} 캐릭터로 런타임을 다시 시작합니다.`,
+        actions: [
+          {
+            type: "switch_embed_character",
+            characterId: character.profile.id,
+          },
+        ],
+      })),
+      ...(hasLoadedEmbedCharacterCatalog && candidates.length === 0
+        ? [{
+          id: "change-character-empty",
+          label: "다른 캐릭터 없음",
+          description: "현재 전환할 수 있는 다른 캐릭터가 없습니다.",
+          actions: [
+            { type: "speak_text", text: "지금은 전환할 수 있는 다른 캐릭터가 없어요." },
+            { type: "log", label: "embed.character_change.empty" },
+          ],
+        }]
+        : []),
+    ],
   };
 }
 
@@ -410,7 +431,6 @@ const fortuneWindow = window as FortuneEmbedWindow;
 
 async function createFortuneRuntime(pageId = currentEmbedPageId, characterId = currentEmbedCharacterId) {
   fortuneWindow.__fortuneNanikaRuntime__?.destroy();
-  await loadAvailableEmbedCharacters();
   runtimeBootCount += 1;
   currentEmbedPageId = pageId;
   const character = await createEmbedRuntimeCharacter(getEmbedCharacter(characterId));
@@ -463,24 +483,68 @@ async function createFortuneRuntime(pageId = currentEmbedPageId, characterId = c
       ? action.characterId
       : currentEmbedCharacterId;
 
-    void createFortuneRuntime(currentEmbedPageId, nextCharacterId);
+    void switchFortuneRuntimeCharacter(nextCharacterId);
+  });
+  fortuneWindow.__fortuneNanikaRuntime__.registerAction("load_embed_characters", async () => {
+    if (runtimeStatus) {
+      runtimeStatus.textContent = "캐릭터 목록을 불러오는 중";
+    }
+
+    await loadAvailableEmbedCharacters();
+    await createFortuneRuntime(currentEmbedPageId, currentEmbedCharacterId);
   });
 
   document.querySelector<HTMLElement>("#fortuneNanikaRuntime .fortune-nanika-stage")?.addEventListener(
     "ghostnest:character-change-request",
-    (event) => {
+    async (event) => {
       const detail = (event as CustomEvent<{ characterId?: string }>).detail;
+      await loadAvailableEmbedCharacters();
       const nextCharacterId = detail?.characterId && detail.characterId !== currentEmbedCharacterId
         ? detail.characterId
         : embedCharacters.find((candidate) => candidate.profile.id !== currentEmbedCharacterId)?.profile.id;
 
       if (nextCharacterId) {
-        void createFortuneRuntime(currentEmbedPageId, nextCharacterId);
+        void switchFortuneRuntimeCharacter(nextCharacterId);
       }
     },
   );
 
   fortuneWindow.__fortuneNanikaRuntime__.emit(profile.bootEvent);
+  if (runtimeStatus) {
+    runtimeStatus.textContent = `${character.profile.name} ready #${runtimeBootCount}`;
+  }
+}
+
+async function switchFortuneRuntimeCharacter(characterId: string) {
+  const runtime = fortuneWindow.__fortuneNanikaRuntime__;
+
+  if (!runtime) {
+    await createFortuneRuntime(currentEmbedPageId, characterId);
+    return;
+  }
+
+  const character = await createEmbedRuntimeCharacter(getEmbedCharacter(characterId));
+  currentEmbedCharacterId = character.profile.id;
+  const profile = createEmbedRuntimeProfile(currentEmbedPageId, character);
+  const profileResult = createNanikaRuntimeProfileOptions({
+    profile,
+    context: {
+      pageId: currentEmbedPageId,
+      url: window.location.pathname,
+    },
+    featureSets: fortuneEmbedFeatureSets,
+    mappings: fortuneEmbedMappings,
+    characterId: character.profile.id,
+  });
+  const initialOptions = profileResult.overrides ?? {};
+
+  await runtime.setCharacter(character, {
+    ...(initialOptions.initialExpression ? { initialExpression: initialOptions.initialExpression } : {}),
+    ...(initialOptions.initialSurface ? { initialSurface: initialOptions.initialSurface } : {}),
+    ...(initialOptions.initialScene ? { initialScene: initialOptions.initialScene } : {}),
+  });
+  runtime.emit(profile.bootEvent);
+
   if (runtimeStatus) {
     runtimeStatus.textContent = `${character.profile.name} ready #${runtimeBootCount}`;
   }

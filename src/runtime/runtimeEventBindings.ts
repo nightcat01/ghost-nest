@@ -20,7 +20,7 @@ type RuntimeEventEmitter = {
 type BindRuntimeDomEventsOptions = {
   elements: RuntimeElements;
   eventBus: RuntimeEventEmitter;
-  character: CharacterDefinition;
+  getCharacter: () => CharacterDefinition;
   controls: RuntimeControlOptions;
   cleanupCallbacks: Array<() => void>;
   touchInteraction: () => void;
@@ -46,7 +46,7 @@ function isRuntimeCommandId(value: string | undefined): value is RuntimeCommandI
 export function bindRuntimeDomEvents({
   elements,
   eventBus,
-  character,
+  getCharacter,
   controls,
   cleanupCallbacks,
   touchInteraction,
@@ -98,7 +98,7 @@ export function bindRuntimeDomEvents({
         event.clientX,
         event.clientY,
         elements.sprite.getBoundingClientRect(),
-        character.assets?.hitAreas,
+        getCharacter().assets?.hitAreas,
       );
       eventBus.emit("character:double_click", { part });
       return;
@@ -112,7 +112,7 @@ export function bindRuntimeDomEvents({
       event.clientX,
       event.clientY,
       elements.sprite.getBoundingClientRect(),
-      character.assets?.hitAreas,
+      getCharacter().assets?.hitAreas,
     );
     eventBus.emit("character:touch", { part });
   };

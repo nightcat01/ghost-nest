@@ -27,12 +27,16 @@ import {
   defaultUserPreferences,
 } from "./runtimeDefaults.js";
 import type {
+  CharacterDefinition,
   CharacterExpression,
+  DialogueEngine,
   DialogueChoice,
   DialogueMessage,
   GhostRuntime,
   GhostRuntimeOptions,
+  RuntimeCharacterChangeOptions,
   RuntimeEventName,
+  RuntimeSceneOptions,
 } from "../core/types.js";
 
 /**
@@ -56,6 +60,47 @@ function createDefaultRestoreBadge() {
   document.body.append(badge);
 
   return badge;
+}
+
+/**
+ * Builds the scene options visible to the runtime from host options and character assets.
+ */
+function createRuntimeSceneOptions(character: CharacterDefinition, sceneOptions: RuntimeSceneOptions | undefined) {
+  const hasCharacterDefaultScene = Boolean(character.assets)
+    && Object.prototype.hasOwnProperty.call(character.assets, "defaultScene");
+  const characterScene = character.assets
+    && (hasCharacterDefaultScene || character.assets.scenes || character.assets.sceneSets)
+    ? {
+      ...(hasCharacterDefaultScene ? { defaultScene: character.assets.defaultScene } : {}),
+      ...(character.assets.scenes ? { scenes: character.assets.scenes } : {}),
+      ...(character.assets.sceneSets ? { sceneSets: character.assets.sceneSets } : {}),
+    }
+    : undefined;
+
+  return characterScene || sceneOptions
+    ? {
+      ...(sceneOptions?.canvas !== undefined ? { canvas: sceneOptions.canvas } : {}),
+      ...(sceneOptions?.layers !== undefined ? { layers: sceneOptions.layers } : {}),
+      ...(sceneOptions?.defaultScene !== undefined ? { defaultScene: sceneOptions.defaultScene } : {}),
+      ...(characterScene?.defaultScene !== undefined ? { defaultScene: characterScene.defaultScene } : {}),
+      ...((sceneOptions?.scenes || characterScene?.scenes)
+        ? { scenes: { ...(sceneOptions?.scenes ?? {}), ...(characterScene?.scenes ?? {}) } }
+        : {}),
+      ...((sceneOptions?.sceneSets || characterScene?.sceneSets)
+        ? { sceneSets: { ...(sceneOptions?.sceneSets ?? {}), ...(characterScene?.sceneSets ?? {}) } }
+        : {}),
+    }
+    : undefined;
+}
+
+/**
+ * Creates the active dialogue engine for one character.
+ */
+function createCharacterDialogueEngine(character: CharacterDefinition, dialogueEngine?: DialogueEngine) {
+  return dialogueEngine ?? createDialogueEngine({
+    profile: character.profile,
+    lines: character.lines,
+  });
 }
 
 /**
@@ -116,50 +161,29 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
     ...(options.includeDefaultRules === false ? [] : createDefaultRules(timing)),
     ...(options.rules ?? []),
   ];
+  let currentCharacter = options.character;
+  let currentDialogue = createCharacterDialogueEngine(currentCharacter, options.dialogueEngine);
+  const dialogue: DialogueEngine = {
+    line: (category) => currentDialogue.line(category),
+    custom: (text) => currentDialogue.custom(text),
+  };
   
   const storageAdapter = controls.persistence
-    ? options.storageAdapter ?? createLocalStorageAdapter(`ghostNest:${options.character.profile.id}`)
+    ? options.storageAdapter ?? createLocalStorageAdapter(`ghostNest:${currentCharacter.profile.id}`)
     : createMemoryStorageAdapter();
-  const dialogue = options.dialogueEngine ?? createDialogueEngine({
-    profile: options.character.profile,
-    lines: options.character.lines,
-  });
   
   const state = createRuntimeState();
-  state.expression = options.initialExpression ?? options.character.profile.defaultExpression ?? state.expression;
+  state.expression = options.initialExpression ?? currentCharacter.profile.defaultExpression ?? state.expression;
   const cleanupCallbacks: Array<() => void> = [];
   const actionTimers = new Map<string, number>();
   const ruleCooldowns = new Map<string, number>();
-  const hasCharacterDefaultScene = Boolean(options.character.assets)
-    && Object.prototype.hasOwnProperty.call(options.character.assets, "defaultScene");
-  const characterScene = options.character.assets
-    && (hasCharacterDefaultScene || options.character.assets.scenes || options.character.assets.sceneSets)
-    ? {
-      ...(hasCharacterDefaultScene ? { defaultScene: options.character.assets.defaultScene } : {}),
-      ...(options.character.assets.scenes ? { scenes: options.character.assets.scenes } : {}),
-      ...(options.character.assets.sceneSets ? { sceneSets: options.character.assets.sceneSets } : {}),
-    }
-    : undefined;
-  const runtimeScene = characterScene || options.scene
-    ? {
-      ...(options.scene?.canvas !== undefined ? { canvas: options.scene.canvas } : {}),
-      ...(options.scene?.layers !== undefined ? { layers: options.scene.layers } : {}),
-      ...(options.scene?.defaultScene !== undefined ? { defaultScene: options.scene.defaultScene } : {}),
-      ...(characterScene?.defaultScene !== undefined ? { defaultScene: characterScene.defaultScene } : {}),
-      ...((options.scene?.scenes || characterScene?.scenes)
-        ? { scenes: { ...(options.scene?.scenes ?? {}), ...(characterScene?.scenes ?? {}) } }
-        : {}),
-      ...((options.scene?.sceneSets || characterScene?.sceneSets)
-        ? { sceneSets: { ...(options.scene?.sceneSets ?? {}), ...(characterScene?.sceneSets ?? {}) } }
-        : {}),
-    }
-    : undefined;
+  const runtimeScene = createRuntimeSceneOptions(currentCharacter, options.scene);
   const sceneRenderer = createSceneRenderer({
     elements,
     scene: runtimeScene,
     initialScene: options.initialScene,
   });
-  const characterRenderer = createCharacterRenderer({ elements, character: options.character });
+  const characterRenderer = createCharacterRenderer({ elements, character: currentCharacter });
   const diagnostics = createRuntimeDiagnostics({
     selectors: controls.devtools && controls.diagnostics ? options.devtools?.diagnostics?.selectors : undefined,
     state,
@@ -309,7 +333,7 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
       { type: "end" as const },
     ];
     const validation = validateDialogueScript(script, {
-      knownSurfaceIds: Object.keys(options.character.assets?.surfaces ?? {}),
+      knownSurfaceIds: Object.keys(currentCharacter.assets?.surfaces ?? {}),
     });
 
     if (!validation.valid) {
@@ -431,7 +455,7 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
   bindRuntimeDomEvents({
     elements,
     eventBus,
-    character: options.character,
+    getCharacter: () => currentCharacter,
     controls,
     cleanupCallbacks,
     touchInteraction,
@@ -481,14 +505,14 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
   if (controls.devtools && controls.hitboxEditor && options.devtools?.hitboxEditor) {
     const hitboxEditor = initHitboxEditor({
       elements,
-      character: options.character,
+      character: currentCharacter,
       selectors: options.devtools.hitboxEditor.selectors,
       storageAdapter,
     });
     cleanupCallbacks.push(hitboxEditor.destroy);
   }
   if (options.initialSurface) {
-    const initialSurface = options.character.assets?.surfaces?.[options.initialSurface];
+    const initialSurface = currentCharacter.assets?.surfaces?.[options.initialSurface];
 
     if (initialSurface?.expression) {
       state.expression = initialSurface.expression;
@@ -504,12 +528,57 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
   elements.stage.dispatchEvent(new CustomEvent("ghostnest:ready", {
     bubbles: true,
     detail: {
-      characterId: options.character.profile.id,
+      characterId: currentCharacter.profile.id,
     },
   }));
   eventBus.emit("runtime:ready");
 
   let isDestroyed = false;
+
+  /**
+   * 현재 런타임 인스턴스를 유지한 채 캐릭터와 캐릭터 귀속 초기값을 교체합니다.
+   */
+  async function applyRuntimeCharacter(
+    nextCharacter: CharacterDefinition,
+    changeOptions: RuntimeCharacterChangeOptions = {},
+  ) {
+    currentCharacter = nextCharacter;
+    currentDialogue = createCharacterDialogueEngine(nextCharacter, changeOptions.dialogueEngine);
+    dialoguePlayer.stop();
+    clearDialogueChoices();
+    state.isHidden = false;
+    state.mode = "idle";
+    state.lastTouchedPart = null;
+    state.expression = changeOptions.initialExpression
+      ?? nextCharacter.profile.defaultExpression
+      ?? "neutral";
+    elements.stage.classList.remove("is-hidden");
+    elements.stage.dataset.state = state.mode;
+
+    if (elements.restoreBadge) {
+      elements.restoreBadge.hidden = true;
+    }
+
+    const nextScene = createRuntimeSceneOptions(nextCharacter, changeOptions.scene ?? options.scene);
+    sceneRenderer.setSceneOptions(nextScene, changeOptions.initialScene);
+    characterRenderer.updateCharacter(nextCharacter, state, {
+      initialExpression: state.expression,
+      ...(changeOptions.initialSurface ? { initialSurface: changeOptions.initialSurface } : {}),
+    });
+
+    if (changeOptions.resetSpeech !== false) {
+      renderSpeech(await dialogue.line("onMount"));
+    }
+
+    diagnostics.addLog(`character:set:${nextCharacter.profile.id}`);
+    diagnostics.renderStatusPanel();
+    elements.stage.dispatchEvent(new CustomEvent("ghostnest:character-change", {
+      bubbles: true,
+      detail: {
+        characterId: nextCharacter.profile.id,
+      },
+    }));
+  }
   
   const runtime: GhostRuntime = {
     emit(eventName, payload) {
@@ -518,6 +587,13 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
       }
 
       eventBus.emit(eventName, payload);
+    },
+    async setCharacter(character, changeOptions) {
+      if (isDestroyed) {
+        return;
+      }
+
+      await applyRuntimeCharacter(character, changeOptions);
     },
     registerAction,
     destroy() {

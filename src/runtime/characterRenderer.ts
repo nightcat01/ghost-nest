@@ -237,6 +237,7 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
   const activeLayerAnimations = new Map<CharacterLayerId, number>();
   const activeLayerIds = new Set<CharacterLayerId>();
   const idleLayerAnimations = new Map<CharacterLayerId, number>();
+  let currentCharacter = character;
   let currentSurface: CharacterSurface | null = null;
   let currentVisualSource: CharacterVisualSource | null = null;
   let surfaceApplyToken = 0;
@@ -327,7 +328,7 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
   }
 
   function findSurfaceForExpression(expression: CharacterExpression, visualSource: CharacterVisualSource | null) {
-    const surfaces = character.assets?.surfaces;
+    const surfaces = currentCharacter.assets?.surfaces;
 
     if (!surfaces) {
       return null;
@@ -375,7 +376,7 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
 
     const visualSource = getSurfaceVisualSource(surface);
     const sceneLayers = visualSource?.type === "scene"
-      ? character.assets?.scenes?.[visualSource.sceneId]?.layers ?? []
+      ? currentCharacter.assets?.scenes?.[visualSource.sceneId]?.layers ?? []
       : [];
 
     return [
@@ -417,7 +418,7 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
   }
 
   function renderSceneVisual(sceneId: string) {
-    const scene = character.assets?.scenes?.[sceneId];
+    const scene = currentCharacter.assets?.scenes?.[sceneId];
 
     sceneVisualRoot.replaceChildren();
     sceneVisualRoot.dataset.sceneId = sceneId;
@@ -497,7 +498,7 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
 
     currentSurface = surface;
     elements.sprite.dataset.surfaceId = surface.id;
-    elements.spriteImage.alt = surface.alt ?? character.assets?.alt ?? character.profile.name;
+    elements.spriteImage.alt = surface.alt ?? currentCharacter.assets?.alt ?? currentCharacter.profile.name;
     applyVisualSource(visualSource);
     renderStaticPartLayers(surface);
   }
@@ -677,10 +678,10 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
     stopLayerAnimations();
     stopIdleLayerAnimations();
     elements.sprite.dataset.expression = state.expression;
-    elements.spriteImage.alt = character.assets?.alt ?? character.profile.name;
+    elements.spriteImage.alt = currentCharacter.assets?.alt ?? currentCharacter.profile.name;
 
-    const expressionAsset = character.assets
-      ? pickExpressionAsset(character.assets.expressions[state.expression], currentVisualSource)
+    const expressionAsset = currentCharacter.assets
+      ? pickExpressionAsset(currentCharacter.assets.expressions[state.expression], currentVisualSource)
       : null;
     const surface = findSurfaceForExpression(state.expression, expressionAsset);
 
@@ -708,7 +709,7 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
   }
 
   function applySurface(surfaceId: string, options: { startIdleLayers?: boolean } = {}) {
-    const surface = character.assets?.surfaces?.[surfaceId];
+    const surface = currentCharacter.assets?.surfaces?.[surfaceId];
 
     if (!surface) {
       elements.stage.dispatchEvent(new CustomEvent("ghostnest:surface-missing", { detail: { id: surfaceId } }));
@@ -726,6 +727,39 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
 
   function setMode(mode: CharacterRuntimeMode) {
     elements.stage.dataset.state = mode;
+  }
+
+  function resetVisualState() {
+    surfaceApplyToken += 1;
+    stopLayerAnimations();
+    stopIdleLayerAnimations();
+    activeLayerIds.clear();
+    currentSurface = null;
+    currentVisualSource = null;
+    sceneVisualRoot.replaceChildren();
+    sceneVisualRoot.hidden = true;
+    elements.spriteImage.removeAttribute("src");
+    elements.spriteImage.hidden = true;
+    delete elements.sprite.dataset.surfaceId;
+    delete elements.sprite.dataset.visualType;
+    delete elements.sprite.dataset.touchedPart;
+    clearPartLayers();
+  }
+
+  function updateCharacter(nextCharacter: CharacterDefinition, state: Pick<RuntimeState, "expression" | "lastTouchedPart">, options: { initialExpression?: CharacterExpression; initialSurface?: string } = {}) {
+    currentCharacter = nextCharacter;
+    resetVisualState();
+    state.expression = options.initialExpression ?? currentCharacter.profile.defaultExpression ?? "neutral";
+    state.lastTouchedPart = null;
+    elements.sprite.dataset.expression = state.expression;
+    elements.spriteImage.alt = currentCharacter.assets?.alt ?? currentCharacter.profile.name;
+
+    if (options.initialSurface) {
+      applySurface(options.initialSurface);
+      return;
+    }
+
+    renderState(state);
   }
 
   function destroy() {
@@ -750,5 +784,6 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
     setLayerAnimationActive,
     setMode,
     setMouthAnimationActive,
+    updateCharacter,
   };
 }

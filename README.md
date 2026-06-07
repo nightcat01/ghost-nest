@@ -14,6 +14,7 @@ GhostNest는 API, DB, AI, UI 같은 외부 기능을 액션에 매핑하고, 그
 - 캐릭터 프로필과 대사 데이터 분리
 - 데모 플러그인 호출
 - 외부에서 호출 가능한 `createGhostRuntime()` API
+- 실행 중인 런타임에서 캐릭터를 교체하는 `runtime.setCharacter()` API
 
 ## 실행
 
@@ -44,6 +45,26 @@ npx ghost-nest export-demo-assets --character rine --root public/assets/nanika
 ```
 
 기존 파일은 기본적으로 덮어쓰지 않습니다. 덮어써야 할 때만 `--force`를 사용합니다. 자세한 embed 경로 기준은 [docs/runtime-embed-guide.md](./docs/runtime-embed-guide.md)를 확인합니다.
+
+## Runtime character switch
+
+호스트 앱에서 같은 나니카 mount를 유지한 채 캐릭터만 바꾸고 싶다면 런타임을 다시 만들지 않고 `runtime.setCharacter()`를 사용할 수 있습니다.
+
+```ts
+const runtime = createGhostRuntimeFromPreset(preset, {
+  root: "#nanika-root",
+  initialScene: "desk-room",
+  initialSurface: "idle",
+});
+
+await runtime.setCharacter(nextCharacter, {
+  initialScene: "desk-room",
+  initialSurface: "miyako-idle",
+  initialExpression: "neutral",
+});
+```
+
+캐릭터 변경 후에는 `ghostnest:character-change` 이벤트가 발생합니다. 런타임 rule, 관리 메뉴, storage scope까지 새로 잡아야 하는 경우에는 기존처럼 `destroy()` 후 새 런타임을 생성합니다. 자세한 기준은 [Runtime Character Switching](./docs/runtime-embed-guide.md#runtime-character-switching)을 확인합니다.
 
 ## 개발자 시작점
 

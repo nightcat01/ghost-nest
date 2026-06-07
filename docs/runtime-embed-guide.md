@@ -15,7 +15,7 @@ Use this roadmap when embedding Nanika into a host site such as Fortune Master.
 | 5 | Host event input API | Host pages can call `runtime.emit("event:name", payload)`. |
 | 6 | Feature mapping structure | Mapping catalogs show character, plugins, runtime events, host event examples, actions, and current rules. |
 | 7 | Real embed sample | `dev-fortune-embed.html` demonstrates a mobile Fortune Master style host page. |
-| 8 | Re-initialization and route movement | The sample calls `destroy()` before recreating runtime state for another page. Browser visual verification is still required before shipping. |
+| 8 | Re-initialization, route movement, and character switching | Use `runtime.emit(...)` for page events, `runtime.setCharacter(...)` for an in-place character switch, and `destroy()` only when the mount or rule/menu contract must be rebuilt. Browser visual verification is still required before shipping. |
 | 9 | Developer settings access | Devtool APIs support localhost/default IP allowlist and context-path handling. |
 | 10 | Verification criteria | This guide keeps the embed checklist and visual checks. |
 
@@ -554,9 +554,56 @@ function bootNanika(pageState: { scene: string; surface: string }) {
 }
 ```
 
+## Runtime Character Switching
+
+Use `runtime.setCharacter(...)` when the host page wants to keep the current runtime instance alive and swap only the active character data.
+
+This is the preferred path for host UI such as:
+
+- A page menu that changes the displayed teller or guide character.
+- A route section that keeps the same Nanika mount but uses another character.
+- A host-owned character selector that already knows which `CharacterDefinition` should be loaded next.
+
+```ts
+const runtime = createGhostRuntimeFromPreset(preset, {
+  root: "#fortuneNanikaRuntime",
+  initialScene: "desk-room",
+  initialSurface: "idle",
+});
+
+const nextCharacter = await loadCharacter("miyako");
+
+await runtime.setCharacter(nextCharacter, {
+  initialScene: "desk-room",
+  initialSurface: "miyako-idle",
+  initialExpression: "neutral",
+});
+```
+
+`setCharacter` accepts the next `CharacterDefinition` and optional initial values:
+
+| Option | Purpose |
+| --- | --- |
+| `initialExpression` | Sets the first expression after the switch. If omitted, the character default expression is used. |
+| `initialSurface` | Applies a surface immediately after the switch. Use this when each page or character profile has a known starting surface. |
+| `initialScene` | Selects the scene/scene set after the switch. Character-owned scenes are merged with host-provided scene options. |
+| `scene` | Overrides or extends runtime scene options for this switch. |
+| `dialogueEngine` | Replaces the dialogue source for the next character. If omitted, a dialogue engine is created from `nextCharacter.lines`. |
+| `resetSpeech` | Defaults to `true`. Set `false` when the host wants to keep the current speech text during the switch. |
+
+After a successful switch, the runtime stage dispatches `ghostnest:character-change`:
+
+```ts
+stage.addEventListener("ghostnest:character-change", (event) => {
+  console.log(event.detail.characterId);
+});
+```
+
+The runtime does not dispatch another `ghostnest:ready` event for `setCharacter(...)`. This is intentional: the runtime instance stayed alive.
+
 ## Character Change Requests
 
-The demo management menu includes a `Character change` item. It does not replace the character inside an already running runtime. Instead, it emits a DOM event from the runtime stage:
+The demo management menu includes a `Character change` item. Host apps can either handle the request by opening their own selector or call `runtime.setCharacter(...)` directly when the target character is already known. The request event is emitted from the runtime stage:
 
 ```ts
 stage.addEventListener("ghostnest:character-change-request", (event) => {
@@ -574,7 +621,7 @@ The event detail has this shape:
 }
 ```
 
-The host app owns the actual character decision. In Fortune Master, that usually means opening a host-owned character selector, choosing a runtime profile, then recreating Nanika with the selected character and mapping set.
+The host app owns the actual character decision. In Fortune Master, that usually means opening a host-owned character selector, choosing a runtime profile, and then passing the resolved character plus initial values to `runtime.setCharacter(...)`.
 
 ```ts
 import {
@@ -602,9 +649,14 @@ function mountNanika(preset: NanikaRuntimePreset) {
 }
 
 async function applySelectedCharacter(characterId: string) {
-  const nextPreset = await loadNanikaPresetForCharacter(characterId);
+  const nextCharacter = await loadNanikaCharacter(characterId);
+  const initial = await loadNanikaInitialState(characterId);
 
-  mountNanika(nextPreset);
+  await runtime?.setCharacter(nextCharacter, {
+    initialScene: initial.scene,
+    initialSurface: initial.surface,
+    initialExpression: initial.expression,
+  });
 }
 ```
 
@@ -613,10 +665,16 @@ This separation is intentional. A character switch changes more than the visible
 - Character profile and speaker name.
 - Dialogue lines and script categories.
 - Expressions, surfaces, layers, scenes, and hit areas.
-- Runtime rules and feature sets that may reference character-specific keys.
-- Storage scope, user preferences, idle timers, and active animations.
+- Character-owned scene options and default scene.
+- Active surface, layer animations, touched part state, and hide/show state.
 
-For that reason, host-controlled `destroy()` followed by a fresh `createGhostRuntimeFromPreset(...)` call is the recommended behavior. A future high-level reload API may wrap the same sequence, but host apps should still treat character switching as runtime re-initialization rather than a sprite-only change.
+Use `destroy()` followed by a fresh `createGhostRuntimeFromPreset(...)` call instead of `setCharacter(...)` when the switch also needs to rebuild runtime-level contracts:
+
+- A different mapping/rule set must be registered.
+- The management menu items must be regenerated from scratch.
+- Storage scope or preference storage should change.
+- The mount element, selectors, root, or host layout contract changes.
+- The host wants a clean timer/listener lifecycle rather than an in-place visual switch.
 
 ## Developer Tool Access
 

@@ -716,11 +716,21 @@ export type GhostRuntimeOptions = {
   storageAdapter?: StorageAdapter;
 };
 
+export type RuntimeCharacterChangeOptions = {
+  initialExpression?: CharacterExpression;
+  initialSurface?: string;
+  initialScene?: string;
+  scene?: RuntimeSceneOptions;
+  dialogueEngine?: DialogueEngine;
+  resetSpeech?: boolean;
+};
+
 export type GhostRuntime = {
   emit: <TEventName extends RuntimeEventName>(
     eventName: TEventName,
     payload?: RuntimeEventPayload<TEventName>,
   ) => void;
+  setCharacter: (character: CharacterDefinition, options?: RuntimeCharacterChangeOptions) => Promise<void>;
   registerAction: (type: string, handler: RuntimeActionHandler) => void;
   destroy: () => void;
 };

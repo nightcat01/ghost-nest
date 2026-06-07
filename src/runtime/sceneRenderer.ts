@@ -194,7 +194,8 @@ export function createSceneRenderer({ elements, scene, initialScene }: SceneRend
   const frontLayerRoot = document.createElement("div");
   const originalSpriteParent = elements.sprite.parentElement;
   const originalSpriteNextSibling = elements.sprite.nextSibling;
-  let selectedScene = resolveScene(scene, initialScene);
+  let currentSceneOptions = scene;
+  let selectedScene = resolveScene(currentSceneOptions, initialScene);
   const overlayScenes = new Map<string, RuntimeScene>();
   const overlayTimers = new Map<string, number>();
 
@@ -272,7 +273,7 @@ export function createSceneRenderer({ elements, scene, initialScene }: SceneRend
   }
 
   function setScene(sceneId: string) {
-    const nextScene = resolveScene(scene, sceneId);
+    const nextScene = resolveScene(currentSceneOptions, sceneId);
 
     if (!nextScene) {
       elements.stage.dispatchEvent(new CustomEvent("ghostnest:scene-missing", { detail: { id: sceneId } }));
@@ -287,7 +288,7 @@ export function createSceneRenderer({ elements, scene, initialScene }: SceneRend
   }
 
   function addSceneOverlay(sceneId: string, options: { slot?: string; duration?: number } = {}) {
-    const overlayScene = resolveScene(scene, sceneId);
+    const overlayScene = resolveScene(currentSceneOptions, sceneId);
 
     if (!overlayScene) {
       elements.stage.dispatchEvent(new CustomEvent("ghostnest:scene-missing", { detail: { id: sceneId } }));
@@ -340,6 +341,16 @@ export function createSceneRenderer({ elements, scene, initialScene }: SceneRend
     render();
   }
 
+  function setSceneOptions(nextSceneOptions: RuntimeSceneOptions | undefined, nextInitialScene?: string | undefined) {
+    currentSceneOptions = nextSceneOptions;
+    selectedScene = resolveScene(currentSceneOptions, nextInitialScene);
+    overlayScenes.clear();
+    overlayTimers.forEach((timerId) => window.clearTimeout(timerId));
+    overlayTimers.clear();
+    elements.stage.dataset.sceneOverlayCount = "0";
+    render();
+  }
+
   render();
 
   return {
@@ -348,5 +359,6 @@ export function createSceneRenderer({ elements, scene, initialScene }: SceneRend
     render,
     removeSceneOverlay,
     setScene,
+    setSceneOptions,
   };
 }
