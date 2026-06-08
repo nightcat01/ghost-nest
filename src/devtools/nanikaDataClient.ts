@@ -5,6 +5,7 @@ type LegacyNanikaDataResponse<T> = DevApiResponse & {
   conditions?: T[];
   featureSets?: T[];
   mappings?: T[];
+  menus?: T[];
   item?: T | null;
   items?: T[];
   path?: string;
@@ -19,30 +20,35 @@ const legacyListEndpoints = {
   conditions: "/api/devtools/nanika-conditions",
   featureSets: "/api/devtools/nanika-feature-sets",
   mappings: "/api/devtools/nanika-mappings",
+  menus: "/api/devtools/nanika-menus",
 } satisfies Partial<Record<NanikaDataScope, string>>;
 
 const legacySaveEndpoints = {
   conditions: "/api/devtools/save-nanika-condition",
   featureSets: "/api/devtools/save-nanika-feature-set",
   mappings: "/api/devtools/save-nanika-mapping",
+  menus: "/api/devtools/save-nanika-menu",
 } satisfies Partial<Record<NanikaDataScope, string>>;
 
 const legacyDeleteEndpoints = {
   conditions: "/api/devtools/delete-nanika-condition",
   featureSets: "/api/devtools/delete-nanika-feature-set",
   mappings: "/api/devtools/delete-nanika-mapping",
+  menus: "/api/devtools/delete-nanika-menu",
 } satisfies Partial<Record<NanikaDataScope, string>>;
 
 const legacyPayloadKeys: Partial<Record<NanikaDataScope, string>> = {
   conditions: "condition",
   featureSets: "featureSet",
   mappings: "mapping",
+  menus: "menu",
 };
 
 const legacyListKeys: Partial<Record<NanikaDataScope, keyof LegacyNanikaDataResponse<unknown>>> = {
   conditions: "conditions",
   featureSets: "featureSets",
   mappings: "mappings",
+  menus: "menus",
 };
 
 function createNanikaDataApiPath(scope: NanikaDataScope, id?: string) {

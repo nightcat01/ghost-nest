@@ -112,9 +112,11 @@ src/
   characters/
   demo/
   plugins/
+    menuSettings/
+      devtools/
   core/
   runtime/
-  devtools/
+  devtools/      # devtools 공통 유틸
 ```
 
 큰 경계는 다음과 같습니다.
@@ -126,9 +128,14 @@ src/plugins     샘플 외부 기능 구현
 src/characters  캐릭터 데이터/표현 리소스
 src/core        타입/이벤트/상태/공통 계약
 src/runtime     실제 실행기/렌더링/액션 처리
+src/devtools    플러그인 devtools가 공유하는 공통 유틸
 ```
 
 `app.ts`는 데모 진입점이고, 실제 런타임 조립은 `createGhostRuntime()`이 담당합니다.
+
+개발자 도구 화면은 장기적으로 각 플러그인 내부의 `devtools/`에 둡니다. 예를 들어 메뉴 설정 화면 로직은
+`src/plugins/menuSettings/devtools/assetMenuSettings.ts`에 있고, 최상위 `src/devtools`는 API client나 DOM helper처럼
+여러 devtools가 공유하는 얇은 유틸만 담당합니다.
 
 ## Rule 예시
 

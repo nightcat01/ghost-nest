@@ -421,6 +421,16 @@ function getNanikaConditionsPath() {
   );
 }
 
+function getNanikaMenusPath() {
+  const generatedDirectory = path.resolve(root, "generated");
+
+  return ensureInsideDirectory(
+    path.join(generatedDirectory, "nanika-menus.json"),
+    generatedDirectory,
+    "nanika_menu_path_outside_project",
+  );
+}
+
 function assertSafeNanikaMappingId(id) {
   const safeId = String(id ?? "").trim();
 
@@ -446,6 +456,16 @@ function assertSafeNanikaConditionId(id) {
 
   if (!/^[a-zA-Z0-9_.:-]{1,128}$/.test(safeId)) {
     throw new Error("invalid_nanika_condition_id");
+  }
+
+  return safeId;
+}
+
+function assertSafeNanikaMenuId(id) {
+  const safeId = String(id ?? "").trim();
+
+  if (!/^[a-zA-Z0-9_.:-]{1,128}$/.test(safeId)) {
+    throw new Error("invalid_nanika_menu_id");
   }
 
   return safeId;
@@ -600,6 +620,86 @@ function normalizeNanikaCondition(condition) {
   };
 }
 
+function normalizeManagementMenuItem(item) {
+  if (!item || typeof item !== "object" || Array.isArray(item)) {
+    throw new Error("invalid_nanika_menu_item");
+  }
+
+  const id = String(item.id ?? "").trim();
+  const label = String(item.label ?? "").trim();
+  const description = String(item.description ?? "").trim();
+
+  if (!id || !label) {
+    throw new Error("invalid_nanika_menu_item");
+  }
+
+  const normalized = {
+    id,
+    label,
+  };
+
+  if (description) {
+    normalized.description = description;
+  }
+
+  if (Array.isArray(item.actions) && item.actions.length > 0) {
+    normalized.actions = item.actions.map(normalizeNanikaAction);
+  }
+
+  if (Array.isArray(item.children) && item.children.length > 0) {
+    normalized.children = item.children.map(normalizeManagementMenuItem);
+  }
+
+  return normalized;
+}
+
+function normalizeNanikaMenu(menu) {
+  if (!menu || typeof menu !== "object" || Array.isArray(menu)) {
+    throw new Error("invalid_nanika_menu");
+  }
+
+  const id = assertSafeNanikaMenuId(menu.id);
+  const name = String(menu.name ?? "").trim();
+  const description = String(menu.description ?? "").trim();
+  const audience = String(menu.audience ?? "").trim();
+  const defaultDisplay = String(menu.defaultDisplay ?? "").trim();
+
+  if (!Array.isArray(menu.items)) {
+    throw new Error("invalid_nanika_menu_items");
+  }
+
+  const normalized = {
+    id,
+    items: menu.items.map(normalizeManagementMenuItem),
+  };
+
+  if (name) {
+    normalized.name = name;
+  }
+
+  if (description) {
+    normalized.description = description;
+  }
+
+  if (audience === "user" || audience === "developer" || audience === "custom") {
+    normalized.audience = audience;
+  }
+
+  if (defaultDisplay) {
+    normalized.defaultDisplay = defaultDisplay;
+  }
+
+  if (typeof menu.closeOnSelect === "boolean") {
+    normalized.closeOnSelect = menu.closeOnSelect;
+  }
+
+  if (typeof menu.draggable === "boolean") {
+    normalized.draggable = menu.draggable;
+  }
+
+  return normalized;
+}
+
 function normalizeNanikaFeatureSet(featureSet) {
   if (!featureSet || typeof featureSet !== "object" || Array.isArray(featureSet)) {
     throw new Error("invalid_nanika_feature_set");
@@ -705,6 +805,37 @@ async function writeNanikaConditions(conditions) {
   return path.relative(root, conditionsPath).replaceAll(path.sep, "/");
 }
 
+async function readNanikaMenus() {
+  const menusPath = getNanikaMenusPath();
+
+  try {
+    const source = await fs.promises.readFile(menusPath, "utf8");
+    const parsed = JSON.parse(source);
+    const menus = Array.isArray(parsed) ? parsed : parsed.menus;
+
+    return Array.isArray(menus) ? menus.map(normalizeNanikaMenu) : [];
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      return [];
+    }
+
+    throw new Error("invalid_nanika_menus_file");
+  }
+}
+
+async function writeNanikaMenus(menus) {
+  const menusPath = getNanikaMenusPath();
+
+  await fs.promises.mkdir(path.dirname(menusPath), { recursive: true });
+  await fs.promises.writeFile(
+    menusPath,
+    `${JSON.stringify({ menus }, null, 2)}\n`,
+    "utf8",
+  );
+
+  return path.relative(root, menusPath).replaceAll(path.sep, "/");
+}
+
 async function readNanikaFeatureSets() {
   const featureSetsPath = getNanikaFeatureSetsPath();
 
@@ -775,6 +906,18 @@ function getFileNanikaDataScope(scope) {
     };
   }
 
+  if (normalizedScope === "menus") {
+    return {
+      itemKey: "menu",
+      itemsKey: "menus",
+      invalidIdError: "invalid_nanika_menu_id",
+      normalize: normalizeNanikaMenu,
+      read: readNanikaMenus,
+      write: writeNanikaMenus,
+      assertId: assertSafeNanikaMenuId,
+    };
+  }
+
   throw new Error("unsupported_nanika_data_scope");
 }
 
@@ -825,6 +968,10 @@ function getNanikaDataScopePath(scope) {
 
   if (scope === "conditions") {
     return getNanikaConditionsPath();
+  }
+
+  if (scope === "menus") {
+    return getNanikaMenusPath();
   }
 
   throw new Error("unsupported_nanika_data_scope");
@@ -4159,14 +4306,20 @@ async function handleNanikaData(request, response, pathname) {
       "invalid_nanika_condition_scope",
       "invalid_nanika_condition_type",
       "invalid_nanika_condition_value",
+      "invalid_nanika_menu",
+      "invalid_nanika_menu_id",
+      "invalid_nanika_menu_item",
+      "invalid_nanika_menu_items",
       "invalid_nanika_feature_set",
       "invalid_nanika_feature_set_id",
       "invalid_nanika_feature_set_mappings",
       "invalid_nanika_mappings_file",
       "invalid_nanika_conditions_file",
+      "invalid_nanika_menus_file",
       "invalid_nanika_feature_sets_file",
       "nanika_mapping_path_outside_project",
       "nanika_condition_path_outside_project",
+      "nanika_menu_path_outside_project",
       "nanika_feature_set_path_outside_project",
     ].includes(message) ? 400 : 500;
 
