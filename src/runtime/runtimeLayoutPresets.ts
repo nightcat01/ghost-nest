@@ -56,7 +56,7 @@ export const runtimeSpeechPresets = {
       mobileActionMenuMaxHeight: "min(96px, max(64px, calc(var(--speech-balloon-mobile-max-height, 128px) - 32px)))",
     },
   },
-  fortuneEmbed: {
+  hostEmbed: {
     layout: {
       mode: "dialogue-box",
       placement: "overlay-bottom",

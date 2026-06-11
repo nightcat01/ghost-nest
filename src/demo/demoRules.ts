@@ -23,24 +23,24 @@ export function createDemoRules(menuItems: ManagementMenuItem[] = createDemoMana
       ],
     },
     {
-      id: "demo.command.hover.fortune",
+      id: "demo.command.hover.sample_result",
       event: "command:hover",
-      when: { command: "fortune" },
+      when: { command: "sample_result" },
       conditions: [{ type: "feature_enabled", feature: "commandHoverDescription" }],
       actions: [
         { type: "touch_interaction" },
         { type: "change_expression", expression: "thinking", clearTouchedPart: true },
-        { type: "speak", category: "onHoverFortuneCommand" },
-        { type: "log", label: "command:hover.fortune" },
+        { type: "speak", category: "onHoverExtensionCommand" },
+        { type: "log", label: "command:hover.sample_result" },
       ],
     },
     {
-      id: "demo.command.fortune",
-      event: "command:fortune",
+      id: "demo.command.sample_result",
+      event: "command:sample_result",
       actions: [
         { type: "touch_interaction" },
-        { type: "call_plugin", pluginId: "fortune" },
-        { type: "log", label: "plugin:fortune.execute" },
+        { type: "call_plugin", pluginId: "sample_result" },
+        { type: "log", label: "plugin:sample_result.execute" },
       ],
     },
   ];

@@ -26,14 +26,18 @@ Preset은 런타임 중 다른 action에서 직접 호출하지 않는다. prese
 
 사용자가 만든 재사용 가능한 기능 묶음이다.
 
+사용자 화면에서는 가능하면 `연결 세트`로 표현한다. 실제 역할은 새 액션을 직접 실행하는 독립 기능이 아니라, 저장된 Mapping 여러 개를 다시 쓰기 쉽게 모아둔 참조 묶음이다.
+
 예:
 
 - 상담 시작 세트
 - 캐릭터 클릭 반응 세트
 - idle 반응 세트
-- 포춘마스터 홈 화면 세트
+- 호스트 앱 홈 화면 세트
 
 Feature Set은 다른 preset에 포함될 수 있지만, 중첩 깊이와 순환 참조를 제한한다.
+
+Feature Set 편집은 긴 체크박스 목록보다 작업판 중심이어야 한다. 사용자는 작업판에서 저장 연결 카드를 선택하거나 현재 연결 흐름의 일부를 묶어 `연결 세트`로 저장한다. 연결 세트 카드는 기본 상태에서 id, 이름, 포함 연결 수만 간단히 보이고, 포함된 세부 연결은 hover/detail panel 또는 펼침 보기에서 확인한다.
 
 ### Mapping
 
@@ -142,6 +146,100 @@ Feature Connection
 - 저장되었지만 미적용
 - 현재 preset과 충돌
 
+## 연결 유효성 기준
+
+작업판에 선이 보인다고 해서 모두 저장 가능한 실행 연결은 아니다. 화면은 조회용 연결과 저장 가능한 실행 연결을 명확히 구분해야 한다.
+
+### 선 종류
+
+| 선 종류 | 의미 | 저장 대상 |
+| --- | --- | --- |
+| 실행 | 이벤트 또는 액션 흐름이 다음 액션을 실행한다 | 예 |
+| 포함 | 프로필, 연결 세트, 저장 연결이 하위 구성을 포함한다 | 예, 단위별 제한 적용 |
+| 참조 | 액션이 대사, 표정, 상태, 무대 조합, 파츠 같은 재료를 사용한다 | 예, action parameter로 변환 |
+| 조회 | 사용처, 보유 목록, 적용 현황을 설명하기 위한 보조선 | 아니오 |
+
+### 기본 방향
+
+저장 가능한 연결은 기본적으로 다음 방향을 따른다.
+
+```txt
+Runtime / Profile
+-> Character
+-> Event
+-> Saved Mapping 또는 Action / Action Group
+-> Resource
+```
+
+허용 예:
+
+- Runtime -> Profile
+- Profile -> Character
+- Profile -> Feature Set
+- Character -> Event
+- Event -> Saved Mapping
+- Event -> Action
+- Mapping -> Action
+- Action Group -> Action
+- Action -> Resource
+
+주의:
+
+- Action -> Event는 저장 가능한 실행선이 아니다. 조회 그래프에서 역참조로 보일 수는 있지만, 사용자가 새 실행 연결로 저장할 수는 없다.
+- Resource -> Action은 빠른 연결 시작을 돕는 UI 흐름으로는 허용할 수 있지만, 저장 시에는 Event -> Action -> Resource 형태로 정규화되어야 한다.
+- Feature Set -> Mapping은 포함 관계다. 실행 순서는 포함된 각 Mapping 내부의 Event -> Action 흐름에서 결정된다.
+
+### Mapping 저장 조건
+
+저장 연결 하나는 최소한 다음 요소가 있어야 한다.
+
+- 대상: Runtime 또는 Character
+- 이벤트: 언제 실행되는지
+- 액션: 무엇을 실행하는지
+
+액션별 필수값도 함께 검사한다.
+
+- `speak`: 대사 카테고리
+- `speak_text`: 고정 문장
+- `change_expression`: 표정 key
+- `surface`: 상태/surface id
+- `scene` 또는 `scene_overlay`: 무대 조합 id
+- `play_layer_animation`: 파츠/layer id
+- `set_touched_part`: 터치 영역 key
+- `call_plugin`: plugin id 또는 capability id
+
+필수값이 비어 있으면 저장 버튼은 비활성화하거나, 저장 실패 이유를 카드 근처와 상태 메시지에 표시한다.
+
+### 연결 세트 저장 조건
+
+연결 세트는 저장된 Mapping의 참조 묶음이다.
+
+- Mapping이 1개 이상 있어야 한다.
+- 존재하지 않는 Mapping id는 저장 전 경고한다.
+- 중복 Mapping id는 저장 전 자동 정리하거나 경고한다.
+- 빈 액션 흐름을 가진 Mapping은 포함할 수 없다.
+- 연결 세트 안에 연결 세트를 넣는 중첩은 1차에서는 금지한다.
+- 중첩을 허용할 경우 깊이 제한과 순환 참조 차단이 반드시 필요하다.
+
+### 캐릭터 호환성 검사
+
+캐릭터 전용 재료를 쓰는 Mapping이나 연결 세트는 대상 캐릭터가 해당 재료를 가지고 있는지 검사해야 한다.
+
+검사 대상:
+
+- expression key
+- surface id
+- scene id
+- layer id
+- dialogue category
+- hit area key
+
+호환되지 않는 재료가 있으면 저장 자체를 막기보다, 다음 상태를 분리해 표시한다.
+
+- 저장 가능하지만 현재 캐릭터에서 실행 불가
+- 대체 가능한 공통 key 없음
+- 캐릭터 설정에서 먼저 만들어야 함
+
 ## 제한 규칙
 
 무한 조합 구조를 허용하지 않는다.
@@ -173,9 +271,9 @@ Preset 제한:
 - 동시에 active timer 수 제한
 - 실행 로그에 rule id, feature set id, action index 기록
 
-## 포춘마스터 MVP 기준
+## 호스트 앱 MVP 기준
 
-다음 주말 전 실사용 목표는 완전한 빌더가 아니라 포춘마스터에 붙일 수 있는 최소 실전 연결 세트다.
+다음 주말 전 실사용 목표는 완전한 빌더가 아니라 호스트 앱에 붙일 수 있는 최소 실전 연결 세트다.
 
 필수 흐름:
 
@@ -195,4 +293,3 @@ Preset 제한:
 - 사용자는 `누구에게 / 언제 / 무엇을 / 어떤 순서로`만 고르면 된다.
 - 설명은 카드 안에 길게 넣지 않고 hover/focus/click 도움말로 분리한다.
 - 연결 지도에서 필요한 항목을 고르면 매핑 편집기로 자연스럽게 진입해야 한다.
-

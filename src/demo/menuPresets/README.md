@@ -7,7 +7,7 @@
 | 파일 | 역할 |
 | --- | --- |
 | `dialogueMenuItems.ts` | 대사 출력, JSON DialogueScript, 선택지 예시 |
-| `pluginMenuItems.ts` | 운세, 날씨, 미니게임, 타이머 같은 plugin 호출 예시 |
+| `pluginMenuItems.ts` | 샘플 결과, 날씨, 미니게임, 타이머 같은 plugin 호출 예시 |
 | `uiMenuItems.ts` | 말풍선 테마, 글자 크기, 메뉴 표시 방식 설정 |
 | `characterMenuItems.ts` | 점프, 입모양 테스트, 숨기기 같은 캐릭터 표현 예시 |
 | `developerMenuItems.ts` | 시스템 정보, 히트박스 에디터 같은 개발자 도구 |

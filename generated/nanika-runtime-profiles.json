@@ -1,0 +1,24 @@
+{
+  "runtimeProfiles": [
+    {
+      "id": "rine.full-runtime.profile",
+      "name": "Rine 전체 런타임 프로필",
+      "description": "리네 기본 캐릭터와 Rine 전체 런타임 연결 세트를 함께 실행하는 기본 프로필입니다.",
+      "match": {
+        "pageId": "home"
+      },
+      "characterProfiles": [
+        {
+          "characterId": "rine",
+          "initial": {
+            "surface": "0",
+            "scene": "rine-demo-scene"
+          },
+          "featureSetIds": [
+            "rine.full-runtime"
+          ]
+        }
+      ]
+    }
+  ]
+}

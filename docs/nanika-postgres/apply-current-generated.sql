@@ -1,12 +1,8 @@
-﻿-- GhostNest Nanika PostgreSQL/Supabase all-in-one setup for the current generated data.
+﻿-- GhostNest Nanika PostgreSQL/Supabase all-in-one apply script.
 -- Generated from schema.sql, data-api-functions.sql, seed-current-generated.sql, and policies.supabase.sql.
--- Paste this file into Supabase SQL editor or run it as a PostgreSQL migration when you want the full demo setup.
+-- Image binaries should live in public storage, CDN, or object storage.
 
-
--- ============================================================
 -- Source: docs/nanika-postgres/schema.sql
--- ============================================================
-
 -- GhostNest Nanika PostgreSQL/Supabase schema.
 -- This schema stores runtime-ready JSON metadata only.
 -- Image binaries should live in public storage, CDN, or object storage.
@@ -145,6 +141,29 @@ create table if not exists public.nanika_conditions (
     check (operator in ('contains', 'startsWith', 'equals', 'pattern'))
 );
 
+create table if not exists public.nanika_menus (
+  id text primary key,
+  name text,
+  description text,
+  audience text not null default 'custom',
+  default_display text not null default 'balloon',
+  close_on_select boolean,
+  draggable boolean,
+  items_json jsonb not null default '[]'::jsonb,
+  enabled boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint nanika_menus_id_format
+    check (id ~ '^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$'),
+  constraint nanika_menus_audience_check
+    check (audience in ('user', 'developer', 'custom')),
+  constraint nanika_menus_display_check
+    check (default_display in ('balloon', 'panel')),
+  constraint nanika_menus_items_array
+    check (jsonb_typeof(items_json) = 'array')
+);
+
 create table if not exists public.nanika_runtime_profiles (
   id text primary key,
   name text,
@@ -223,6 +242,12 @@ create index if not exists nanika_feature_sets_mapping_ids_gin_idx
 create index if not exists nanika_conditions_scope_idx
   on public.nanika_conditions (scope, type, enabled);
 
+create index if not exists nanika_menus_audience_idx
+  on public.nanika_menus (audience, enabled);
+
+create index if not exists nanika_menus_items_gin_idx
+  on public.nanika_menus using gin (items_json);
+
 create index if not exists nanika_runtime_profiles_enabled_idx
   on public.nanika_runtime_profiles (enabled, sort_order, id);
 
@@ -275,6 +300,11 @@ for each row execute function public.nanika_touch_updated_at();
 drop trigger if exists nanika_conditions_touch_updated_at on public.nanika_conditions;
 create trigger nanika_conditions_touch_updated_at
 before update on public.nanika_conditions
+for each row execute function public.nanika_touch_updated_at();
+
+drop trigger if exists nanika_menus_touch_updated_at on public.nanika_menus;
+create trigger nanika_menus_touch_updated_at
+before update on public.nanika_menus
 for each row execute function public.nanika_touch_updated_at();
 
 drop trigger if exists nanika_runtime_profiles_touch_updated_at on public.nanika_runtime_profiles;
@@ -351,6 +381,24 @@ select
   updated_at
 from public.nanika_conditions;
 
+create or replace view public.nanika_menu_definitions as
+select
+  id,
+  jsonb_strip_nulls(jsonb_build_object(
+    'id', id,
+    'name', name,
+    'description', description,
+    'audience', audience,
+    'defaultDisplay', default_display,
+    'closeOnSelect', close_on_select,
+    'draggable', draggable,
+    'items', items_json
+  )) as menu_json,
+  enabled,
+  sort_order,
+  updated_at
+from public.nanika_menus;
+
 create or replace view public.nanika_runtime_profile_definitions as
 select
   profile.id,
@@ -400,11 +448,7 @@ left join lateral (
   where character_profile.profile_id = profile.id
 ) character_profiles on true;
 
-
--- ============================================================
 -- Source: docs/nanika-postgres/data-api-functions.sql
--- ============================================================
-
 -- GhostNest Nanika PostgreSQL/Supabase data API helper functions.
 -- Run docs/nanika-postgres/schema.sql before this file.
 -- These functions are optional. They make it easier for a host API route to
@@ -617,11 +661,80 @@ begin
 end;
 $$;
 
+create or replace function public.nanika_upsert_menu(menu jsonb)
+returns jsonb
+language plpgsql
+as $$
+declare
+  menu_id text := menu->>'id';
+  result jsonb;
+begin
+  if menu_id is null or menu_id = '' then
+    raise exception 'invalid_nanika_menu_id';
+  end if;
 
--- ============================================================
+  if jsonb_typeof(coalesce(menu->'items', '[]'::jsonb)) <> 'array' then
+    raise exception 'invalid_nanika_menu_items';
+  end if;
+
+  insert into public.nanika_menus (
+    id,
+    name,
+    description,
+    audience,
+    default_display,
+    close_on_select,
+    draggable,
+    items_json
+  )
+  values (
+    menu_id,
+    nullif(menu->>'name', ''),
+    nullif(menu->>'description', ''),
+    coalesce(nullif(menu->>'audience', ''), 'custom'),
+    coalesce(nullif(menu->>'defaultDisplay', ''), 'balloon'),
+    case
+      when menu ? 'closeOnSelect' then (menu->>'closeOnSelect')::boolean
+      else null
+    end,
+    case
+      when menu ? 'draggable' then (menu->>'draggable')::boolean
+      else null
+    end,
+    coalesce(menu->'items', '[]'::jsonb)
+  )
+  on conflict (id) do update set
+    name = excluded.name,
+    description = excluded.description,
+    audience = excluded.audience,
+    default_display = excluded.default_display,
+    close_on_select = excluded.close_on_select,
+    draggable = excluded.draggable,
+    items_json = excluded.items_json,
+    enabled = true;
+
+  select menu_json
+  into result
+  from public.nanika_menu_definitions
+  where id = menu_id;
+
+  return result;
+end;
+$$;
+
+create or replace function public.nanika_delete_menu(menu_id text)
+returns text
+language plpgsql
+as $$
+begin
+  delete from public.nanika_menus
+  where id = menu_id;
+
+  return menu_id;
+end;
+$$;
+
 -- Source: docs/nanika-postgres/seed-current-generated.sql
--- ============================================================
-
 -- Current GhostNest generated Nanika mapping seed.
 -- Source files:
 -- - generated/nanika-mappings.json
@@ -790,16 +903,16 @@ values
     110
   ),
   (
-    'rine.command.hover.fortune',
-    'Rine 운세 버튼 hover',
+    'rine.command.hover.sample_result',
+    'Rine 확장 기능 버튼 hover',
     null,
     'plugin',
-    'fortune',
-    '기능: 운세',
+    'sample_result',
+    '기능: 샘플 결과',
     'command:hover',
-    '{"command":"fortune"}'::jsonb,
+    '{"command":"sample_result"}'::jsonb,
     '[{"type":"feature_enabled","feature":"commandHoverDescription"}]'::jsonb,
-    '[{"type":"touch_interaction"},{"type":"change_expression","expression":"thinking","clearTouchedPart":true},{"type":"speak","category":"onHoverFortuneCommand"},{"type":"log","label":"command:hover.fortune"}]'::jsonb,
+    '[{"type":"touch_interaction"},{"type":"change_expression","expression":"thinking","clearTouchedPart":true},{"type":"speak","category":"onHoverExtensionCommand"},{"type":"log","label":"command:hover.sample_result"}]'::jsonb,
     120
   ),
   (
@@ -842,16 +955,16 @@ values
     150
   ),
   (
-    'rine.command.fortune',
-    'Rine 운세 플러그인 실행',
+    'rine.command.sample_result',
+    'Rine 샘플 결과 플러그인 실행',
     null,
     'plugin',
-    'fortune',
-    '기능: 운세',
-    'command:fortune',
+    'sample_result',
+    '기능: 샘플 결과',
+    'command:sample_result',
     null,
     null,
-    '[{"type":"touch_interaction"},{"type":"call_plugin","pluginId":"fortune"},{"type":"log","label":"plugin:fortune.execute"}]'::jsonb,
+    '[{"type":"touch_interaction"},{"type":"call_plugin","pluginId":"sample_result"},{"type":"log","label":"plugin:sample_result.execute"}]'::jsonb,
     160
   ),
   (
@@ -903,7 +1016,7 @@ values
     'character:right_click',
     null,
     null,
-    '[{"type":"open_management_menu","menuId":"demo.default","title":"기본 관리 메뉴","items":[{"id":"say-line","label":"한마디","description":"리네가 짧은 대사를 하나 말해요.","actions":[{"type":"speak","category":"onLine"},{"type":"log","label":"management.say_line"}]},{"id":"script-demo","label":"연출/선택지 테스트","description":"대기, 줄바꿈, 선택지를 포함한 JSON 대사 연출 예시예요.","actions":[{"type":"speak_script","text":"잠깐만요. 이런 식으로 선택지도 띄울 수 있어요.","script":[{"type":"surface","id":"0"},{"type":"text","value":"잠깐만요."},{"type":"wait","ms":450},{"type":"newline"},{"type":"surface","id":"0"},{"type":"text","value":"이런 식으로 선택지를 띄울 수도 있어요."},{"type":"wait","ms":250},{"type":"choice","choices":[{"label":"점프해봐","actions":[{"type":"play_animation","animation":"jump","duration":460},{"type":"speak_text","text":"좋아요, 가볍게 뛰어볼게요!"}]},{"label":"괜찮아","actions":[{"type":"speak_text","text":"알겠어요. 그럼 계속 곁에 있을게요."}]}]}]},{"type":"log","label":"management.script_demo"}]},{"id":"draw-fortune","label":"운세 실행","description":"외부 기능 결과를 받아 말풍선과 표정으로 보여주는 예시예요.","actions":[{"type":"call_plugin","pluginId":"fortune"},{"type":"log","label":"management.draw_fortune"}]},{"id":"weather","label":"날씨","description":"날씨 기능을 호출해서 결과를 캐릭터가 설명해요.","actions":[{"type":"call_plugin","pluginId":"weather"},{"type":"log","label":"management.weather"}]},{"id":"minigame","label":"가위바위보","description":"메뉴 depth 안에서 미니게임 선택지를 보여주는 예시예요.","children":[{"id":"minigame-scissors","label":"가위","actions":[{"type":"call_plugin","pluginId":"minigame_가위"},{"type":"log","label":"management.minigame.scissors"}]},{"id":"minigame-rock","label":"바위","actions":[{"type":"call_plugin","pluginId":"minigame_바위"},{"type":"log","label":"management.minigame.rock"}]},{"id":"minigame-paper","label":"보","actions":[{"type":"call_plugin","pluginId":"minigame_보"},{"type":"log","label":"management.minigame.paper"}]}]},{"id":"timer-3m","label":"3분 타이머","description":"3분 뒤 알림과 대사를 실행하는 타이머 예시예요.","actions":[{"type":"call_plugin","pluginId":"timer"},{"type":"start_timer","timer":"cup_ramen","duration":180000,"actions":[{"type":"show_notification","title":"타이머 완료","message":"3분이 지났어요!"},{"type":"play_animation","animation":"jump","duration":500},{"type":"speak_text","text":"3분이 지났어요! 얼른 확인해보세요."}]},{"type":"log","label":"management.start_timer"}]},{"id":"balloon-theme","label":"말풍선 테마","description":"말풍선 분위기를 바꿔요. 선택한 값은 새로고침 후에도 유지돼요.","children":[{"id":"balloon-default","label":"기본","actions":[{"type":"change_balloon","theme":"default"},{"type":"speak_text","text":"말풍선을 기본 분위기로 돌려놓았어요."},{"type":"log","label":"management.balloon.default"}]},{"id":"balloon-soft","label":"soft","actions":[{"type":"change_balloon","theme":"soft"},{"type":"speak_text","text":"말풍선 분위기를 조금 부드럽게 바꿨어요."},{"type":"log","label":"management.balloon.soft"}]},{"id":"balloon-dark-magic","label":"dark magic","actions":[{"type":"change_balloon","theme":"dark_magic"},{"type":"speak_text","text":"조금 더 마법서 같은 분위기로 바꿨어요."},{"type":"log","label":"management.balloon.dark_magic"}]},{"id":"balloon-fortune-prompt","label":"fortune prompt","actions":[{"type":"change_balloon","theme":"fortune_prompt"},{"type":"speak_text","text":"포춘마스터 화면에 맞춘 반투명 프롬프트 분위기로 바꿨어요."},{"type":"log","label":"management.balloon.fortune_prompt"}]}]},{"id":"balloon-font-size","label":"글꼴 크기","description":"말풍선 글자 크기를 바꿔요.","children":[{"id":"balloon-font-size-small","label":"작게","actions":[{"type":"change_balloon_font_size","size":"small"},{"type":"speak_text","text":"글씨를 조금 작게 만들었어요."},{"type":"log","label":"management.balloon_font_size.small"}]},{"id":"balloon-font-size-default","label":"기본","actions":[{"type":"change_balloon_font_size","size":"default"},{"type":"speak_text","text":"원래 글씨 크기로 돌아왔어요."},{"type":"log","label":"management.balloon_font_size.default"}]},{"id":"balloon-font-size-large","label":"크게","actions":[{"type":"change_balloon_font_size","size":"large"},{"type":"speak_text","text":"글씨를 조금 크게 만들었어요."},{"type":"log","label":"management.balloon_font_size.large"}]}]},{"id":"speech-layout","label":"대사창 배치","description":"캐릭터 대사를 기존 말풍선처럼 띄울지, 게임식 대사창으로 띄울지 고를 수 있어요.","children":[{"id":"speech-layout-floating","label":"기본 말풍선","actions":[{"type":"change_speech_layout","mode":"floating","placement":"below-character"},{"type":"speak_text","text":"대사를 기존 말풍선 방식으로 보여줄게요."},{"type":"log","label":"management.speech_layout.floating"}]},{"id":"speech-layout-dialogue-below","label":"하단 대사창","actions":[{"type":"change_speech_layout","mode":"dialogue-box","placement":"below-character"},{"type":"speak_text","text":"대사를 캐릭터 아래의 대사창으로 보여줄게요."},{"type":"log","label":"management.speech_layout.dialogue_below"}]},{"id":"speech-layout-dialogue-overlay","label":"겹치는 대사창","actions":[{"type":"change_speech_layout","mode":"dialogue-box","placement":"overlay-bottom"},{"type":"speak_text","text":"대사창을 캐릭터 아래쪽에 살짝 겹쳐서 보여줄게요."},{"type":"log","label":"management.speech_layout.dialogue_overlay"}]}]},{"id":"speech-size","label":"대사창 크기","description":"런타임 실행 영역 기준으로 말풍선과 대사창 크기 제한을 테스트해요.","children":[{"id":"speech-size-default","label":"기본","actions":[{"type":"set_speech_balloon_size","reset":true},{"type":"speak_text","text":"대사창 크기를 런타임 영역 기준 기본값으로 돌렸어요."},{"type":"log","label":"management.speech_size.default"}]},{"id":"speech-size-compact","label":"좁게","actions":[{"type":"set_speech_balloon_size","size":{"stageWidth":"min(320px, calc(var(--runtime-area-width, 320px) - 48px))","maxWidth":"100%","maxHeight":"160px","dialogueWidth":"min(100%, calc(var(--runtime-area-width, 420px) - 48px))","dialogueMaxWidth":"420px","dialogueHeight":"150px","dialogueMaxHeight":"180px","actionMenuMaxHeight":"96px"}},{"type":"speak_text","text":"긴 대사와 많은 메뉴가 들어와도 대사창은 런타임 실행 영역 안에서만 움직여야 해요.\n캐릭터가 위아래로 크게 밀리거나, 화면 밖으로 사라지거나, 말풍선이 끝없이 늘어나면 안 돼요.\n이 문장은 개발자가 overflow, scroll, max-height, width 제한을 한 번에 확인할 수 있도록 일부러 길게 만들었어요."},{"type":"log","label":"management.speech_size.compact"}]},{"id":"speech-size-wide","label":"넓게","actions":[{"type":"set_speech_balloon_size","size":{"stageWidth":"min(560px, calc(var(--runtime-area-width, 560px) - 48px))","maxWidth":"100%","maxHeight":"min(340px, var(--floating-content-max-height, 340px))","dialogueWidth":"min(100%, calc(var(--runtime-area-width, 760px) - 48px))","dialogueMaxWidth":"760px","dialogueHeight":"min(34vh, 300px)","dialogueMaxHeight":"min(38vh, calc(var(--runtime-area-height, 720px) - var(--character-sprite-height, 390px) - 72px))"}},{"type":"speak_text","text":"긴 대사와 많은 메뉴가 들어와도 대사창은 런타임 실행 영역 안에서만 움직여야 해요.\n캐릭터가 위아래로 크게 밀리거나, 화면 밖으로 사라지거나, 말풍선이 끝없이 늘어나면 안 돼요.\n이 문장은 개발자가 overflow, scroll, max-height, width 제한을 한 번에 확인할 수 있도록 일부러 길게 만들었어요."},{"type":"log","label":"management.speech_size.wide"}]}]},{"id":"menu-ui","label":"메뉴 UI","description":"메뉴를 말풍선 안에 띄울지, 별도 패널로 띄울지 고를 수 있어요.","children":[{"id":"menu-ui-default-balloon","label":"기본: 말풍선","actions":[{"type":"set_management_menu_display","display":"balloon"},{"type":"speak_text","text":"기본 메뉴를 말풍선 안에서 열도록 바꿨어요."},{"type":"log","label":"management.menu_ui.default.balloon"}]},{"id":"menu-ui-default-panel","label":"기본: 패널","actions":[{"type":"set_management_menu_display","display":"panel"},{"type":"speak_text","text":"기본 메뉴를 별도 패널로 열도록 바꿨어요."},{"type":"log","label":"management.menu_ui.default.panel"}]},{"id":"menu-ui-system-balloon","label":"시스템: 말풍선","actions":[{"type":"set_management_menu_display","menuId":"system-tools","display":"balloon"},{"type":"speak_text","text":"시스템 도구 메뉴를 말풍선 방식으로 바꿨어요."},{"type":"log","label":"management.menu_ui.system.balloon"}]},{"id":"menu-ui-system-panel","label":"시스템: 패널","actions":[{"type":"set_management_menu_display","menuId":"system-tools","display":"panel"},{"type":"speak_text","text":"시스템 도구 메뉴를 패널 방식으로 바꿨어요."},{"type":"log","label":"management.menu_ui.system.panel"}]},{"id":"menu-ui-reset","label":"UI 초기화","actions":[{"type":"reset_runtime_ui"},{"type":"speak_text","text":"메뉴와 말풍선 설정을 기본값으로 돌려둘게요."},{"type":"log","label":"management.menu_ui.reset"}]}]},{"id":"jump","label":"점프","description":"캐릭터 sprite 애니메이션을 실행해요.","actions":[{"type":"play_animation","animation":"jump","duration":460},{"type":"speak_text","text":"가볍게 뛰어볼게요."},{"type":"log","label":"management.animation.jump"}]},{"id":"asset-test","label":"에셋 테스트","description":"현재 캐릭터에 등록된 assets 정보가 있는지 확인해요.","actions":[{"type":"log","label":"management.asset_test.empty"}]},{"id":"change-character","label":"캐릭터 변경","description":"호스트 앱에 캐릭터 교체 요청을 보냅니다. 앱은 이 이벤트를 받아 런타임을 다시 생성할 수 있어요.","actions":[{"type":"request_character_change","reason":"management_menu"},{"type":"speak_text","text":"캐릭터 변경 요청을 보냈어요."},{"type":"log","label":"management.character_change.request"}]},{"id":"hide","label":"숨기기","description":"캐릭터를 잠시 숨기고 배지로 다시 부를 수 있어요.","actions":[{"type":"toggle_hidden"},{"type":"speak","category":"onHide"},{"type":"log","label":"management.hide"}]},{"id":"close","label":"나가기","description":"열려 있는 메뉴를 닫아요.","actions":[{"type":"close_management_menu"},{"type":"change_expression","expression":"neutral"},{"type":"speak_text","text":"메뉴를 닫을게요."},{"type":"log","label":"management.close"}]}]}]'::jsonb,
+    '[{"type":"open_management_menu","menuId":"demo.default","title":"기본 관리 메뉴","items":[{"id":"say-line","label":"한마디","description":"리네가 짧은 대사를 하나 말해요.","actions":[{"type":"speak","category":"onLine"},{"type":"log","label":"management.say_line"}]},{"id":"script-demo","label":"연출/선택지 테스트","description":"대기, 줄바꿈, 선택지를 포함한 JSON 대사 연출 예시예요.","actions":[{"type":"speak_script","text":"잠깐만요. 이런 식으로 선택지도 띄울 수 있어요.","script":[{"type":"surface","id":"0"},{"type":"text","value":"잠깐만요."},{"type":"wait","ms":450},{"type":"newline"},{"type":"surface","id":"0"},{"type":"text","value":"이런 식으로 선택지를 띄울 수도 있어요."},{"type":"wait","ms":250},{"type":"choice","choices":[{"label":"점프해봐","actions":[{"type":"play_animation","animation":"jump","duration":460},{"type":"speak_text","text":"좋아요, 가볍게 뛰어볼게요!"}]},{"label":"괜찮아","actions":[{"type":"speak_text","text":"알겠어요. 그럼 계속 곁에 있을게요."}]}]}]},{"type":"log","label":"management.script_demo"}]},{"id":"draw-sample-result","label":"샘플 결과 실행","description":"외부 기능 결과를 받아 말풍선과 표정으로 보여주는 예시예요.","actions":[{"type":"call_plugin","pluginId":"sample_result"},{"type":"log","label":"management.draw_sample_result"}]},{"id":"weather","label":"날씨","description":"날씨 기능을 호출해서 결과를 캐릭터가 설명해요.","actions":[{"type":"call_plugin","pluginId":"weather"},{"type":"log","label":"management.weather"}]},{"id":"minigame","label":"가위바위보","description":"메뉴 depth 안에서 미니게임 선택지를 보여주는 예시예요.","children":[{"id":"minigame-scissors","label":"가위","actions":[{"type":"call_plugin","pluginId":"minigame_가위"},{"type":"log","label":"management.minigame.scissors"}]},{"id":"minigame-rock","label":"바위","actions":[{"type":"call_plugin","pluginId":"minigame_바위"},{"type":"log","label":"management.minigame.rock"}]},{"id":"minigame-paper","label":"보","actions":[{"type":"call_plugin","pluginId":"minigame_보"},{"type":"log","label":"management.minigame.paper"}]}]},{"id":"timer-3m","label":"3분 타이머","description":"3분 뒤 알림과 대사를 실행하는 타이머 예시예요.","actions":[{"type":"call_plugin","pluginId":"timer"},{"type":"start_timer","timer":"cup_ramen","duration":180000,"actions":[{"type":"show_notification","title":"타이머 완료","message":"3분이 지났어요!"},{"type":"play_animation","animation":"jump","duration":500},{"type":"speak_text","text":"3분이 지났어요! 얼른 확인해보세요."}]},{"type":"log","label":"management.start_timer"}]},{"id":"balloon-theme","label":"말풍선 테마","description":"말풍선 분위기를 바꿔요. 선택한 값은 새로고침 후에도 유지돼요.","children":[{"id":"balloon-default","label":"기본","actions":[{"type":"change_balloon","theme":"default"},{"type":"speak_text","text":"말풍선을 기본 분위기로 돌려놓았어요."},{"type":"log","label":"management.balloon.default"}]},{"id":"balloon-soft","label":"soft","actions":[{"type":"change_balloon","theme":"soft"},{"type":"speak_text","text":"말풍선 분위기를 조금 부드럽게 바꿨어요."},{"type":"log","label":"management.balloon.soft"}]},{"id":"balloon-dark-magic","label":"dark magic","actions":[{"type":"change_balloon","theme":"dark_magic"},{"type":"speak_text","text":"조금 더 마법서 같은 분위기로 바꿨어요."},{"type":"log","label":"management.balloon.dark_magic"}]},{"id":"balloon-prompt-overlay","label":"prompt overlay","actions":[{"type":"change_balloon","theme":"prompt_overlay"},{"type":"speak_text","text":"호스트 앱 화면에 맞춘 반투명 프롬프트 분위기로 바꿨어요."},{"type":"log","label":"management.balloon.prompt_overlay"}]}]},{"id":"balloon-font-size","label":"글꼴 크기","description":"말풍선 글자 크기를 바꿔요.","children":[{"id":"balloon-font-size-small","label":"작게","actions":[{"type":"change_balloon_font_size","size":"small"},{"type":"speak_text","text":"글씨를 조금 작게 만들었어요."},{"type":"log","label":"management.balloon_font_size.small"}]},{"id":"balloon-font-size-default","label":"기본","actions":[{"type":"change_balloon_font_size","size":"default"},{"type":"speak_text","text":"원래 글씨 크기로 돌아왔어요."},{"type":"log","label":"management.balloon_font_size.default"}]},{"id":"balloon-font-size-large","label":"크게","actions":[{"type":"change_balloon_font_size","size":"large"},{"type":"speak_text","text":"글씨를 조금 크게 만들었어요."},{"type":"log","label":"management.balloon_font_size.large"}]}]},{"id":"speech-layout","label":"대사창 배치","description":"캐릭터 대사를 기존 말풍선처럼 띄울지, 게임식 대사창으로 띄울지 고를 수 있어요.","children":[{"id":"speech-layout-floating","label":"기본 말풍선","actions":[{"type":"change_speech_layout","mode":"floating","placement":"below-character"},{"type":"speak_text","text":"대사를 기존 말풍선 방식으로 보여줄게요."},{"type":"log","label":"management.speech_layout.floating"}]},{"id":"speech-layout-dialogue-below","label":"하단 대사창","actions":[{"type":"change_speech_layout","mode":"dialogue-box","placement":"below-character"},{"type":"speak_text","text":"대사를 캐릭터 아래의 대사창으로 보여줄게요."},{"type":"log","label":"management.speech_layout.dialogue_below"}]},{"id":"speech-layout-dialogue-overlay","label":"겹치는 대사창","actions":[{"type":"change_speech_layout","mode":"dialogue-box","placement":"overlay-bottom"},{"type":"speak_text","text":"대사창을 캐릭터 아래쪽에 살짝 겹쳐서 보여줄게요."},{"type":"log","label":"management.speech_layout.dialogue_overlay"}]}]},{"id":"speech-size","label":"대사창 크기","description":"런타임 실행 영역 기준으로 말풍선과 대사창 크기 제한을 테스트해요.","children":[{"id":"speech-size-default","label":"기본","actions":[{"type":"set_speech_balloon_size","reset":true},{"type":"speak_text","text":"대사창 크기를 런타임 영역 기준 기본값으로 돌렸어요."},{"type":"log","label":"management.speech_size.default"}]},{"id":"speech-size-compact","label":"좁게","actions":[{"type":"set_speech_balloon_size","size":{"stageWidth":"min(320px, calc(var(--runtime-area-width, 320px) - 48px))","maxWidth":"100%","maxHeight":"160px","dialogueWidth":"min(100%, calc(var(--runtime-area-width, 420px) - 48px))","dialogueMaxWidth":"420px","dialogueHeight":"150px","dialogueMaxHeight":"180px","actionMenuMaxHeight":"96px"}},{"type":"speak_text","text":"긴 대사와 많은 메뉴가 들어와도 대사창은 런타임 실행 영역 안에서만 움직여야 해요.\n캐릭터가 위아래로 크게 밀리거나, 화면 밖으로 사라지거나, 말풍선이 끝없이 늘어나면 안 돼요.\n이 문장은 개발자가 overflow, scroll, max-height, width 제한을 한 번에 확인할 수 있도록 일부러 길게 만들었어요."},{"type":"log","label":"management.speech_size.compact"}]},{"id":"speech-size-wide","label":"넓게","actions":[{"type":"set_speech_balloon_size","size":{"stageWidth":"min(560px, calc(var(--runtime-area-width, 560px) - 48px))","maxWidth":"100%","maxHeight":"min(340px, var(--floating-content-max-height, 340px))","dialogueWidth":"min(100%, calc(var(--runtime-area-width, 760px) - 48px))","dialogueMaxWidth":"760px","dialogueHeight":"min(34vh, 300px)","dialogueMaxHeight":"min(38vh, calc(var(--runtime-area-height, 720px) - var(--character-sprite-height, 390px) - 72px))"}},{"type":"speak_text","text":"긴 대사와 많은 메뉴가 들어와도 대사창은 런타임 실행 영역 안에서만 움직여야 해요.\n캐릭터가 위아래로 크게 밀리거나, 화면 밖으로 사라지거나, 말풍선이 끝없이 늘어나면 안 돼요.\n이 문장은 개발자가 overflow, scroll, max-height, width 제한을 한 번에 확인할 수 있도록 일부러 길게 만들었어요."},{"type":"log","label":"management.speech_size.wide"}]}]},{"id":"menu-ui","label":"메뉴 UI","description":"메뉴를 말풍선 안에 띄울지, 별도 패널로 띄울지 고를 수 있어요.","children":[{"id":"menu-ui-default-balloon","label":"기본: 말풍선","actions":[{"type":"set_management_menu_display","display":"balloon"},{"type":"speak_text","text":"기본 메뉴를 말풍선 안에서 열도록 바꿨어요."},{"type":"log","label":"management.menu_ui.default.balloon"}]},{"id":"menu-ui-default-panel","label":"기본: 패널","actions":[{"type":"set_management_menu_display","display":"panel"},{"type":"speak_text","text":"기본 메뉴를 별도 패널로 열도록 바꿨어요."},{"type":"log","label":"management.menu_ui.default.panel"}]},{"id":"menu-ui-system-balloon","label":"시스템: 말풍선","actions":[{"type":"set_management_menu_display","menuId":"system-tools","display":"balloon"},{"type":"speak_text","text":"시스템 도구 메뉴를 말풍선 방식으로 바꿨어요."},{"type":"log","label":"management.menu_ui.system.balloon"}]},{"id":"menu-ui-system-panel","label":"시스템: 패널","actions":[{"type":"set_management_menu_display","menuId":"system-tools","display":"panel"},{"type":"speak_text","text":"시스템 도구 메뉴를 패널 방식으로 바꿨어요."},{"type":"log","label":"management.menu_ui.system.panel"}]},{"id":"menu-ui-reset","label":"UI 초기화","actions":[{"type":"reset_runtime_ui"},{"type":"speak_text","text":"메뉴와 말풍선 설정을 기본값으로 돌려둘게요."},{"type":"log","label":"management.menu_ui.reset"}]}]},{"id":"jump","label":"점프","description":"캐릭터 sprite 애니메이션을 실행해요.","actions":[{"type":"play_animation","animation":"jump","duration":460},{"type":"speak_text","text":"가볍게 뛰어볼게요."},{"type":"log","label":"management.animation.jump"}]},{"id":"asset-test","label":"에셋 테스트","description":"현재 캐릭터에 등록된 assets 정보가 있는지 확인해요.","actions":[{"type":"log","label":"management.asset_test.empty"}]},{"id":"change-character","label":"캐릭터 변경","description":"호스트 앱에 캐릭터 교체 요청을 보냅니다. 앱은 이 이벤트를 받아 런타임을 다시 생성할 수 있어요.","actions":[{"type":"request_character_change","reason":"management_menu"},{"type":"speak_text","text":"캐릭터 변경 요청을 보냈어요."},{"type":"log","label":"management.character_change.request"}]},{"id":"hide","label":"숨기기","description":"캐릭터를 잠시 숨기고 배지로 다시 부를 수 있어요.","actions":[{"type":"toggle_hidden"},{"type":"speak","category":"onHide"},{"type":"log","label":"management.hide"}]},{"id":"close","label":"나가기","description":"열려 있는 메뉴를 닫아요.","actions":[{"type":"close_management_menu"},{"type":"change_expression","expression":"neutral"},{"type":"speak_text","text":"메뉴를 닫을게요."},{"type":"log","label":"management.close"}]}]}]'::jsonb,
     200
   )
 on conflict (id) do update set
@@ -937,7 +1050,7 @@ values
     'character-specific',
     'rine',
     '[]'::jsonb,
-    array['rine.runtime.ready'::text, 'rine.character.click'::text, 'rine.character.double-click'::text, 'rine.character.touch.head'::text, 'rine.character.touch.face'::text, 'rine.character.touch.body'::text, 'rine.character.idle'::text, 'rine.character.random-prompt'::text, 'rine.area.hover.runtime-title'::text, 'rine.area.hover.event-log'::text, 'rine.area.hover.command-menu'::text, 'rine.command.hover.fortune'::text, 'rine.command.hover.line'::text, 'rine.command.hover.hide'::text, 'rine.command.line'::text, 'rine.command.fortune'::text, 'rine.character.right-click.menu'::text],
+    array['rine.runtime.ready'::text, 'rine.character.click'::text, 'rine.character.double-click'::text, 'rine.character.touch.head'::text, 'rine.character.touch.face'::text, 'rine.character.touch.body'::text, 'rine.character.idle'::text, 'rine.character.random-prompt'::text, 'rine.area.hover.runtime-title'::text, 'rine.area.hover.event-log'::text, 'rine.area.hover.command-menu'::text, 'rine.command.hover.sample_result'::text, 'rine.command.hover.line'::text, 'rine.command.hover.hide'::text, 'rine.command.line'::text, 'rine.command.sample_result'::text, 'rine.character.right-click.menu'::text],
     10
   ),
   (
@@ -947,7 +1060,7 @@ values
     'character-template',
     'rine',
     '[{"kind":"expression","id":"neutral","label":"기본 표정","required":true},{"kind":"expression","id":"happy","label":"기쁜 표정","required":true},{"kind":"expression","id":"thinking","label":"생각하는 표정","required":true},{"kind":"expression","id":"surprised","label":"놀란 표정","required":true},{"kind":"dialogue","id":"onMount","label":"시작 대사","required":true},{"kind":"dialogue","id":"onClick","label":"클릭 대사","required":true},{"kind":"dialogue","id":"onIdle","label":"대기 대사","required":true},{"kind":"dialogue","id":"onRandomPrompt","label":"랜덤 발화 대사","required":true},{"kind":"hitArea","id":"head","label":"머리 터치 영역","required":false},{"kind":"hitArea","id":"face","label":"얼굴 터치 영역","required":false},{"kind":"hitArea","id":"body","label":"몸 터치 영역","required":false}]'::jsonb,
-    array['rine.runtime.ready'::text, 'rine.character.click'::text, 'rine.character.double-click'::text, 'rine.character.touch.head'::text, 'rine.character.touch.face'::text, 'rine.character.touch.body'::text, 'rine.character.idle'::text, 'rine.character.random-prompt'::text, 'rine.area.hover.runtime-title'::text, 'rine.area.hover.event-log'::text, 'rine.area.hover.command-menu'::text, 'rine.command.hover.fortune'::text, 'rine.command.hover.line'::text, 'rine.command.hover.hide'::text, 'rine.command.line'::text, 'rine.command.fortune'::text, 'rine.character.right-click.menu'::text],
+    array['rine.runtime.ready'::text, 'rine.character.click'::text, 'rine.character.double-click'::text, 'rine.character.touch.head'::text, 'rine.character.touch.face'::text, 'rine.character.touch.body'::text, 'rine.character.idle'::text, 'rine.character.random-prompt'::text, 'rine.area.hover.runtime-title'::text, 'rine.area.hover.event-log'::text, 'rine.area.hover.command-menu'::text, 'rine.command.hover.sample_result'::text, 'rine.command.hover.line'::text, 'rine.command.hover.hide'::text, 'rine.command.line'::text, 'rine.command.sample_result'::text, 'rine.character.right-click.menu'::text],
     20
   )
 on conflict (id) do update set
@@ -960,17 +1073,65 @@ on conflict (id) do update set
   sort_order = excluded.sort_order,
   enabled = true;
 
+insert into public.nanika_menus (
+  id,
+  name,
+  description,
+  audience,
+  default_display,
+  close_on_select,
+  draggable,
+  items_json,
+  sort_order
+)
+values
+  (
+    'demo.default',
+    '기본 관리 메뉴',
+    'DB 모드에서 바로 확인할 수 있는 최소 관리 메뉴입니다.',
+    'custom',
+    'balloon',
+    true,
+    true,
+    '[
+      {
+        "id": "say-line",
+        "label": "한마디",
+        "description": "캐릭터가 짧은 대사를 말합니다.",
+        "actions": [
+          { "type": "speak", "category": "onLine" },
+          { "type": "log", "label": "management.say_line" }
+        ]
+      },
+      {
+        "id": "close",
+        "label": "나가기",
+        "description": "열려 있는 메뉴를 닫습니다.",
+        "actions": [
+          { "type": "close_management_menu" }
+        ]
+      }
+    ]'::jsonb,
+    10
+  )
+on conflict (id) do update set
+  name = excluded.name,
+  description = excluded.description,
+  audience = excluded.audience,
+  default_display = excluded.default_display,
+  close_on_select = excluded.close_on_select,
+  draggable = excluded.draggable,
+  items_json = excluded.items_json,
+  sort_order = excluded.sort_order,
+  enabled = true;
+
 -- No generated/nanika-conditions.json file exists in this workspace yet.
 -- Conditions created in devtools should be inserted into public.nanika_conditions
 -- and read through public.nanika_condition_definitions.
 
 commit;
 
-
--- ============================================================
 -- Source: docs/nanika-postgres/policies.supabase.sql
--- ============================================================
-
 -- Optional Supabase RLS policies for GhostNest Nanika tables.
 -- Recommended default:
 -- - Client apps can read enabled Nanika configuration.
@@ -984,6 +1145,7 @@ alter table public.nanika_character_slot_bindings enable row level security;
 alter table public.nanika_mappings enable row level security;
 alter table public.nanika_feature_sets enable row level security;
 alter table public.nanika_conditions enable row level security;
+alter table public.nanika_menus enable row level security;
 alter table public.nanika_runtime_profiles enable row level security;
 alter table public.nanika_runtime_profile_characters enable row level security;
 alter table public.nanika_runtime_preferences enable row level security;
@@ -1040,6 +1202,13 @@ using (enabled = true);
 drop policy if exists nanika_conditions_read_enabled on public.nanika_conditions;
 create policy nanika_conditions_read_enabled
 on public.nanika_conditions
+for select
+to anon, authenticated
+using (enabled = true);
+
+drop policy if exists nanika_menus_read_enabled on public.nanika_menus;
+create policy nanika_menus_read_enabled
+on public.nanika_menus
 for select
 to anon, authenticated
 using (enabled = true);

@@ -65,12 +65,12 @@ export function createUiMenuItems(): ManagementMenuItem[] {
           ],
         },
         {
-          id: "balloon-fortune-prompt",
-          label: "fortune prompt",
+          id: "balloon-prompt-overlay",
+          label: "prompt overlay",
           actions: [
-            { type: "change_balloon", theme: "fortune_prompt" },
-            { type: "speak_text", text: "포춘마스터 화면에 맞춘 반투명 프롬프트 분위기로 바꿨어요." },
-            { type: "log", label: "management.balloon.fortune_prompt" },
+            { type: "change_balloon", theme: "prompt_overlay" },
+            { type: "speak_text", text: "어두운 화면에 어울리는 반투명 프롬프트 분위기로 바꿨어요." },
+            { type: "log", label: "management.balloon.prompt_overlay" },
           ],
         },
       ],

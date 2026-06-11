@@ -136,6 +136,29 @@ create table if not exists public.nanika_conditions (
     check (operator in ('contains', 'startsWith', 'equals', 'pattern'))
 );
 
+create table if not exists public.nanika_menus (
+  id text primary key,
+  name text,
+  description text,
+  audience text not null default 'custom',
+  default_display text not null default 'balloon',
+  close_on_select boolean,
+  draggable boolean,
+  items_json jsonb not null default '[]'::jsonb,
+  enabled boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint nanika_menus_id_format
+    check (id ~ '^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$'),
+  constraint nanika_menus_audience_check
+    check (audience in ('user', 'developer', 'custom')),
+  constraint nanika_menus_display_check
+    check (default_display in ('balloon', 'panel')),
+  constraint nanika_menus_items_array
+    check (jsonb_typeof(items_json) = 'array')
+);
+
 create table if not exists public.nanika_runtime_profiles (
   id text primary key,
   name text,
@@ -214,6 +237,12 @@ create index if not exists nanika_feature_sets_mapping_ids_gin_idx
 create index if not exists nanika_conditions_scope_idx
   on public.nanika_conditions (scope, type, enabled);
 
+create index if not exists nanika_menus_audience_idx
+  on public.nanika_menus (audience, enabled);
+
+create index if not exists nanika_menus_items_gin_idx
+  on public.nanika_menus using gin (items_json);
+
 create index if not exists nanika_runtime_profiles_enabled_idx
   on public.nanika_runtime_profiles (enabled, sort_order, id);
 
@@ -266,6 +295,11 @@ for each row execute function public.nanika_touch_updated_at();
 drop trigger if exists nanika_conditions_touch_updated_at on public.nanika_conditions;
 create trigger nanika_conditions_touch_updated_at
 before update on public.nanika_conditions
+for each row execute function public.nanika_touch_updated_at();
+
+drop trigger if exists nanika_menus_touch_updated_at on public.nanika_menus;
+create trigger nanika_menus_touch_updated_at
+before update on public.nanika_menus
 for each row execute function public.nanika_touch_updated_at();
 
 drop trigger if exists nanika_runtime_profiles_touch_updated_at on public.nanika_runtime_profiles;
@@ -341,6 +375,24 @@ select
   sort_order,
   updated_at
 from public.nanika_conditions;
+
+create or replace view public.nanika_menu_definitions as
+select
+  id,
+  jsonb_strip_nulls(jsonb_build_object(
+    'id', id,
+    'name', name,
+    'description', description,
+    'audience', audience,
+    'defaultDisplay', default_display,
+    'closeOnSelect', close_on_select,
+    'draggable', draggable,
+    'items', items_json
+  )) as menu_json,
+  enabled,
+  sort_order,
+  updated_at
+from public.nanika_menus;
 
 create or replace view public.nanika_runtime_profile_definitions as
 select

@@ -140,6 +140,16 @@ export const runtimeActionCatalog = [
     ],
   },
   {
+    type: "request_profile_change",
+    category: "flow",
+    label: "프로필 전환 요청",
+    description: "호스트 앱에 런타임 프로필 전환 요청 이벤트를 보냅니다. 실제 프로필 로드와 런타임 재시작은 앱이 처리합니다.",
+    parameters: [
+      { name: "profileId", type: "string", required: true, description: "전환할 runtime profile id입니다." },
+      { name: "reason", type: "string", description: "요청 출처를 구분하기 위한 값입니다. 예: menu" },
+    ],
+  },
+  {
     type: "call_plugin",
     category: "plugin",
     label: "플러그인 호출",
@@ -398,7 +408,10 @@ export const runtimeActionCatalog = [
     parameters: [
       { name: "menuId", type: "string", description: "메뉴별 표시 설정에 사용할 id입니다." },
       { name: "title", type: "string", description: "메뉴 제목입니다." },
-      { name: "items", type: "menu-items", required: true, description: "표시할 메뉴 항목 배열입니다." },
+      { name: "display", type: "string", description: "이 액션에서 직접 사용할 표시 위치입니다. balloon 또는 panel입니다." },
+      { name: "closeOnSelect", type: "boolean", description: "false이면 메뉴 항목 실행 후 메뉴를 자동으로 닫지 않습니다." },
+      { name: "draggable", type: "boolean", description: "false이면 패널 메뉴의 제목 드래그 이동을 끕니다." },
+      { name: "items", type: "menu-items", description: "표시할 메뉴 항목 배열입니다. 비워두면 menuId 또는 기본 메뉴 프리셋으로 채웁니다." },
     ],
   },
   {

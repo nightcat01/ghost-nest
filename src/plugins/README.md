@@ -10,7 +10,7 @@
 
 | 플러그인 | 역할 |
 | --- | --- |
-| [fortune](./fortune/README.md) | 로컬 더미 운세 결과 반환 |
+| [sampleResult](./sampleResult/README.md) | 로컬 더미 샘플 결과 반환 |
 | [weather](./weather/README.md) | 공개 날씨 API 호출 예시 |
 | [systemInfo](./systemInfo/README.md) | 가능한 경우 브라우저/시스템 정보 조회 |
 | [timer](./timer/README.md) | 타이머 안내 메시지 반환, 실제 예약은 액션 매핑에서 처리 |

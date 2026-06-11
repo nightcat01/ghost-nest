@@ -17,6 +17,8 @@ type RenderManagementMenuOptions = {
   parentItems?: OpenManagementMenuAction["items"] | undefined;
   menuTitle?: string | undefined;
   display: ManagementMenuDisplay;
+  closeOnSelect?: boolean;
+  draggable?: boolean;
 };
 
 const defaultDisplay: ManagementMenuDisplay = "balloon";
@@ -119,6 +121,8 @@ function renderMenuContent({
   parentItems,
   menuTitle = action.title,
   display,
+  closeOnSelect = true,
+  draggable = true,
   menuElement,
 }: RenderManagementMenuOptions & {
   display: ManagementMenuDisplay;
@@ -132,7 +136,7 @@ function renderMenuContent({
     const titleElement = document.createElement("strong");
     titleElement.className = "management-menu-title";
     titleElement.textContent = menuTitle;
-    if (display === "panel") {
+    if (display === "panel" && draggable) {
       makePanelMenuDraggable(menuElement, titleElement);
     }
     menuElement.append(titleElement);
@@ -157,6 +161,8 @@ function renderMenuContent({
         currentItems: parentItems,
         menuTitle: action.title,
         display,
+        closeOnSelect,
+        draggable,
       });
     });
     contentElement.append(backButton);
@@ -183,11 +189,16 @@ function renderMenuContent({
           parentItems: currentItems,
           menuTitle: item.label,
           display,
+          closeOnSelect,
+          draggable,
         });
         return;
       }
 
-      void runActions([...(item.actions ?? []), { type: "close_management_menu" }]);
+      const actions = closeOnSelect
+        ? [...(item.actions ?? []), { type: "close_management_menu" } satisfies RuntimeAction]
+        : [...(item.actions ?? [])];
+      void runActions(actions);
     });
     contentElement.append(button);
   });
@@ -206,8 +217,12 @@ export function renderManagementMenu({
   parentItems,
   menuTitle = action.title,
   display,
+  closeOnSelect,
+  draggable,
 }: RenderManagementMenuOptions) {
   const menuElement = getMenuElement(targets, display);
+  const resolvedCloseOnSelect = closeOnSelect ?? action.closeOnSelect ?? true;
+  const resolvedDraggable = draggable ?? action.draggable ?? true;
 
   if (!menuElement) {
     return;
@@ -216,6 +231,8 @@ export function renderManagementMenu({
   closeMenuElement(getOtherMenuElement(targets, display));
   menuElement.replaceChildren();
   menuElement.dataset.managementMenuDisplay = display;
+  menuElement.dataset.managementMenuCloseOnSelect = String(resolvedCloseOnSelect);
+  menuElement.dataset.managementMenuDraggable = String(resolvedDraggable);
   renderMenuContent({
     action,
     targets,
@@ -225,6 +242,8 @@ export function renderManagementMenu({
     parentItems,
     menuTitle,
     display,
+    closeOnSelect: resolvedCloseOnSelect,
+    draggable: resolvedDraggable,
     menuElement,
   });
   menuElement.hidden = false;
@@ -245,6 +264,10 @@ export function resolveManagementMenuDisplay(
   action: OpenManagementMenuAction,
   options: ManagementMenuOptions | undefined,
 ) {
+  if (action.display) {
+    return action.display;
+  }
+
   if (action.menuId && options?.displays?.[action.menuId]) {
     return options.displays[action.menuId] ?? defaultDisplay;
   }

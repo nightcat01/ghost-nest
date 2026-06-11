@@ -30,7 +30,7 @@
 ```ts
 import { createRuntimeRulesFromFeatureSets } from "ghost-nest";
 
-const result = createRuntimeRulesFromFeatureSets(featureSets, mappings, ["fortune.home"]);
+const result = createRuntimeRulesFromFeatureSets(featureSets, mappings, ["demo.home"]);
 
 const rules = result.rules;
 ```

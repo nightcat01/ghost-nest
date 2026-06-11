@@ -47,7 +47,7 @@ const dialogueCategoryLabelMap: Record<string, string> = {
   onHoverRuntimeTitle: "런타임 제목에 마우스를 올렸을 때",
   onHoverEventLog: "이벤트 로그에 마우스를 올렸을 때",
   onHoverCommandMenu: "명령 메뉴에 마우스를 올렸을 때",
-  onHoverFortuneCommand: "운세 버튼에 마우스를 올렸을 때",
+  onHoverExtensionCommand: "확장 기능 버튼에 마우스를 올렸을 때",
   onHoverLineCommand: "한마디 버튼에 마우스를 올렸을 때",
   onHoverHideCommand: "숨기기 버튼에 마우스를 올렸을 때",
   onRandomPrompt: "랜덤으로 먼저 말을 걸 때",

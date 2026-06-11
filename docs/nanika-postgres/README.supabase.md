@@ -10,7 +10,7 @@
 | --- | --- |
 | `schema.sql` | Postgres table, index, trigger, runtime JSON view |
 | `data-api-functions.sql` | Optional RPC helper functions for `/api/nanika/data/:scope` |
-| `seed-fortune-rine.sql` | Fortune Master + Rine minimal demo data |
+| `seed-demo-rine.sql` | host app + Rine minimal demo data |
 | `seed-current-generated.sql` | Current `generated/nanika-*.json` mapping and feature set seed |
 | `policies.supabase.sql` | Optional Supabase RLS policies |
 | `apply-current-generated.sql` | All-in-one SQL for schema, helper functions, current generated seed, and RLS |
@@ -28,7 +28,7 @@ Supabase SQL editor 또는 migration에서 아래 순서로 실행합니다.
 \i docs/nanika-postgres/data-api-functions.sql
 
 -- 3. Optional seed
-\i docs/nanika-postgres/seed-fortune-rine.sql
+\i docs/nanika-postgres/seed-demo-rine.sql
 
 -- 3-b. Optional seed from current local generated files
 \i docs/nanika-postgres/seed-current-generated.sql
@@ -43,7 +43,7 @@ Supabase SQL editor에서는 `\i`를 사용할 수 없으니 파일 내용을 �
 
 ## Runtime Read Queries
 
-호스트 앱에서는 보통 아래 세 종류를 읽으면 됩니다.
+호스트 앱에서는 보통 아래 데이터를 읽으면 됩니다.
 
 ```sql
 select mapping_json
@@ -67,10 +67,17 @@ order by sort_order, id;
 ```
 
 ```sql
+select menu_json
+from public.nanika_menu_definitions
+where enabled = true
+order by sort_order, id;
+```
+
+```sql
 select profile_json
 from public.nanika_runtime_profile_definitions
 where enabled = true
-  and id = 'fortune.home.rine';
+  and id = 'demo.home.rine';
 ```
 
 조회 결과는 각각 다음 런타임 타입에 대응합니다.
@@ -80,12 +87,13 @@ where enabled = true
 | `mapping_json` | `NanikaMapping` |
 | `feature_set_json` | `NanikaFeatureSet` |
 | `condition_json` | Nanika condition card data |
+| `menu_json` | saved Nanika menu set |
 | `profile_json` | `NanikaRuntimeProfile` |
 
 ## Supabase JS Example
 
 ```ts
-const [{ data: mappingRows }, { data: featureSetRows }, { data: conditionRows }, { data: profileRows }] = await Promise.all([
+const [{ data: mappingRows }, { data: featureSetRows }, { data: conditionRows }, { data: menuRows }, { data: profileRows }] = await Promise.all([
   supabase
     .from("nanika_mapping_definitions")
     .select("mapping_json")
@@ -105,22 +113,31 @@ const [{ data: mappingRows }, { data: featureSetRows }, { data: conditionRows },
     .order("sort_order")
     .order("id"),
   supabase
+    .from("nanika_menu_definitions")
+    .select("menu_json")
+    .eq("enabled", true)
+    .order("sort_order")
+    .order("id"),
+  supabase
     .from("nanika_runtime_profile_definitions")
     .select("profile_json")
     .eq("enabled", true)
-    .eq("id", "fortune.home.rine")
+    .eq("id", "demo.home.rine")
     .single(),
 ]);
 
 const mappings = mappingRows?.map((row) => row.mapping_json) ?? [];
 const featureSets = featureSetRows?.map((row) => row.feature_set_json) ?? [];
 const conditions = conditionRows?.map((row) => row.condition_json) ?? [];
+const menus = menuRows?.map((row) => row.menu_json) ?? [];
 const profile = profileRows?.profile_json;
 ```
 
 이후 기존 런타임 조립 흐름을 그대로 사용합니다.
 
 `conditions`는 devtools의 조건 카드 목록으로 다시 넘길 때 사용합니다. 런타임 rule에 이미 포함된 `mapping.conditions`와는 별개로, 저장 가능한 조건 재료 목록입니다.
+
+`menus`는 메뉴 설정 플러그인의 저장 결과입니다. 런타임에서 메뉴를 열 때는 mapping action의 `menuId`로 이 목록을 조회해 `open_management_menu.items`를 채우거나, 호스트 앱이 메뉴 UI 플러그인에 같은 데이터를 직접 전달할 수 있습니다.
 
 ```ts
 const result = createNanikaRuntimeProfileOptions({
@@ -138,6 +155,8 @@ const result = createNanikaRuntimeProfileOptions({
 - `nanika_character_assets.url`에는 Supabase Storage, CDN, 또는 호스트 앱 `public` 경로를 저장합니다.
 - `nanika_characters.character_json`에는 전체 `CharacterDefinition`을 넣을 수도 있지만, 운영 앱에서 패키지/코드로 캐릭터를 불러오고 DB에는 운영 메타만 둘 수도 있습니다.
 - mapping과 feature set은 캐릭터 파일명보다 common key 또는 runtime action id를 기준으로 재사용하는 방향을 권장합니다.
+- 파일 모드에서는 `generated/*.json`이 편집 데이터 저장소입니다.
+- DB 모드에서는 `generated/*.json`을 만들거나 수정하지 않고, 같은 JSON shape를 DB table/view를 통해 읽고 씁니다.
 
 ## Recommended Operations
 

@@ -43,7 +43,8 @@
     "dev-character-scene.html",
     "dev-character-composition.html",
     "dev-menu-settings.html",
-    "dev-fortune-embed.html",
+    "dev-nanika-db-adapter.html",
+    "dev-runtime-embed.html",
     "dev-nanika-mapping.html",
     "dev-assets-crop.html",
     "dev-assets-comfy.html",
@@ -51,6 +52,7 @@
     "server.cjs",
     "styles.css",
     "docs/runtime-embed-guide.md",
+    "docs/nanika-data-adapter.md",
     "docs/nanika-postgres",
     "ASSET_GENERATOR_SETUP.md",
     "README.md"

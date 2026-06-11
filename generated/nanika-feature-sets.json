@@ -17,11 +17,11 @@
         "rine.area.hover.runtime-title",
         "rine.area.hover.event-log",
         "rine.area.hover.command-menu",
-        "rine.command.hover.fortune",
+        "rine.command.hover.sample_result",
         "rine.command.hover.line",
         "rine.command.hover.hide",
         "rine.command.line",
-        "rine.command.fortune",
+        "rine.command.sample_result",
         "rine.character.right-click.menu"
       ],
       "requirements": []
@@ -112,11 +112,11 @@
         "rine.area.hover.runtime-title",
         "rine.area.hover.event-log",
         "rine.area.hover.command-menu",
-        "rine.command.hover.fortune",
+        "rine.command.hover.sample_result",
         "rine.command.hover.line",
         "rine.command.hover.hide",
         "rine.command.line",
-        "rine.command.fortune",
+        "rine.command.sample_result",
         "rine.character.right-click.menu"
       ]
     }

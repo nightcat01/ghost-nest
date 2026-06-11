@@ -209,3 +209,76 @@ begin
   return condition_id;
 end;
 $$;
+
+create or replace function public.nanika_upsert_menu(menu jsonb)
+returns jsonb
+language plpgsql
+as $$
+declare
+  menu_id text := menu->>'id';
+  result jsonb;
+begin
+  if menu_id is null or menu_id = '' then
+    raise exception 'invalid_nanika_menu_id';
+  end if;
+
+  if jsonb_typeof(coalesce(menu->'items', '[]'::jsonb)) <> 'array' then
+    raise exception 'invalid_nanika_menu_items';
+  end if;
+
+  insert into public.nanika_menus (
+    id,
+    name,
+    description,
+    audience,
+    default_display,
+    close_on_select,
+    draggable,
+    items_json
+  )
+  values (
+    menu_id,
+    nullif(menu->>'name', ''),
+    nullif(menu->>'description', ''),
+    coalesce(nullif(menu->>'audience', ''), 'custom'),
+    coalesce(nullif(menu->>'defaultDisplay', ''), 'balloon'),
+    case
+      when menu ? 'closeOnSelect' then (menu->>'closeOnSelect')::boolean
+      else null
+    end,
+    case
+      when menu ? 'draggable' then (menu->>'draggable')::boolean
+      else null
+    end,
+    coalesce(menu->'items', '[]'::jsonb)
+  )
+  on conflict (id) do update set
+    name = excluded.name,
+    description = excluded.description,
+    audience = excluded.audience,
+    default_display = excluded.default_display,
+    close_on_select = excluded.close_on_select,
+    draggable = excluded.draggable,
+    items_json = excluded.items_json,
+    enabled = true;
+
+  select menu_json
+  into result
+  from public.nanika_menu_definitions
+  where id = menu_id;
+
+  return result;
+end;
+$$;
+
+create or replace function public.nanika_delete_menu(menu_id text)
+returns text
+language plpgsql
+as $$
+begin
+  delete from public.nanika_menus
+  where id = menu_id;
+
+  return menu_id;
+end;
+$$;

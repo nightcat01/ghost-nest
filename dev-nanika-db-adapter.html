@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GhostNest DB 어댑터 테스트</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="asset-lab-shell">
+      <header class="asset-lab-header">
+        <div>
+          <p class="eyebrow">Nanika Data Adapter</p>
+          <h1>DB 어댑터 테스트</h1>
+        </div>
+        <a class="asset-lab-back" href="./dev-assets.html">플러그인 목록</a>
+      </header>
+
+      <nav class="asset-plugin-nav" aria-label="DB adapter test navigation">
+        <a href="./dev-assets.html">개발 플러그인</a>
+        <span aria-hidden="true">/</span>
+        <strong>DB 어댑터 테스트</strong>
+      </nav>
+
+      <section class="asset-lab-grid nanika-db-adapter-grid" aria-label="DB 어댑터 테스트">
+        <section class="asset-lab-panel">
+          <div class="asset-lab-section asset-step-intro">
+            <h2>호스트 DB가 나니카 데이터 계약을 돌려줄 수 있는지 확인합니다.</h2>
+            <p class="asset-lab-help">
+              이 화면은 개발용 확인 도구입니다. 입력한 DB 정보는 저장하지 않고 서버 API에 한 번만 전달합니다.
+              통신 테스트는 Supabase REST 접근만 확인하고, SQL/View 테스트는 나니카가 요구하는 view 계약을 확인합니다.
+            </p>
+          </div>
+
+          <div class="asset-lab-section">
+            <h2>연결 정보</h2>
+            <p class="asset-lab-help">
+              운영 서비스에서는 service role key를 브라우저에 노출하지 마세요. 이 페이지는 로컬 devtools 또는 접근 제한된 관리자 환경에서만 사용하세요.
+            </p>
+            <div class="asset-lab-field-grid nanika-db-adapter-form">
+              <label>
+                Provider
+                <select id="dbProviderSelect">
+                  <option value="supabase">Supabase REST</option>
+                </select>
+              </label>
+              <label>
+                Supabase URL
+                <input id="dbUrlInput" type="url" placeholder="https://project.supabase.co" autocomplete="off" />
+              </label>
+              <label>
+                API Key
+                <input id="dbKeyInput" type="password" placeholder="anon 또는 service role key" autocomplete="off" />
+              </label>
+              <label>
+                Schema
+                <input id="dbSchemaInput" type="text" value="public" autocomplete="off" />
+              </label>
+            </div>
+            <div class="asset-lab-actions">
+              <button id="testDbConnectionButton" type="button" class="asset-secondary-button">통신 테스트</button>
+              <button id="testDbAdapterButton" type="button">SQL/View 테스트</button>
+              <button id="clearDbAdapterButton" type="button" class="asset-secondary-button">입력 초기화</button>
+            </div>
+            <p class="asset-lab-status" id="dbAdapterStatus" role="status"></p>
+          </div>
+        </section>
+
+        <section class="asset-lab-panel">
+          <div class="asset-lab-section">
+            <h2>테스트 결과</h2>
+            <p class="asset-lab-help">
+              통신 테스트가 실패하면 URL, API Key, 네트워크 접근을 먼저 확인하세요.
+              SQL/View 테스트 실패 항목은 schema 적용, view 생성, RLS/API key 설정을 확인하세요.
+            </p>
+            <div class="nanika-db-adapter-results" id="dbAdapterResults"></div>
+          </div>
+
+          <div class="asset-lab-section">
+            <h2>Host 연결 예시</h2>
+            <pre class="asset-lab-code"><code>const adapter = createSupabaseNanikaDataAdapter({ supabase });
+const mappings = await adapter.list("mappings");
+const menus = await adapter.list("menus");</code></pre>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="./dist/devtools/assetNanikaDbAdapter.js"></script>
+  </body>
+</html>

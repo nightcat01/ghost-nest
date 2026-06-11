@@ -77,9 +77,9 @@ const defaultDialogueTemplates: DialogueCategoryTemplate[] = [
     sampleLines: ["메뉴에서 사용할 기능을 고를 수 있어요."],
   },
   {
-    id: "onHoverFortuneCommand",
+    id: "onHoverExtensionCommand",
     label: "확장 명령 hover",
-    description: "운세나 외부 기능 메뉴 안내에 사용합니다.",
+    description: "샘플 결과나 외부 기능 메뉴 안내에 사용합니다.",
     sampleLines: ["이 버튼은 확장 기능과 연결할 수 있어요."],
   },
   {

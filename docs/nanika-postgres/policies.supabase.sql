@@ -11,6 +11,7 @@ alter table public.nanika_character_slot_bindings enable row level security;
 alter table public.nanika_mappings enable row level security;
 alter table public.nanika_feature_sets enable row level security;
 alter table public.nanika_conditions enable row level security;
+alter table public.nanika_menus enable row level security;
 alter table public.nanika_runtime_profiles enable row level security;
 alter table public.nanika_runtime_profile_characters enable row level security;
 alter table public.nanika_runtime_preferences enable row level security;
@@ -67,6 +68,13 @@ using (enabled = true);
 drop policy if exists nanika_conditions_read_enabled on public.nanika_conditions;
 create policy nanika_conditions_read_enabled
 on public.nanika_conditions
+for select
+to anon, authenticated
+using (enabled = true);
+
+drop policy if exists nanika_menus_read_enabled on public.nanika_menus;
+create policy nanika_menus_read_enabled
+on public.nanika_menus
 for select
 to anon, authenticated
 using (enabled = true);

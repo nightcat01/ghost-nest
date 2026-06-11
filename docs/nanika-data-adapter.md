@@ -157,6 +157,18 @@ export const nanikaDataAdapter: NanikaDataAdapter = {
 
 `createDbClient`, `queryNanikaItems`, and `upsertNanikaItem` are host project code. GhostNest only requires the adapter shape.
 
+DB credentials, pools, retry policy, and driver-specific setup stay in the host server. Do not pass a database URL, Supabase service role key, or raw pool object to browser runtime code.
+
+```txt
+Host env / server code
+  -> DB client, pool, or Supabase server client
+  -> NanikaDataAdapter
+  -> /api/nanika/data/:scope
+  -> runtime-ready JSON
+```
+
+For local verification, GhostNest includes `dev-nanika-db-adapter.html`. The page sends the entered Supabase REST URL and API key to the local dev server for a one-time view access test. It does not save the credentials. Use it only in a local or access-restricted developer environment.
+
 ## PostgreSQL/Supabase Sample
 
 GhostNest includes a Postgres-oriented sample under `docs/nanika-postgres`.
@@ -164,8 +176,8 @@ GhostNest includes a Postgres-oriented sample under `docs/nanika-postgres`.
 | File | Purpose |
 | --- | --- |
 | `schema.sql` | Tables, indexes, triggers, and JSON views for Nanika metadata |
-| `data-api-functions.sql` | Optional RPC helpers for saving and deleting mappings, feature sets, and conditions |
-| `seed-fortune-rine.sql` | Minimal Fortune Master/Rine demo data |
+| `data-api-functions.sql` | Optional RPC helpers for saving and deleting mappings, feature sets, conditions, and menus |
+| `seed-demo-rine.sql` | Minimal host app/Rine demo data |
 | `seed-current-generated.sql` | Seed generated from the current local `generated/nanika-mappings.json` and `generated/nanika-feature-sets.json` files |
 | `policies.supabase.sql` | Optional Supabase RLS example |
 | `apply-current-generated.sql` | All-in-one SQL for Supabase SQL editor or a Postgres migration |
@@ -179,11 +191,34 @@ The important compatibility point is the output shape:
 select mapping_json from public.nanika_mapping_definitions;
 select feature_set_json from public.nanika_feature_set_definitions;
 select condition_json from public.nanika_condition_definitions;
+select menu_json from public.nanika_menu_definitions;
 ```
 
-Those JSON values should match what `/api/nanika/data/mappings`, `/api/nanika/data/featureSets`, and `/api/nanika/data/conditions` return in file mode.
+Those JSON values should match what `/api/nanika/data/mappings`, `/api/nanika/data/featureSets`, `/api/nanika/data/conditions`, and `/api/nanika/data/menus` return in file mode.
 
 For a copy-paste start, use `docs/nanika-postgres/apply-current-generated.sql`. For host API wiring, adapt `docs/nanika-postgres/data-api-adapter.example.ts` and keep it server-side.
+
+## File Mode And DB Mode
+
+`generated/*.json` is the default file-mode implementation for editor-created data:
+
+```txt
+generated/nanika-mappings.json
+generated/nanika-feature-sets.json
+generated/nanika-conditions.json
+generated/nanika-menus.json
+```
+
+In DB mode, those files should not be treated as the source of truth. The same scopes should be stored through `NanikaDataAdapter`:
+
+```txt
+mappings     -> DB rows/view JSON
+featureSets  -> DB rows/view JSON
+conditions   -> DB rows/view JSON
+menus        -> DB rows/view JSON
+```
+
+Local generated files are still useful as seed material, export snapshots, or a local-only devtools fallback. Production hosts such as Vercel should route writes to DB/API storage instead of trying to mutate package or repository files.
 
 ## Image Storage
 
@@ -239,6 +274,6 @@ Recommended first pass:
 3. Route mappings, feature sets, and conditions through the client first.
 4. Keep legacy file-backed `/api/devtools/*` endpoints behind the client during transition.
 5. Add a host `/api/nanika/data/:scope` route later for DB-backed operation.
-6. Move character, asset, dialogue, scene, and menu tools to the same client gradually.
+6. Move character, asset, dialogue, and scene tools to the same client gradually.
 
 This keeps local file workflows working while making Vercel/DB-backed operation possible.

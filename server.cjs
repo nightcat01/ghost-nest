@@ -156,6 +156,7 @@ function isCharacterDevtoolsStaticPath(pathname) {
     "/dev-character-composition.html",
     "/dev-character-hitbox.html",
     "/dev-menu-settings.html",
+    "/dev-nanika-db-adapter.html",
     "/dev-nanika-mapping.html",
     "/dev-assets.html",
     "/dev-assets-comfy.html",
@@ -411,6 +412,16 @@ function getNanikaFeatureSetsPath() {
   );
 }
 
+function getNanikaRuntimeProfilesPath() {
+  const generatedDirectory = path.resolve(root, "generated");
+
+  return ensureInsideDirectory(
+    path.join(generatedDirectory, "nanika-runtime-profiles.json"),
+    generatedDirectory,
+    "nanika_runtime_profile_path_outside_project",
+  );
+}
+
 function getNanikaConditionsPath() {
   const generatedDirectory = path.resolve(root, "generated");
 
@@ -446,6 +457,16 @@ function assertSafeNanikaFeatureSetId(id) {
 
   if (!/^[a-zA-Z0-9_.:-]{1,128}$/.test(safeId)) {
     throw new Error("invalid_nanika_feature_set_id");
+  }
+
+  return safeId;
+}
+
+function assertSafeNanikaRuntimeProfileId(id) {
+  const safeId = String(id ?? "").trim();
+
+  if (!/^[a-zA-Z0-9_.:-]{1,128}$/.test(safeId)) {
+    throw new Error("invalid_nanika_runtime_profile_id");
   }
 
   return safeId;
@@ -743,6 +764,161 @@ function normalizeNanikaFeatureSet(featureSet) {
   return normalized;
 }
 
+function normalizeStringArray(value, normalizer) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(new Set(value.map(normalizer)));
+}
+
+function normalizeNanikaCharacterProfile(profile) {
+  if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
+    throw new Error("invalid_nanika_character_profile");
+  }
+
+  const characterId = safeFileName(String(profile.characterId ?? "").trim());
+  if (!characterId) {
+    throw new Error("invalid_nanika_character_profile");
+  }
+
+  const normalized = {
+    characterId,
+  };
+  const id = String(profile.id ?? "").trim();
+  const name = String(profile.name ?? "").trim();
+  const description = String(profile.description ?? "").trim();
+
+  if (id) {
+    normalized.id = assertSafeNanikaResourceId(id);
+  }
+
+  if (name) {
+    normalized.name = name;
+  }
+
+  if (description) {
+    normalized.description = description;
+  }
+
+  if (profile.match && typeof profile.match === "object" && !Array.isArray(profile.match)) {
+    normalized.match = cloneJson(profile.match);
+  }
+
+  if (profile.initial && typeof profile.initial === "object" && !Array.isArray(profile.initial)) {
+    normalized.initial = cloneJson(profile.initial);
+  }
+
+  if (Array.isArray(profile.slotBindings)) {
+    normalized.slotBindings = cloneJson(profile.slotBindings);
+  }
+
+  const featureSetIds = normalizeStringArray(profile.featureSetIds, assertSafeNanikaFeatureSetId);
+  if (featureSetIds.length > 0) {
+    normalized.featureSetIds = featureSetIds;
+  }
+
+  const mappingIds = normalizeStringArray(profile.mappingIds, assertSafeNanikaMappingId);
+  if (mappingIds.length > 0) {
+    normalized.mappingIds = mappingIds;
+  }
+
+  [
+    "controls",
+    "userPreferences",
+    "preferenceStorage",
+    "speechLayout",
+    "speechBalloonSize",
+    "spriteSize",
+  ].forEach((key) => {
+    if (profile[key] && typeof profile[key] === "object" && !Array.isArray(profile[key])) {
+      normalized[key] = cloneJson(profile[key]);
+    }
+  });
+
+  [
+    "characterPlacement",
+    "balloonTheme",
+    "hideUntilReady",
+    "includeDefaultRules",
+  ].forEach((key) => {
+    if (profile[key] !== undefined) {
+      normalized[key] = cloneJson(profile[key]);
+    }
+  });
+
+  return normalized;
+}
+
+function normalizeNanikaRuntimeProfile(profile) {
+  if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
+    throw new Error("invalid_nanika_runtime_profile");
+  }
+
+  const id = assertSafeNanikaRuntimeProfileId(profile.id);
+  const normalized = {
+    id,
+  };
+  const name = String(profile.name ?? "").trim();
+  const description = String(profile.description ?? "").trim();
+
+  if (name) {
+    normalized.name = name;
+  }
+
+  if (description) {
+    normalized.description = description;
+  }
+
+  if (profile.match && typeof profile.match === "object" && !Array.isArray(profile.match)) {
+    normalized.match = cloneJson(profile.match);
+  }
+
+  if (profile.initial && typeof profile.initial === "object" && !Array.isArray(profile.initial)) {
+    normalized.initial = cloneJson(profile.initial);
+  }
+
+  [
+    "controls",
+    "userPreferences",
+    "preferenceStorage",
+    "speechLayout",
+    "speechBalloonSize",
+    "spriteSize",
+  ].forEach((key) => {
+    if (profile[key] && typeof profile[key] === "object" && !Array.isArray(profile[key])) {
+      normalized[key] = cloneJson(profile[key]);
+    }
+  });
+
+  [
+    "characterPlacement",
+    "balloonTheme",
+    "hideUntilReady",
+    "includeDefaultRules",
+  ].forEach((key) => {
+    if (profile[key] !== undefined) {
+      normalized[key] = cloneJson(profile[key]);
+    }
+  });
+
+  const featureSetIds = normalizeStringArray(profile.featureSetIds, assertSafeNanikaFeatureSetId);
+  if (featureSetIds.length > 0) {
+    normalized.featureSetIds = featureSetIds;
+  }
+
+  const mappingIds = normalizeStringArray(profile.mappingIds, assertSafeNanikaMappingId);
+  if (mappingIds.length > 0) {
+    normalized.mappingIds = mappingIds;
+  }
+
+  if (Array.isArray(profile.characterProfiles)) {
+    normalized.characterProfiles = profile.characterProfiles.map(normalizeNanikaCharacterProfile);
+  }
+
+  return normalized;
+}
+
 async function readNanikaMappings() {
   const mappingsPath = getNanikaMappingsPath();
 
@@ -867,6 +1043,37 @@ async function writeNanikaFeatureSets(featureSets) {
   return path.relative(root, featureSetsPath).replaceAll(path.sep, "/");
 }
 
+async function readNanikaRuntimeProfiles() {
+  const runtimeProfilesPath = getNanikaRuntimeProfilesPath();
+
+  try {
+    const source = await fs.promises.readFile(runtimeProfilesPath, "utf8");
+    const parsed = JSON.parse(source);
+    const runtimeProfiles = Array.isArray(parsed) ? parsed : parsed.runtimeProfiles;
+
+    return Array.isArray(runtimeProfiles) ? runtimeProfiles.map(normalizeNanikaRuntimeProfile) : [];
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      return [];
+    }
+
+    throw new Error("invalid_nanika_runtime_profiles_file");
+  }
+}
+
+async function writeNanikaRuntimeProfiles(runtimeProfiles) {
+  const runtimeProfilesPath = getNanikaRuntimeProfilesPath();
+
+  await fs.promises.mkdir(path.dirname(runtimeProfilesPath), { recursive: true });
+  await fs.promises.writeFile(
+    runtimeProfilesPath,
+    `${JSON.stringify({ runtimeProfiles }, null, 2)}\n`,
+    "utf8",
+  );
+
+  return path.relative(root, runtimeProfilesPath).replaceAll(path.sep, "/");
+}
+
 function getFileNanikaDataScope(scope) {
   const normalizedScope = String(scope ?? "").trim();
 
@@ -891,6 +1098,18 @@ function getFileNanikaDataScope(scope) {
       read: readNanikaFeatureSets,
       write: writeNanikaFeatureSets,
       assertId: assertSafeNanikaFeatureSetId,
+    };
+  }
+
+  if (normalizedScope === "runtimeProfiles") {
+    return {
+      itemKey: "runtimeProfile",
+      itemsKey: "runtimeProfiles",
+      invalidIdError: "invalid_nanika_runtime_profile_id",
+      normalize: normalizeNanikaRuntimeProfile,
+      read: readNanikaRuntimeProfiles,
+      write: writeNanikaRuntimeProfiles,
+      assertId: assertSafeNanikaRuntimeProfileId,
     };
   }
 
@@ -966,6 +1185,10 @@ function getNanikaDataScopePath(scope) {
     return getNanikaFeatureSetsPath();
   }
 
+  if (scope === "runtimeProfiles") {
+    return getNanikaRuntimeProfilesPath();
+  }
+
   if (scope === "conditions") {
     return getNanikaConditionsPath();
   }
@@ -987,6 +1210,230 @@ function getNanikaDataResponsePath(scope) {
 
 function resolveNanikaDataAdapter() {
   return createFileNanikaDataAdapter();
+}
+
+const nanikaSupabaseDataViews = [
+  { scope: "mappings", view: "nanika_mapping_definitions", column: "mapping_json" },
+  { scope: "featureSets", view: "nanika_feature_set_definitions", column: "feature_set_json" },
+  { scope: "conditions", view: "nanika_condition_definitions", column: "condition_json" },
+  { scope: "menus", view: "nanika_menu_definitions", column: "menu_json" },
+  { scope: "runtimeProfiles", view: "nanika_runtime_profile_definitions", column: "profile_json" },
+];
+
+function normalizeSupabaseProjectUrl(url) {
+  let parsedUrl;
+
+  try {
+    parsedUrl = new URL(String(url ?? "").trim());
+  } catch {
+    throw new Error("invalid_supabase_url");
+  }
+
+  if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
+    throw new Error("invalid_supabase_url");
+  }
+
+  parsedUrl.pathname = parsedUrl.pathname.replace(/\/+$/, "");
+  parsedUrl.search = "";
+  parsedUrl.hash = "";
+
+  return parsedUrl.toString().replace(/\/+$/, "");
+}
+
+async function testSupabaseConnection({ url, apiKey, schema }) {
+  const baseUrl = normalizeSupabaseProjectUrl(url);
+  const key = String(apiKey ?? "").trim();
+
+  if (!key) {
+    throw new Error("missing_supabase_api_key");
+  }
+
+  const requestUrl = `${baseUrl}/rest/v1/`;
+  const response = await fetch(requestUrl, {
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      Accept: "application/json",
+      ...(schema ? { "Accept-Profile": schema } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    return {
+      ok: false,
+      endpoint: "/rest/v1/",
+      status: response.status,
+      error: errorText || `${response.status} ${response.statusText}`,
+    };
+  }
+
+  return {
+    ok: true,
+    endpoint: "/rest/v1/",
+    status: response.status,
+  };
+}
+
+async function testSupabaseNanikaView({ url, apiKey, schema }, viewConfig) {
+  const baseUrl = normalizeSupabaseProjectUrl(url);
+  const key = String(apiKey ?? "").trim();
+
+  if (!key) {
+    throw new Error("missing_supabase_api_key");
+  }
+
+  const requestUrl = new URL(`${baseUrl}/rest/v1/${viewConfig.view}`);
+  requestUrl.searchParams.set("select", `id,${viewConfig.column}`);
+  requestUrl.searchParams.set("enabled", "eq.true");
+  requestUrl.searchParams.set("limit", "1");
+
+  const response = await fetch(requestUrl, {
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      ...(schema ? { "Accept-Profile": schema } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    return {
+      scope: viewConfig.scope,
+      view: viewConfig.view,
+      ok: false,
+      count: 0,
+      error: errorText || `${response.status} ${response.statusText}`,
+    };
+  }
+
+  const rows = await response.json();
+  const items = Array.isArray(rows) ? rows : [];
+  const sampleRow = items[0];
+
+  return {
+    scope: viewConfig.scope,
+    view: viewConfig.view,
+    ok: true,
+    count: items.length,
+    ...(sampleRow ? { sample: sampleRow[viewConfig.column] ?? sampleRow } : {}),
+  };
+}
+
+async function handleTestNanikaDbConnection(request, response) {
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "method_not_allowed" });
+    return true;
+  }
+
+  try {
+    const body = await readRequestJson(request);
+    const provider = String(body.provider ?? "supabase");
+
+    if (provider !== "supabase") {
+      sendJson(response, 400, {
+        ok: false,
+        error: "unsupported_db_provider",
+        message: "Only Supabase REST is supported by this devtools test page.",
+      });
+      return true;
+    }
+
+    const schema = String(body.schema ?? "public").trim() || "public";
+    const result = await testSupabaseConnection({
+      url: body.url,
+      apiKey: body.apiKey,
+      schema,
+    });
+
+    if (!result.ok) {
+      sendJson(response, 502, {
+        ok: false,
+        provider,
+        endpoint: result.endpoint,
+        status: result.status,
+        error: result.error,
+        message: "Nanika DB connection test failed.",
+      });
+      return true;
+    }
+
+    sendJson(response, 200, {
+      ok: true,
+      provider,
+      endpoint: result.endpoint,
+      status: result.status,
+      message: "Supabase REST endpoint is reachable.",
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "nanika_db_connection_test_failed";
+    const statusCode = [
+      "invalid_supabase_url",
+      "missing_supabase_api_key",
+      "unsupported_db_provider",
+    ].includes(message) ? 400 : 500;
+
+    sendJson(response, statusCode, {
+      ok: false,
+      error: message,
+      message: "Nanika DB connection test failed.",
+    });
+  }
+
+  return true;
+}
+
+async function handleTestNanikaDbAdapter(request, response) {
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "method_not_allowed" });
+    return true;
+  }
+
+  try {
+    const body = await readRequestJson(request);
+    const provider = String(body.provider ?? "supabase");
+
+    if (provider !== "supabase") {
+      sendJson(response, 400, {
+        ok: false,
+        error: "unsupported_db_provider",
+        message: "Only Supabase REST is supported by this devtools test page.",
+      });
+      return true;
+    }
+
+    const schema = String(body.schema ?? "public").trim() || "public";
+    const results = [];
+
+    for (const viewConfig of nanikaSupabaseDataViews) {
+      results.push(await testSupabaseNanikaView({
+        url: body.url,
+        apiKey: body.apiKey,
+        schema,
+      }, viewConfig));
+    }
+
+    sendJson(response, 200, {
+      ok: true,
+      provider,
+      results,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "nanika_db_adapter_test_failed";
+    const statusCode = [
+      "invalid_supabase_url",
+      "missing_supabase_api_key",
+      "unsupported_db_provider",
+    ].includes(message) ? 400 : 500;
+
+    sendJson(response, statusCode, {
+      ok: false,
+      error: message,
+      message: "Nanika DB adapter test failed.",
+    });
+  }
+
+  return true;
 }
 
 function readRequestJson(request) {
@@ -2094,7 +2541,7 @@ function createDefaultCharacterLines(displayName) {
     onHoverRuntimeTitle: ["타이틀 영역에 마우스를 올렸을 때의 안내 대사입니다."],
     onHoverEventLog: ["이벤트 로그를 설명하는 대사입니다."],
     onHoverCommandMenu: ["명령 메뉴를 설명하는 대사입니다."],
-    onHoverFortuneCommand: ["확장 명령을 설명하는 대사입니다."],
+    onHoverExtensionCommand: ["확장 명령을 설명하는 대사입니다."],
     onHoverLineCommand: ["대사 버튼을 설명하는 대사입니다."],
     onHoverHideCommand: ["숨기기 버튼을 설명하는 대사입니다."],
     onRandomPrompt: ["잠깐 말을 걸어오는 랜덤 대사를 채워주세요."],
@@ -4313,14 +4760,19 @@ async function handleNanikaData(request, response, pathname) {
       "invalid_nanika_feature_set",
       "invalid_nanika_feature_set_id",
       "invalid_nanika_feature_set_mappings",
+      "invalid_nanika_character_profile",
+      "invalid_nanika_runtime_profile",
+      "invalid_nanika_runtime_profile_id",
       "invalid_nanika_mappings_file",
       "invalid_nanika_conditions_file",
       "invalid_nanika_menus_file",
       "invalid_nanika_feature_sets_file",
+      "invalid_nanika_runtime_profiles_file",
       "nanika_mapping_path_outside_project",
       "nanika_condition_path_outside_project",
       "nanika_menu_path_outside_project",
       "nanika_feature_set_path_outside_project",
+      "nanika_runtime_profile_path_outside_project",
     ].includes(message) ? 400 : 500;
 
     sendJson(response, statusCode, {
@@ -4343,6 +4795,14 @@ async function handleApiRequest(request, response) {
 
   if (pathname.startsWith("/api/nanika/data/")) {
     return handleNanikaData(request, response, pathname);
+  }
+
+  if (pathname === "/api/devtools/test-nanika-db-connection") {
+    return handleTestNanikaDbConnection(request, response);
+  }
+
+  if (pathname === "/api/devtools/test-nanika-db-adapter") {
+    return handleTestNanikaDbAdapter(request, response);
   }
 
   if (pathname === "/api/devtools/generate-layer-part") {

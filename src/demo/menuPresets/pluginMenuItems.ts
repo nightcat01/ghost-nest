@@ -6,12 +6,12 @@ import type { ManagementMenuItem } from "../../core/types.js";
 export function createPluginMenuItems(): ManagementMenuItem[] {
   return [
     {
-      id: "draw-fortune",
-      label: "운세 실행",
+      id: "draw-sample-result",
+      label: "샘플 결과 실행",
       description: "외부 기능 결과를 받아 말풍선과 표정으로 보여주는 예시예요.",
       actions: [
-        { type: "call_plugin", pluginId: "fortune" },
-        { type: "log", label: "management.draw_fortune" },
+        { type: "call_plugin", pluginId: "sample_result" },
+        { type: "log", label: "management.draw_sample_result" },
       ],
     },
     {

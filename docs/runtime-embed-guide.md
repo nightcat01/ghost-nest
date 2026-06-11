@@ -4,17 +4,17 @@ GhostNest/Nanika is intended to run as a character runtime layer inside a host p
 
 ## Integration Roadmap
 
-Use this roadmap when embedding Nanika into a host site such as Fortune Master.
+Use this roadmap when embedding Nanika into a host site such as host app.
 
 | Step | Goal | Current support |
 | --- | --- | --- |
 | 1 | Runtime mount boundary | `root` limits selector lookup to a host-owned mount area. |
 | 2 | CSS isolation and theme inheritance | Runtime styles are scoped under `.ghostnest-runtime`; host themes can override `--ghostnest-*` variables. |
 | 3 | Initial runtime state | `initialScene`, `initialSurface`, `initialExpression`, speech layout, speech size, and sprite size can be passed per page. |
-| 4 | Speech layout variants | `runtimeSpeechPresets.floatingCompact`, `runtimeSpeechPresets.dialogueOverlay`, and `runtimeSpeechPresets.fortuneEmbed` cover compact balloons, bottom dialogue overlays, and host-page embeds. |
+| 4 | Speech layout variants | `runtimeSpeechPresets.floatingCompact`, `runtimeSpeechPresets.dialogueOverlay`, and `runtimeSpeechPresets.hostEmbed` cover compact balloons, bottom dialogue overlays, and host-page embeds. |
 | 5 | Host event input API | Host pages can call `runtime.emit("event:name", payload)`. |
 | 6 | Feature mapping structure | Mapping catalogs show character, plugins, runtime events, host event examples, actions, and current rules. |
-| 7 | Real embed sample | `dev-fortune-embed.html` demonstrates a mobile Fortune Master style host page. |
+| 7 | Real embed sample | `dev-runtime-embed.html` demonstrates a constrained host-page embed. |
 | 8 | Re-initialization, route movement, and character switching | Use `runtime.emit(...)` for page events, `runtime.setCharacter(...)` for an in-place character switch, and `destroy()` only when the mount or rule/menu contract must be rebuilt. Browser visual verification is still required before shipping. |
 | 9 | Developer settings access | Devtool APIs support localhost/default IP allowlist and context-path handling. |
 | 10 | Verification criteria | This guide keeps the embed checklist and visual checks. |
@@ -34,7 +34,7 @@ Host apps should treat the Nanika mount as a layout boundary. The host owns the 
 
 Safe host responsibilities:
 
-- Size and position the host wrapper, for example `.fortune-nanika-root` or `.new-nanika-stage-root`.
+- Size and position the host wrapper, for example `.embed-nanika-root` or `.new-nanika-stage-root`.
 - Set `position`, `z-index`, `visibility`, and route-level overflow on the host wrapper.
 - Provide theme tokens and CSS custom properties on the wrapper or stage.
 - Set asset container size and page-specific min-height before creating the runtime.
@@ -60,29 +60,29 @@ Avoid overriding these properties on the runtime-owned selectors unless you are 
 Prefer CSS variables and runtime options for custom styling:
 
 ```css
-.fortune-nanika-root {
+.embed-nanika-root {
   --runtime-area-width: 430px;
   --runtime-area-height: 720px;
-  --ghostnest-fortune-prompt-border: rgba(245, 220, 155, 0.24);
-  --ghostnest-fortune-prompt-bg: rgba(18, 17, 27, 0.54);
+  --ghostnest-prompt-overlay-border: rgba(245, 220, 155, 0.24);
+  --ghostnest-prompt-overlay-bg: rgba(18, 17, 27, 0.54);
 }
 ```
 
-For narrow embeds, start with `runtimeSpeechPresets.fortuneEmbed`, then adjust `speechBalloonSize` rather than writing host CSS against `.speech-balloon`.
+For narrow embeds, start with `runtimeSpeechPresets.hostEmbed`, then adjust `speechBalloonSize` rather than writing host CSS against `.speech-balloon`.
 
 ## Runtime Ready State
 
 Every runtime stage starts with `data-ready="false"` and switches to `data-ready="true"` after the initial character/surface/scene render path has been applied. The stage also dispatches a bubbling `ghostnest:ready` event.
 
 ```ts
-const root = document.querySelector("#fortuneNanikaRuntime");
+const root = document.querySelector("#nanikaRuntimeEmbed");
 
 root?.addEventListener("ghostnest:ready", () => {
   root.classList.add("is-nanika-ready");
 });
 
 createGhostRuntimeFromPreset(preset, {
-  root: "#fortuneNanikaRuntime",
+  root: "#nanikaRuntimeEmbed",
   hideUntilReady: true,
 });
 ```
@@ -95,7 +95,7 @@ For page-level placement, prefer `characterPlacement` over host CSS overrides. I
 
 ```ts
 createGhostRuntimeFromPreset(preset, {
-  root: "#fortuneNanikaRuntime",
+  root: "#nanikaRuntimeEmbed",
   characterPlacement: {
     placement: "bottom-center",
     offsetX: 20,
@@ -199,13 +199,13 @@ Keep public user pages and developer-only devtools routes separate. In productio
 
 ## Host Routing Map
 
-When GhostNest is installed through npm, it does not create any route in the host app. Fortune Master, or any other host service, should decide which URL is public runtime UI and which URL is protected developer UI.
+When GhostNest is installed through npm, it does not create any route in the host app. host app, or any other host service, should decide which URL is public runtime UI and which URL is protected developer UI.
 
 Use this split as the default:
 
 | Host URL | Purpose | GhostNest piece to connect | Public? | Notes |
 | --- | --- | --- | --- | --- |
-| `/` or a product page such as `/fortune`, `/zodiac` | User-facing Nanika runtime | Import `createGhostRuntimeFromPreset` and mount into a host-owned div | Yes | This is just normal app UI. Do not expose devtools controls here. |
+| `/` or a product page such as `/sample_result`, `/subpage` | User-facing Nanika runtime | Import `createGhostRuntimeFromPreset` and mount into a host-owned div | Yes | This is just normal app UI. Do not expose devtools controls here. |
 | `/assets/nanika/characters/:characterId/assets/...` | Character images | Host static files, CDN, or storage | Yes | Runtime image URLs should resolve here. Copy or publish assets from the character workspace. |
 | `/assets/nanika/common/...` | Reusable common parts/scenes | Host static files, CDN, or storage | Yes | Shared props, stage materials, and reusable effects can live here. |
 | `/admin/nanika` or `/dev/nanika` | Developer landing page | Host-owned protected page linking to character/mapping tools | No | Put account, role, or IP checks here. |
@@ -214,11 +214,11 @@ Use this split as the default:
 | `/api/nanika/*` | Host-owned data adapter | Optional DB/file adapter for characters, mappings, feature sets, or runtime profiles | No for writes, maybe yes for reads | Do not point browser devtools writes at `node_modules`. |
 | `/api/devtools/*` | GhostNest dev server API | Only available when using the GhostNest dev server directly or through a protected proxy | No | If the host serves devtools itself, the host must provide/proxy equivalent APIs. |
 
-The main decision is whether Fortune Master wants to use only the runtime or also host the developer tools.
+The main decision is whether host app wants to use only the runtime or also host the developer tools.
 
 ### Runtime-only Route
 
-For normal Fortune Master pages, no GhostNest route is needed. The page renders a mount element and imports the runtime.
+For normal host app pages, no GhostNest route is needed. The page renders a mount element and imports the runtime.
 
 ```tsx
 import {
@@ -227,7 +227,7 @@ import {
 } from "ghost-nest";
 
 createGhostRuntimeFromPreset(nanikaPreset, {
-  root: "#fortuneNanikaRuntime",
+  root: "#nanikaRuntimeEmbed",
   assetBaseUrl: {
     charactersRootUrl: "/assets/nanika/characters",
     commonAssetBaseUrl: "/assets/nanika/common",
@@ -238,11 +238,11 @@ createGhostRuntimeFromPreset(nanikaPreset, {
 });
 ```
 
-The host page owns the route, for example `/`, `/zodiac`, or `/result`. Nanika only owns the DOM inside `#fortuneNanikaRuntime`.
+The host page owns the route, for example `/`, `/subpage`, or `/result`. Nanika only owns the DOM inside `#nanikaRuntimeEmbed`.
 
 ### Protected Devtools Route
 
-If Fortune Master wants to open the character settings or mapping editor inside the app, it should create a protected host route first. That route can then choose one of these patterns:
+If host app wants to open the character settings or mapping editor inside the app, it should create a protected host route first. That route can then choose one of these patterns:
 
 1. Link to a separate local GhostNest dev server during development, for example `http://127.0.0.1:4173/dev-character.html`.
 2. Proxy `/admin/nanika/*` to a GhostNest dev server, keeping the host's admin/IP guard in front.
@@ -259,11 +259,11 @@ The important part is that static HTML alone is not enough for editing. Characte
 - `/api/devtools/nanika-mappings`
 - `/api/devtools/save-nanika-mapping`
 
-If the devtools page is served from Fortune Master, those relative API calls go to Fortune Master. Fortune Master must either proxy them to GhostNest's dev server or implement equivalent server routes. If it does neither, saves will fail or return host-specific errors such as workspace-write restrictions.
+If the devtools page is served from host app, those relative API calls go to host app. host app must either proxy them to GhostNest's dev server or implement equivalent server routes. If it does neither, saves will fail or return host-specific errors such as workspace-write restrictions.
 
 ### Asset URL Rule
 
-Runtime image paths should point at browser-readable URLs, not source workspace paths. In Fortune Master, prefer this shape:
+Runtime image paths should point at browser-readable URLs, not source workspace paths. In host app, prefer this shape:
 
 ```txt
 public/assets/nanika/characters/rine/assets/base/...
@@ -276,7 +276,7 @@ Then configure the runtime preset with `assetBaseUrl`:
 
 ```ts
 createGhostRuntimeFromPreset(preset, {
-  root: "#fortuneNanikaRuntime",
+  root: "#nanikaRuntimeEmbed",
   assetBaseUrl: {
     charactersRootUrl: "/assets/nanika/characters",
     commonAssetBaseUrl: "/assets/nanika/common",
@@ -290,7 +290,7 @@ Bundled demo character data may store source-style asset paths such as `./src/ch
 
 ```ts
 const runtime = createGhostRuntimeFromPreset(nanikaPreset, {
-  root: "#fortuneNanikaRuntime",
+  root: "#nanikaRuntimeEmbed",
   assetBaseUrl: {
     charactersRootUrl: "/assets/nanika/characters",
     commonAssetBaseUrl: "/assets/nanika/common",
@@ -302,19 +302,19 @@ const runtime = createGhostRuntimeFromPreset(nanikaPreset, {
 
 When the bundled runtime demo is opened through the GhostNest dev server, it also reads the saved character workspace setting from `/api/devtools/character-workspace` and applies the same rewrite internally. In consuming apps, prefer the `assetBaseUrl` runtime preset override. Use the lower-level `createCharacterWithAssetBaseUrl(...)` helper only when you need to rewrite a character definition before passing it to another system.
 
-For Fortune Master, a practical first pass is to run `npx ghost-nest export-demo-assets --character rine --root public/assets/nanika`. Later, production characters can provide their own character definitions and use the same key/preset mapping flow.
+For host app, a practical first pass is to run `npx ghost-nest export-demo-assets --character rine --root public/assets/nanika`. Later, production characters can provide their own character definitions and use the same key/preset mapping flow.
 
 ```ts
 const runtime = createGhostRuntimeFromPreset(preset, {
-  root: "#fortuneNanikaRuntime",
+  root: "#nanikaRuntimeEmbed",
   selectors: {
-    stage: ".fortune-nanika-stage",
-    sprite: ".fortune-nanika-sprite",
-    spriteImage: ".fortune-nanika-sprite-image",
-    speakerName: ".fortune-nanika-speaker",
-    speechText: ".fortune-nanika-text",
-    speechBalloon: ".fortune-nanika-speech",
-    balloonActionMenu: ".fortune-nanika-actions",
+    stage: ".embed-nanika-stage",
+    sprite: ".embed-nanika-sprite",
+    spriteImage: ".embed-nanika-sprite-image",
+    speakerName: ".embed-nanika-speaker",
+    speechText: ".embed-nanika-text",
+    speechBalloon: ".embed-nanika-speech",
+    balloonActionMenu: ".embed-nanika-actions",
     menuButtons: "[data-nanika-command]",
     observeAreas: "[data-nanika-observe]",
   },
@@ -328,8 +328,8 @@ const runtime = createGhostRuntimeFromPreset(preset, {
 Host pages can emit app-specific event names. Use this for page entry, card selection, menu selection, and feature completion.
 
 ```ts
-runtime.emit("fortune:home:open");
-runtime.emit("zodiac:selected", { zodiac: "aries" });
+runtime.emit("demo:home:open");
+runtime.emit("choice:selected", { subpage: "aries" });
 runtime.emit("tarot:card:selected", { cardId: "star" });
 ```
 
@@ -337,12 +337,12 @@ Map those events to Nanika rules:
 
 ```ts
 {
-  id: "zodiac-selected",
-  event: "zodiac:selected",
+  id: "choice-selected",
+  event: "choice:selected",
   actions: [
-    { type: "scene", id: "zodiac-room" },
-    { type: "surface", id: "zodiac-guide", startIdleLayers: true },
-    { type: "speak_text", text: "선택한 별자리에 맞춰 오늘의 흐름을 읽어볼게요." },
+    { type: "scene", id: "choice-room" },
+    { type: "surface", id: "choice-guide", startIdleLayers: true },
+    { type: "speak_text", text: "선택한 선택 항목에 맞춰 오늘의 흐름을 읽어볼게요." },
   ],
 }
 ```
@@ -368,7 +368,7 @@ const pageState = {
 };
 
 const runtime = createGhostRuntimeFromPreset(preset, {
-  root: "#fortuneNanikaRuntime",
+  root: "#nanikaRuntimeEmbed",
   initialScene: pageState.initialScene,
   initialSurface: pageState.initialSurface,
   characterPlacement: {
@@ -387,8 +387,8 @@ const runtime = createGhostRuntimeFromPreset(preset, {
 After creation, use mapped host events for state changes that happen because the user acted.
 
 ```ts
-runtime.emit("fortune:menu:selected", { menu: "zodiac" });
-runtime.emit("fortune:zodiac:selected", { zodiac: "aries" });
+runtime.emit("demo:menu:selected", { menu: "subpage" });
+runtime.emit("sample_result:choice:selected", { subpage: "aries" });
 ```
 
 ## Runtime Profiles
@@ -410,7 +410,7 @@ import {
 } from "ghost-nest";
 
 const profile = {
-  id: "fortune.home.rine",
+  id: "demo.home.rine",
   match: { pageId: "home", urlPattern: "*" },
   initial: { scene: "desk-room" },
   controls: {
@@ -424,7 +424,7 @@ const profile = {
     runtimeUi: "preset",
     managementMenu: "disabled",
   },
-  featureSetIds: ["fortune.home"],
+  featureSetIds: ["demo.home"],
   characterProfiles: [
     {
       characterId: "rine",
@@ -442,13 +442,24 @@ const result = createNanikaRuntimeProfileOptions({
 });
 
 const runtime = createGhostRuntimeFromPreset(preset, {
-  root: "#fortuneNanikaRuntime",
+  root: "#nanikaRuntimeEmbed",
   selectors,
   ...result.overrides,
 });
 ```
 
 Use runtime profile conditions for page-level decisions. Use runtime rule conditions only after a profile has already been selected.
+
+Menus can request a runtime profile switch without letting the runtime know how profiles are stored. Add a menu action with `request_profile_change`, then handle the event in the host app.
+
+```ts
+root.addEventListener("ghostnest:profile-change-request", (event) => {
+  const detail = (event as CustomEvent<{ profileId: string; reason?: string }>).detail;
+
+  // Load detail.profileId from your file or DB-backed profile store,
+  // then recreate the runtime with the resolved profile options.
+});
+```
 
 ## Management Menu Presets In Mappings
 
@@ -477,16 +488,56 @@ createGhostRuntimeFromPreset(preset, {
 
 Use `demo.default` or no `menuId` for the normal menu, `demo.user` for user-facing menu items, and `demo.developer` for developer-only tools. Host apps can also pass their own fallback menu items when they do not want the demo preset.
 
+## Fixed Panel Menu Slot
+
+Host pages may reserve a fixed area for Nanika menu UI, separate from the character and speech areas. In that case, open the menu through a normal runtime rule instead of creating a second menu system.
+
+```ts
+const fixedMenuRule = {
+  id: "runtime.fixed-panel-menu",
+  event: "runtime:ready",
+  actions: [
+    {
+      type: "open_management_menu",
+      menuId: "demo.user",
+      title: "사용자 메뉴",
+      display: "panel",
+      closeOnSelect: false,
+      draggable: false,
+      items: createDemoManagementMenuItems(character, {
+        includeDeveloperTools: false,
+      }),
+    },
+  ],
+};
+```
+
+`display: "panel"` sends the menu to the configured panel target. `closeOnSelect: false` keeps the menu open after an item runs. `draggable: false` is useful when the host owns the menu slot position and the panel should not move.
+
+For a fixed slot, keep the host CSS focused on the outer menu target:
+
+- Give the target a stable box in the host layout.
+- Style menu colors, spacing, and scroll limits through the panel target and menu-specific selectors.
+- Do not override character, stage, scene, or speech layout selectors to position the menu.
+
+Recommended menu selectors for host styling:
+
+- `.management-panel-menu`
+- `[data-management-menu-display="panel"]`
+- `.management-menu-title`
+- `.management-menu-body`
+- `[data-management-action]`
+
 ## Theme And CSS
 
 - Runtime CSS is scoped under `.ghostnest-runtime`.
 - The host can override theme variables on the runtime root or mount area.
 - Avoid styling host `body`, `button`, `h1`, or global utility classes from Nanika CSS.
 - Devtools CSS is scoped to `.asset-lab-shell` and should not be bundled into a host page unless the host intentionally exposes developer screens.
-- Demo-only host styles such as `.fortune-nanika-mount` are examples, not runtime requirements.
+- Demo-only host styles such as `.embed-nanika-mount` are examples, not runtime requirements.
 
 ```css
-.fortune-nanika-mount {
+.embed-nanika-mount {
   --ghostnest-accent: #ffe59a;
   --ghostnest-ink: #fff7e4;
   --ghostnest-speech-dialogue-panel: rgba(16, 15, 28, 0.72);
@@ -510,12 +561,12 @@ createGhostRuntimeFromPreset(preset, {
 });
 ```
 
-For Fortune-style fixed top embeds, use `fortuneEmbed`. It keeps the dialogue box compact and anchors it to one side of the runtime stage so lower host content stays visible.
+For host-style fixed top embeds, use `hostEmbed`. It keeps the dialogue box compact and anchors it to one side of the runtime stage so lower host content stays visible.
 
 ```ts
 createGhostRuntimeFromPreset(preset, {
-  speechLayout: runtimeSpeechPresets.fortuneEmbed.layout,
-  speechBalloonSize: runtimeSpeechPresets.fortuneEmbed.size,
+  speechLayout: runtimeSpeechPresets.hostEmbed.layout,
+  speechBalloonSize: runtimeSpeechPresets.hostEmbed.size,
 });
 ```
 
@@ -524,10 +575,10 @@ Override `overlayAnchor` when the host page needs the compact overlay on another
 ```ts
 createGhostRuntimeFromPreset(preset, {
   speechLayout: {
-    ...runtimeSpeechPresets.fortuneEmbed.layout,
+    ...runtimeSpeechPresets.hostEmbed.layout,
     overlayAnchor: "left",
   },
-  speechBalloonSize: runtimeSpeechPresets.fortuneEmbed.size,
+  speechBalloonSize: runtimeSpeechPresets.hostEmbed.size,
 });
 ```
 
@@ -547,7 +598,7 @@ let runtime: ReturnType<typeof createGhostRuntimeFromPreset> | null = null;
 function bootNanika(pageState: { scene: string; surface: string }) {
   runtime?.destroy();
   runtime = createGhostRuntimeFromPreset(preset, {
-    root: "#fortuneNanikaRuntime",
+    root: "#nanikaRuntimeEmbed",
     initialScene: pageState.scene,
     initialSurface: pageState.surface,
   });
@@ -566,7 +617,7 @@ This is the preferred path for host UI such as:
 
 ```ts
 const runtime = createGhostRuntimeFromPreset(preset, {
-  root: "#fortuneNanikaRuntime",
+  root: "#nanikaRuntimeEmbed",
   initialScene: "desk-room",
   initialSurface: "idle",
 });
@@ -621,7 +672,7 @@ The event detail has this shape:
 }
 ```
 
-The host app owns the actual character decision. In Fortune Master, that usually means opening a host-owned character selector, choosing a runtime profile, and then passing the resolved character plus initial values to `runtime.setCharacter(...)`.
+The host app owns the actual character decision. In host app, that usually means opening a host-owned character selector, choosing a runtime profile, and then passing the resolved character plus initial values to `runtime.setCharacter(...)`.
 
 ```ts
 import {
@@ -635,13 +686,13 @@ function mountNanika(preset: NanikaRuntimePreset) {
   runtime?.destroy();
 
   runtime = createGhostRuntimeFromPreset(preset, {
-    root: "#fortuneNanikaRuntime",
+    root: "#nanikaRuntimeEmbed",
     controls: {
       devtools: false,
     },
   });
 
-  const stage = document.querySelector("#fortuneNanikaRuntime .character-stage");
+  const stage = document.querySelector("#nanikaRuntimeEmbed .character-stage");
 
   stage?.addEventListener("ghostnest:character-change-request", () => {
     openHostCharacterSelector();

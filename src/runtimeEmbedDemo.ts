@@ -24,9 +24,9 @@ import type {
   SpeechLayoutOptions,
 } from "./core/types.js";
 
-const runtimeRootSelector = "#fortuneNanikaRuntime";
-const fortuneSpeechPreset = runtimeSpeechPresets.fortuneEmbed;
-const runtimeStatus = document.querySelector<HTMLElement>("#fortuneRuntimeStatus");
+const runtimeRootSelector = "#nanikaRuntimeEmbed";
+const embedSpeechPreset = runtimeSpeechPresets.hostEmbed;
+const runtimeStatus = document.querySelector<HTMLElement>("#embedRuntimeStatus");
 let runtimeBootCount = 0;
 let embedCharacters: CharacterDefinition[] = [nanikaPreset.character, ...bundledCharacters];
 let embedCharactersReady: Promise<CharacterDefinition[]> | null = null;
@@ -35,7 +35,7 @@ let embedAssetBaseUrlOptionsReady: Promise<CharacterAssetBaseUrlOptions | null> 
 let currentEmbedPageId = "home";
 let currentEmbedCharacterId = nanikaPreset.character.profile.id;
 
-type FortuneRuntimeProfile = NanikaRuntimeProfile & {
+type EmbedRuntimeProfile = NanikaRuntimeProfile & {
   bootEvent: RuntimeEventName;
 };
 
@@ -189,7 +189,7 @@ async function createEmbedRuntimeCharacter(character: CharacterDefinition) {
   return createCharacterWithAssetBaseUrl(character, assetBaseUrlOptions);
 }
 
-const fortuneRuntimeControls = {
+const embedRuntimeControls = {
   devtools: false,
   diagnostics: false,
   hitboxEditor: false,
@@ -202,10 +202,10 @@ const fortuneRuntimeControls = {
   persistence: false,
 };
 
-const fortuneRuntimeSizing = {
-  speechLayout: fortuneSpeechPreset.layout satisfies SpeechLayoutOptions,
+const embedRuntimeSizing = {
+  speechLayout: embedSpeechPreset.layout satisfies SpeechLayoutOptions,
   speechBalloonSize: {
-    ...fortuneSpeechPreset.size,
+    ...embedSpeechPreset.size,
     stageWidth: "min(100%, calc(var(--runtime-area-width, 640px) - 32px))",
     dialogueWidth: "min(100%, calc(var(--runtime-area-width, 640px) - 48px))",
     dialogueMaxWidth: "100%",
@@ -221,21 +221,21 @@ const fortuneRuntimeSizing = {
   } satisfies Partial<CharacterSpriteSizeOptions>,
 };
 
-const fortuneRuntimeProfiles: Record<string, FortuneRuntimeProfile> = {
+const embedRuntimeProfiles: Record<string, EmbedRuntimeProfile> = {
   home: {
     id: "embed.home.rine",
     name: "Embed home / Rine",
-    bootEvent: "fortune:home:open",
+    bootEvent: "demo:home:open",
     match: { pageId: "home", urlPattern: "*" },
     initial: { scene: "desk-room" },
-    controls: fortuneRuntimeControls,
+    controls: embedRuntimeControls,
     preferenceStorage: {
       runtimeUi: "preset",
       managementMenu: "preset",
     },
-    balloonTheme: "fortune_prompt",
-    featureSetIds: ["fortune.home"],
-    ...fortuneRuntimeSizing,
+    balloonTheme: "prompt_overlay",
+    featureSetIds: ["demo.home"],
+    ...embedRuntimeSizing,
     characterProfiles: [
       {
         characterId: "rine",
@@ -243,26 +243,26 @@ const fortuneRuntimeProfiles: Record<string, FortuneRuntimeProfile> = {
       },
     ],
   },
-  zodiac: {
+  subpage: {
     id: "embed.context.rine",
     name: "Embed context / Rine",
-    bootEvent: "fortune:zodiac:open",
-    match: { pageId: "zodiac", urlPattern: "*" },
+    bootEvent: "demo:subpage:open",
+    match: { pageId: "subpage", urlPattern: "*" },
     initial: { scene: "desk-room" },
-    controls: fortuneRuntimeControls,
+    controls: embedRuntimeControls,
     preferenceStorage: {
       runtimeUi: "preset",
       managementMenu: "preset",
     },
-    balloonTheme: "fortune_prompt",
-    featureSetIds: ["fortune.zodiac"],
-    speechLayout: fortuneRuntimeSizing.speechLayout,
-    characterPlacement: fortuneRuntimeSizing.characterPlacement,
+    balloonTheme: "prompt_overlay",
+    featureSetIds: ["demo.subpage"],
+    speechLayout: embedRuntimeSizing.speechLayout,
+    characterPlacement: embedRuntimeSizing.characterPlacement,
     speechBalloonSize: {
-      ...fortuneRuntimeSizing.speechBalloonSize,
+      ...embedRuntimeSizing.speechBalloonSize,
       dialogueMaxHeight: "min(20vh, 132px)",
     },
-    spriteSize: fortuneRuntimeSizing.spriteSize,
+    spriteSize: embedRuntimeSizing.spriteSize,
     characterProfiles: [
       {
         characterId: "rine",
@@ -271,7 +271,7 @@ const fortuneRuntimeProfiles: Record<string, FortuneRuntimeProfile> = {
     ],
   },
 };
-const defaultFortuneRuntimePageId = "home";
+const defaultEmbedRuntimePageId = "home";
 
 function getEmbedCharacter(characterId: string) {
   return embedCharacters.find((character) => character.profile.id === characterId) ?? nanikaPreset.character;
@@ -287,9 +287,9 @@ function resolveInitialSurface(character: CharacterDefinition, preferredSurfaceI
   return surfaceIds[0];
 }
 
-function createEmbedRuntimeProfile(pageId: string, character: CharacterDefinition): FortuneRuntimeProfile {
-  const template = fortuneRuntimeProfiles[pageId] ?? fortuneRuntimeProfiles[defaultFortuneRuntimePageId]!;
-  const preferredSurfaceId = pageId === "zodiac" ? "8" : "0";
+function createEmbedRuntimeProfile(pageId: string, character: CharacterDefinition): EmbedRuntimeProfile {
+  const template = embedRuntimeProfiles[pageId] ?? embedRuntimeProfiles[defaultEmbedRuntimePageId]!;
+  const preferredSurfaceId = pageId === "subpage" ? "8" : "0";
   const surface = resolveInitialSurface(character, preferredSurfaceId);
   const expression: CharacterExpression | undefined = surface ? undefined : "neutral";
 
@@ -374,63 +374,63 @@ function withEmbedCharacterSwitcher(items: ManagementMenuItem[], currentCharacte
   });
 }
 
-const fortuneEmbedMappings = [
+const hostEmbedMappings = [
   {
-    id: "fortune-home-open",
-    event: "fortune:home:open",
+    id: "demo-home-open",
+    event: "demo:home:open",
     actions: [
-      { type: "change_balloon", theme: "fortune_prompt" },
+      { type: "change_balloon", theme: "prompt_overlay" },
       { type: "speak_text", text: "이 박스 안에서만 나니카가 움직이는 임베드 데모예요." },
       { type: "scene", id: "desk-room" },
     ],
   },
   {
-    id: "fortune-zodiac-open",
-    event: "fortune:zodiac:open",
+    id: "demo-subpage-open",
+    event: "demo:subpage:open",
     actions: [
-      { type: "change_balloon", theme: "fortune_prompt" },
+      { type: "change_balloon", theme: "prompt_overlay" },
       { type: "speak_text", text: "페이지 context가 바뀌어도 런타임은 같은 임베드 영역 안에 유지돼요." },
       { type: "scene", id: "desk-room" },
     ],
   },
   {
-    id: "fortune-zodiac-selected",
-    event: "zodiac:selected",
+    id: "demo-subpage-selected",
+    event: "choice:selected",
     actions: [
       { type: "speak_text", text: "선택 이벤트를 런타임 액션으로 매핑해 반응을 확인합니다." },
       { type: "surface", id: "8", startIdleLayers: true },
     ],
   },
   {
-    id: "fortune-menu-selected",
-    event: "fortune:menu:selected",
+    id: "sample_result-menu-selected",
+    event: "demo:menu:selected",
     actions: [
       { type: "speak_text", text: "호스트 버튼 이벤트가 나니카 대사로 연결됐어요." },
     ],
   },
 ] satisfies NanikaMapping[];
 
-const fortuneEmbedFeatureSets = [
+const hostEmbedFeatureSets = [
   {
-    id: "fortune.home",
-    name: "Fortune home basics",
-    mappingIds: ["fortune-home-open", "fortune-menu-selected", "fortune-zodiac-selected"],
+    id: "demo.home",
+    name: "Host home basics",
+    mappingIds: ["demo-home-open", "sample_result-menu-selected", "demo-subpage-selected"],
   },
   {
-    id: "fortune.zodiac",
-    name: "Fortune zodiac basics",
-    mappingIds: ["fortune-zodiac-open", "fortune-menu-selected", "fortune-zodiac-selected"],
+    id: "demo.subpage",
+    name: "Host subpage basics",
+    mappingIds: ["demo-subpage-open", "sample_result-menu-selected", "demo-subpage-selected"],
   },
 ] satisfies NanikaFeatureSet[];
 
-type FortuneEmbedWindow = Window & {
-  __fortuneNanikaRuntime__?: GhostRuntime;
+type RuntimeEmbedWindow = Window & {
+  __nanikaRuntimeEmbed__?: GhostRuntime;
 };
 
-const fortuneWindow = window as FortuneEmbedWindow;
+const embedWindow = window as RuntimeEmbedWindow;
 
-async function createFortuneRuntime(pageId = currentEmbedPageId, characterId = currentEmbedCharacterId) {
-  fortuneWindow.__fortuneNanikaRuntime__?.destroy();
+async function createEmbedRuntime(pageId = currentEmbedPageId, characterId = currentEmbedCharacterId) {
+  embedWindow.__nanikaRuntimeEmbed__?.destroy();
   runtimeBootCount += 1;
   currentEmbedPageId = pageId;
   const character = await createEmbedRuntimeCharacter(getEmbedCharacter(characterId));
@@ -442,8 +442,8 @@ async function createFortuneRuntime(pageId = currentEmbedPageId, characterId = c
       pageId,
       url: window.location.pathname,
     },
-    featureSets: fortuneEmbedFeatureSets,
-    mappings: fortuneEmbedMappings,
+    featureSets: hostEmbedFeatureSets,
+    mappings: hostEmbedMappings,
     characterId: character.profile.id,
   });
   const profileOverrides = profileResult.overrides ?? {};
@@ -462,39 +462,39 @@ async function createFortuneRuntime(pageId = currentEmbedPageId, characterId = c
     character,
   };
 
-  fortuneWindow.__fortuneNanikaRuntime__ = createGhostRuntimeFromPreset(embedPreset, {
+  embedWindow.__nanikaRuntimeEmbed__ = createGhostRuntimeFromPreset(embedPreset, {
     root: runtimeRootSelector,
     selectors: {
-      stage: ".fortune-nanika-stage",
-      sprite: ".fortune-nanika-sprite",
-      spriteImage: ".fortune-nanika-sprite-image",
-      speechBalloon: ".fortune-nanika-speech",
-      speakerName: ".fortune-nanika-speaker",
-      speechText: ".fortune-nanika-text",
-      balloonActionMenu: ".fortune-nanika-actions",
-      panelActionMenu: ".fortune-nanika-panel",
-      menuButtons: "[data-fortune-command]",
-      observeAreas: "[data-fortune-observe]",
+      stage: ".embed-nanika-stage",
+      sprite: ".embed-nanika-sprite",
+      spriteImage: ".embed-nanika-sprite-image",
+      speechBalloon: ".embed-nanika-speech",
+      speakerName: ".embed-nanika-speaker",
+      speechText: ".embed-nanika-text",
+      balloonActionMenu: ".embed-nanika-actions",
+      panelActionMenu: ".embed-nanika-panel",
+      menuButtons: "[data-embed-command]",
+      observeAreas: "[data-embed-observe]",
     },
     ...embedOverrides,
   });
-  fortuneWindow.__fortuneNanikaRuntime__.registerAction("switch_embed_character", (action) => {
+  embedWindow.__nanikaRuntimeEmbed__.registerAction("switch_embed_character", (action) => {
     const nextCharacterId = isSwitchEmbedCharacterAction(action) && typeof action.characterId === "string"
       ? action.characterId
       : currentEmbedCharacterId;
 
-    void switchFortuneRuntimeCharacter(nextCharacterId);
+    void switchEmbedRuntimeCharacter(nextCharacterId);
   });
-  fortuneWindow.__fortuneNanikaRuntime__.registerAction("load_embed_characters", async () => {
+  embedWindow.__nanikaRuntimeEmbed__.registerAction("load_embed_characters", async () => {
     if (runtimeStatus) {
       runtimeStatus.textContent = "캐릭터 목록을 불러오는 중";
     }
 
     await loadAvailableEmbedCharacters();
-    await createFortuneRuntime(currentEmbedPageId, currentEmbedCharacterId);
+    await createEmbedRuntime(currentEmbedPageId, currentEmbedCharacterId);
   });
 
-  document.querySelector<HTMLElement>("#fortuneNanikaRuntime .fortune-nanika-stage")?.addEventListener(
+  document.querySelector<HTMLElement>("#nanikaRuntimeEmbed .embed-nanika-stage")?.addEventListener(
     "ghostnest:character-change-request",
     async (event) => {
       const detail = (event as CustomEvent<{ characterId?: string }>).detail;
@@ -504,22 +504,22 @@ async function createFortuneRuntime(pageId = currentEmbedPageId, characterId = c
         : embedCharacters.find((candidate) => candidate.profile.id !== currentEmbedCharacterId)?.profile.id;
 
       if (nextCharacterId) {
-        void switchFortuneRuntimeCharacter(nextCharacterId);
+        void switchEmbedRuntimeCharacter(nextCharacterId);
       }
     },
   );
 
-  fortuneWindow.__fortuneNanikaRuntime__.emit(profile.bootEvent);
+  embedWindow.__nanikaRuntimeEmbed__.emit(profile.bootEvent);
   if (runtimeStatus) {
     runtimeStatus.textContent = `${character.profile.name} ready #${runtimeBootCount}`;
   }
 }
 
-async function switchFortuneRuntimeCharacter(characterId: string) {
-  const runtime = fortuneWindow.__fortuneNanikaRuntime__;
+async function switchEmbedRuntimeCharacter(characterId: string) {
+  const runtime = embedWindow.__nanikaRuntimeEmbed__;
 
   if (!runtime) {
-    await createFortuneRuntime(currentEmbedPageId, characterId);
+    await createEmbedRuntime(currentEmbedPageId, characterId);
     return;
   }
 
@@ -532,8 +532,8 @@ async function switchFortuneRuntimeCharacter(characterId: string) {
       pageId: currentEmbedPageId,
       url: window.location.pathname,
     },
-    featureSets: fortuneEmbedFeatureSets,
-    mappings: fortuneEmbedMappings,
+    featureSets: hostEmbedFeatureSets,
+    mappings: hostEmbedMappings,
     characterId: character.profile.id,
   });
   const initialOptions = profileResult.overrides ?? {};
@@ -550,17 +550,17 @@ async function switchFortuneRuntimeCharacter(characterId: string) {
   }
 }
 
-function emitFortuneEvent(eventName: RuntimeEventName, payload?: Record<string, unknown>) {
-  fortuneWindow.__fortuneNanikaRuntime__?.emit(eventName, payload);
+function emitEmbedEvent(eventName: RuntimeEventName, payload?: Record<string, unknown>) {
+  embedWindow.__nanikaRuntimeEmbed__?.emit(eventName, payload);
 }
 
-document.querySelectorAll<HTMLElement>("[data-fortune-event]").forEach((element) => {
+document.querySelectorAll<HTMLElement>("[data-embed-event]").forEach((element) => {
   element.addEventListener("click", () => {
-    const pageId = element.dataset.fortunePage;
-    const eventName = element.dataset.fortuneEvent;
+    const pageId = element.dataset.embedPage;
+    const eventName = element.dataset.embedEvent;
 
     if (pageId) {
-      void createFortuneRuntime(pageId, currentEmbedCharacterId);
+      void createEmbedRuntime(pageId, currentEmbedCharacterId);
       return;
     }
 
@@ -568,8 +568,8 @@ document.querySelectorAll<HTMLElement>("[data-fortune-event]").forEach((element)
       return;
     }
 
-    emitFortuneEvent(eventName, {
-      value: element.dataset.fortuneValue,
+    emitEmbedEvent(eventName, {
+      value: element.dataset.embedValue,
     });
 
     if (runtimeStatus) {
@@ -578,8 +578,8 @@ document.querySelectorAll<HTMLElement>("[data-fortune-event]").forEach((element)
   });
 });
 
-document.querySelector<HTMLButtonElement>("#fortuneRuntimeRestart")?.addEventListener("click", () => {
-  void createFortuneRuntime();
+document.querySelector<HTMLButtonElement>("#embedRuntimeRestart")?.addEventListener("click", () => {
+  void createEmbedRuntime();
 });
 
-void createFortuneRuntime();
+void createEmbedRuntime();

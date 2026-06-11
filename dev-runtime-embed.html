@@ -17,7 +17,7 @@
               호스트 페이지의 내용은 그대로 두고, 나니카는 오른쪽의 제한된 임베드 영역 안에서만 동작합니다.
             </p>
           </div>
-          <button type="button" id="fortuneRuntimeRestart">런타임 다시 시작</button>
+          <button type="button" id="embedRuntimeRestart">런타임 다시 시작</button>
           <a class="embed-demo-home-link" href="./index.html">전체 데모로 돌아가기</a>
         </header>
 
@@ -29,30 +29,30 @@
               런타임은 페이지 전체가 아니라 옆의 박스 안에만 마운트됩니다.
             </p>
             <div class="embed-demo-actions">
-              <button type="button" data-fortune-event="fortune:menu:selected" data-fortune-value="primary">
+              <button type="button" data-embed-event="demo:menu:selected" data-embed-value="primary">
                 호스트 버튼 이벤트
               </button>
-              <button type="button" data-fortune-page="zodiac" data-fortune-event="fortune:zodiac:open">
+              <button type="button" data-embed-page="subpage" data-embed-event="demo:subpage:open">
                 페이지 맥락 변경
               </button>
             </div>
-            <div class="fortune-runtime-check" aria-live="polite">
+            <div class="embed-runtime-check" aria-live="polite">
               <span>런타임</span>
-              <strong id="fortuneRuntimeStatus">시작 중</strong>
+              <strong id="embedRuntimeStatus">시작 중</strong>
             </div>
           </article>
 
-          <section class="fortune-nanika-mount embed-nanika-mount" id="fortuneNanikaRuntime">
-            <div class="fortune-nanika-stage character-stage" aria-label="임베드된 나니카 런타임">
-              <div class="fortune-nanika-speech speech-balloon" role="status" aria-live="polite">
-                <span class="fortune-nanika-speaker">나니카</span>
-                <p class="fortune-nanika-text"></p>
-                <div class="fortune-nanika-actions balloon-action-menu" hidden></div>
+          <section class="embed-nanika-mount embed-nanika-mount" id="nanikaRuntimeEmbed">
+            <div class="embed-nanika-stage character-stage" aria-label="임베드된 나니카 런타임">
+              <div class="embed-nanika-speech speech-balloon" role="status" aria-live="polite">
+                <span class="embed-nanika-speaker">나니카</span>
+                <p class="embed-nanika-text"></p>
+                <div class="embed-nanika-actions balloon-action-menu" hidden></div>
               </div>
-              <button class="fortune-nanika-sprite character-sprite" type="button" aria-label="나니카와 대화하기">
-                <img class="fortune-nanika-sprite-image character-sprite-layer" alt="" />
+              <button class="embed-nanika-sprite character-sprite" type="button" aria-label="나니카와 대화하기">
+                <img class="embed-nanika-sprite-image character-sprite-layer" alt="" />
               </button>
-              <div class="fortune-nanika-panel management-panel-menu" hidden></div>
+              <div class="embed-nanika-panel management-panel-menu" hidden></div>
             </div>
           </section>
         </section>
@@ -74,6 +74,6 @@
       </section>
     </main>
 
-    <script type="module" src="./dist/fortuneEmbedDemo.js"></script>
+    <script type="module" src="./dist/runtimeEmbedDemo.js"></script>
   </body>
 </html>

@@ -535,6 +535,12 @@ export function createActionRunner(context: ActionRunnerContext) {
     elements.stage.dispatchEvent(new CustomEvent("ghostnest:character-change-request", { detail: a }));
   });
 
+  registerAction("request_profile_change", (action, _) => {
+    const a = action as Extract<BuiltinRuntimeAction, { type: "request_profile_change" }>;
+
+    elements.stage.dispatchEvent(new CustomEvent("ghostnest:profile-change-request", { detail: a }));
+  });
+
   registerAction("call_plugin", async (action, _) => {
     if (!controls.plugins) {
       return;

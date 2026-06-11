@@ -168,7 +168,7 @@ export type BuiltinDialogueCategory =
   | "onHoverRuntimeTitle"
   | "onHoverEventLog"
   | "onHoverCommandMenu"
-  | "onHoverFortuneCommand"
+  | "onHoverExtensionCommand"
   | "onHoverLineCommand"
   | "onHoverHideCommand"
   | "onRandomPrompt"
@@ -271,6 +271,11 @@ export type BuiltinRuntimeAction =
   | {
       type: "request_character_change";
       characterId?: string;
+      reason?: string;
+    }
+  | {
+      type: "request_profile_change";
+      profileId: string;
       reason?: string;
     }
   | {
@@ -396,6 +401,9 @@ export type BuiltinRuntimeAction =
       type: "open_management_menu";
       menuId?: string;
       title?: string;
+      display?: ManagementMenuDisplay;
+      closeOnSelect?: boolean;
+      draggable?: boolean;
       items: ManagementMenuItem[];
     }
   | {

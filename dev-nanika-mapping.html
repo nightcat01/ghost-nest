@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="asset-lab-shell">
+    <main class="asset-lab-shell nanika-mapping-shell">
       <header class="asset-lab-header">
         <div>
           <p class="eyebrow">나니카 기능 연결 플러그인</p>
@@ -34,16 +34,30 @@
             <h2>기능 연결 작업판</h2>
             <p class="asset-lab-help" id="mappingEditorHelp">런타임에서 실제 캐릭터로 들어가고, 캐릭터가 가진 재료와 이벤트, 액션을 노드로 이어 붙입니다.</p>
           </div>
-          <div class="asset-lab-button-row">
-            <button class="asset-small-button" id="editorLoadDraftButton" type="button">새 연결로 불러오기</button>
-            <button class="asset-small-button" id="editorAddToFeatureSetButton" type="button">기능 묶음에 추가</button>
-            <button class="asset-small-button" id="editorSaveButton" type="button">저장</button>
-            <button class="asset-small-button" id="editorZoomOutButton" type="button">축소</button>
-            <button class="asset-small-button" id="editorZoomInButton" type="button">확대</button>
-            <button class="asset-small-button" id="editorZoomResetButton" type="button">원래 크기</button>
-            <button class="asset-small-button" id="editorCopyGraphButton" type="button">편집 상태 복사</button>
-          </div>
         </div>
+        <div class="asset-lab-button-row nanika-editor-toolbar" aria-label="작업판 빠른 작업">
+          <label class="nanika-editor-id-field">
+            <span>저장 ID</span>
+            <input id="editorMappingIdInput" type="text" value="new.mapping" aria-label="매핑 저장 ID" />
+            <em id="editorMappingIdStatus">새 ID</em>
+          </label>
+          <button class="asset-small-button" id="editorHelpToggleButton" type="button" aria-expanded="false" aria-controls="mappingEditorHelpPanel">도움말</button>
+          <button class="asset-small-button" id="editorLoadDraftButton" type="button">불러오기</button>
+          <button class="asset-small-button" id="editorAddToFeatureSetButton" type="button">선택한 연결로 세트 만들기</button>
+          <button class="asset-small-button" id="editorSaveButton" type="button">저장</button>
+          <button class="asset-small-button" id="editorZoomOutButton" type="button">축소</button>
+          <button class="asset-small-button" id="editorZoomInButton" type="button">확대</button>
+          <button class="asset-small-button" id="editorZoomResetButton" type="button">100%</button>
+          <button class="asset-small-button" id="editorPaletteToggleButton" type="button" aria-pressed="false">카드덱 접기</button>
+          <button class="asset-small-button" id="editorCopyGraphButton" type="button">복사</button>
+        </div>
+        <aside class="nanika-editor-help-panel" id="mappingEditorHelpPanel" aria-label="작업판 도움말" hidden>
+          <div class="nanika-editor-help-panel-header">
+            <strong>도움말</strong>
+            <button class="asset-small-button" id="editorHelpCloseButton" type="button">닫기</button>
+          </div>
+          <div class="nanika-editor-help-panel-body" id="mappingEditorHelpPanelBody"></div>
+        </aside>
         <div class="nanika-editor-stats" id="mappingEditorStats" aria-label="작업판 요약"></div>
         <div class="nanika-editor-workbench">
           <div class="nanika-editor-canvas" id="mappingEditorCanvas" aria-live="polite"></div>
@@ -52,9 +66,16 @@
               <button type="button" data-editor-mode-target="overview" data-active="true"><strong>캐릭터 설정</strong><span>캐릭터 선택/재료</span></button>
               <button type="button" data-editor-mode-target="create"><strong>새 연결</strong><span>새 실행 흐름</span></button>
               <button type="button" data-editor-mode-target="saved"><strong>저장 연결</strong><span>수정용 매핑 초안</span></button>
-              <button type="button" data-editor-mode-target="feature-sets"><strong>기능 묶음</strong><span>연결 묶음</span></button>
+              <button type="button" data-editor-mode-target="feature-sets"><strong>연결 세트</strong><span>저장 연결 묶음</span></button>
             </div>
-            <details class="nanika-condition-builder" id="conditionBuilder">
+            <section class="nanika-start-template-panel" aria-label="시작 템플릿" hidden>
+              <div>
+                <h3>시작 템플릿</h3>
+                <p class="asset-lab-help">처음 만드는 경우 자주 쓰는 연결 흐름을 먼저 깔고 필요한 값만 바꿔 저장합니다.</p>
+              </div>
+              <div class="nanika-start-template-list" id="draftStartTemplateOptions"></div>
+            </section>
+            <details class="nanika-condition-builder" id="conditionBuilder" hidden>
               <summary>조건 만들기</summary>
               <div class="nanika-condition-form">
                 <p class="asset-lab-help">조건 카드는 런타임, 캐릭터, 이벤트, 저장 연결 앞에 붙여서 조건을 통과할 때만 다음 기능이 실행되도록 만듭니다.</p>
@@ -91,7 +112,7 @@
                 </label>
                 <label>
                   조건 값
-                  <input id="conditionValueInput" type="text" value="home" placeholder="home 또는 /zodiac" />
+                  <input id="conditionValueInput" type="text" value="home" placeholder="home 또는 /sample" />
                 </label>
                 <label>
                   설명
@@ -131,7 +152,7 @@
       <section class="asset-lab-panel nanika-view-section" data-view="catalog" data-catalog-section="flow" hidden>
         <div class="asset-lab-section">
           <h2>흐름 보드</h2>
-          <p class="asset-lab-help">시작점부터 이벤트, 저장된 연결, 실행 액션, 기능 묶음까지 한 줄기처럼 확인합니다.</p>
+          <p class="asset-lab-help">시작점부터 이벤트, 저장된 연결, 실행 액션, 연결 세트까지 한 줄기처럼 확인합니다.</p>
           <div class="nanika-flow-board" id="mappingFlowBoard"></div>
         </div>
       </section>
@@ -338,10 +359,10 @@
             <h2>적용 코드</h2>
             <button class="asset-small-button" id="copyMappingSnippetButton" type="button">연결 코드 복사</button>
           </div>
-          <p class="asset-lab-help" id="mappingSnippetHelp">적용할 기능 묶음을 고르면 해당 묶음에 포함된 연결만 실행 규칙으로 생성합니다.</p>
-          <section class="nanika-snippet-feature-set" aria-label="적용할 기능 묶음 선택">
-            <h3>적용할 기능 묶음</h3>
-            <p class="asset-lab-help">외부 사이트나 preset에 붙일 묶음을 선택합니다. 선택한 묶음만 아래 적용 코드에 반영됩니다.</p>
+          <p class="asset-lab-help" id="mappingSnippetHelp">적용할 연결 세트를 고르면 해당 세트에 포함된 연결만 실행 규칙으로 생성합니다.</p>
+          <section class="nanika-snippet-feature-set" aria-label="적용할 연결 세트 선택">
+            <h3>적용할 연결 세트</h3>
+            <p class="asset-lab-help">외부 사이트나 preset에 붙일 세트를 선택합니다. 선택한 세트만 아래 적용 코드에 반영됩니다.</p>
             <div class="nanika-feature-set-picker" id="snippetFeatureSetPicker"></div>
           </section>
           <pre id="mappingSnippetPreview"></pre>
@@ -352,40 +373,43 @@
         <div class="asset-lab-section">
           <div class="asset-lab-section-header">
             <div>
-              <h2>기능 묶음</h2>
-              <p class="asset-lab-help">저장된 기능 연결 여러 개를 하나의 재사용 묶음으로 묶습니다. 아직 런타임 자동 적용 전 단계입니다.</p>
+              <h2>연결 세트</h2>
+              <p class="asset-lab-help">작업판에서 고른 저장 연결을 하나의 재사용 세트로 저장합니다. 세트 내용 확인과 수정은 작업판 카드에서 진행합니다.</p>
             </div>
             <div class="asset-lab-button-row">
-              <button class="asset-small-button" id="saveFeatureSetButton" type="button">묶음 저장</button>
-              <button class="asset-small-button" id="refreshFeatureSetsButton" type="button">목록 새로고침</button>
+              <button class="asset-small-button" id="saveFeatureSetButton" type="button">세트 저장</button>
             </div>
           </div>
 
           <div class="asset-lab-field-grid">
             <label>
-              묶음 ID
+              세트 ID
               <input id="featureSetIdInput" type="text" value="new.feature-set" />
               <small>영문, 숫자, -, _, ., : 조합을 권장합니다.</small>
             </label>
             <label>
               이름
-              <input id="featureSetNameInput" type="text" value="새 기능 묶음" />
+              <input id="featureSetNameInput" type="text" value="새 연결 세트" />
               <small>나중에 preset이나 외부 사이트 적용 시 구분할 이름입니다.</small>
             </label>
           </div>
 
-          <h3 class="nanika-mapping-subtitle">묶음에 넣을 저장된 연결</h3>
-          <section class="nanika-feature-set-clone-panel" aria-label="기능 묶음 복제 저장">
+          <div class="nanika-feature-set-preview" id="featureSetPreview"></div>
+          <p class="asset-lab-status" id="featureSetStatus">작업판에서 저장 연결 카드를 선택한 뒤 세트로 묶을 수 있습니다.</p>
+
+          <div class="nanika-feature-set-legacy" hidden inert aria-hidden="true">
+          <button id="refreshFeatureSetsButton" type="button">목록 새로고침</button>
+          <section class="nanika-feature-set-clone-panel" aria-label="연결 세트 복제 저장">
             <div class="asset-lab-section-header">
               <div>
-                <h3>기존 묶음을 다른 캐릭터용으로 저장</h3>
-                <p class="asset-lab-help">이미 만든 기능 묶음을 불러와 대상 캐릭터 이름으로 새 묶음을 저장합니다. 실제 재료 연결은 공통 key와 대상 캐릭터 리소스가 맞는지 확인하세요.</p>
+                <h3>기존 세트를 다른 캐릭터용으로 저장</h3>
+                <p class="asset-lab-help">이미 만든 연결 세트를 불러와 대상 캐릭터 이름으로 새 세트를 저장합니다. 실제 재료 연결은 공통 key와 대상 캐릭터 리소스가 맞는지 확인하세요.</p>
               </div>
               <button class="asset-small-button" id="saveFeatureSetCloneButton" type="button">복제 저장</button>
             </div>
             <div class="asset-lab-field-grid">
               <label>
-                원본 묶음
+                원본 세트
                 <select id="featureSetCloneSourceSelect"></select>
               </label>
               <label>
@@ -393,21 +417,20 @@
                 <select id="featureSetCloneCharacterSelect"></select>
               </label>
               <label>
-                새 묶음 ID
+                새 세트 ID
                 <input id="featureSetCloneIdInput" type="text" placeholder="miyako.full-runtime" />
               </label>
               <label>
-                새 묶음 이름
+                새 세트 이름
                 <input id="featureSetCloneNameInput" type="text" placeholder="미야코 전체 런타임" />
               </label>
             </div>
             <div class="nanika-feature-set-preview" id="featureSetClonePreview"></div>
           </section>
-          <div class="nanika-feature-set-preview" id="featureSetPreview"></div>
           <div class="nanika-flow-board" id="featureSetFlowBoard"></div>
           <div class="nanika-feature-set-picker" id="featureSetMappingPicker"></div>
-          <p class="asset-lab-status" id="featureSetStatus">저장된 기능 연결을 불러오는 중입니다.</p>
           <div class="nanika-mapping-list" id="featureSetList"></div>
+          </div>
         </div>
       </section>
 

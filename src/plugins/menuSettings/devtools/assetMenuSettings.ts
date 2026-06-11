@@ -81,9 +81,15 @@ const dialogueCategoryOptions = [
 ];
 
 const pluginOptions = [
-  { value: "fortune", label: "운세 플러그인" },
+  { value: "sample_result", label: "샘플 결과 플러그인" },
   { value: "weather", label: "날씨 플러그인" },
   { value: "timer", label: "타이머 플러그인" },
+];
+
+const runtimeProfileOptions = [
+  { value: "nanika.rine.default", label: "리네 기본 프로필" },
+  { value: "nanika.rine.home", label: "리네 홈 프로필 예시" },
+  { value: "nanika.rine.selection", label: "리네 선택 화면 프로필 예시" },
 ];
 
 function cloneItems(items: readonly ManagementMenuItem[]) {
@@ -120,6 +126,10 @@ function summarizeAction(action: RuntimeAction) {
 
   if (action.type === "open_management_menu") {
     return `하위 메뉴 열기: ${String(data.menuId ?? data.title ?? "직접 메뉴")}`;
+  }
+
+  if (action.type === "request_profile_change") {
+    return `프로필 전환: ${String(data.profileId ?? "")}`;
   }
 
   if (action.type === "speak") {
@@ -160,16 +170,23 @@ function describeAction(action: RuntimeAction) {
     return `menuId: ${String(data.menuId ?? "") || "(직접 메뉴)"}`;
   }
 
+  if (action.type === "request_profile_change") {
+    return `profileId: ${String(data.profileId ?? "") || "(미지정)"}`;
+  }
+
   return JSON.stringify(action);
 }
 
 function actionTypeUsesSelect(actionType: string) {
-  return actionType === "speak" || actionType === "call_plugin" || actionType === "open_management_menu";
+  return actionType === "speak"
+    || actionType === "call_plugin"
+    || actionType === "open_management_menu"
+    || actionType === "request_profile_change";
 }
 
 function getActionValuePlaceholder(actionType: string) {
   if (actionType === "navigate") {
-    return "/fortune/tarot";
+    return "/sample/result";
   }
 
   if (actionType === "speak_text") {
@@ -181,11 +198,15 @@ function getActionValuePlaceholder(actionType: string) {
   }
 
   if (actionType === "call_plugin") {
-    return "fortune";
+    return "sample_result";
   }
 
   if (actionType === "open_management_menu") {
-    return "fortune.main.menu";
+    return "demo.main.menu";
+  }
+
+  if (actionType === "request_profile_change") {
+    return "nanika.rine.default";
   }
 
   return "";
@@ -208,6 +229,10 @@ function getActionValueSelectOptions(actionType: string) {
     return menuOptions.length > 0
       ? menuOptions
       : [{ value: "demo.user", label: "사용자 메뉴 예시" }];
+  }
+
+  if (actionType === "request_profile_change") {
+    return runtimeProfileOptions;
   }
 
   return [];
@@ -244,7 +269,31 @@ function createActionFromForm(): RuntimeAction {
   }
 
   if (actionType === "open_management_menu") {
-    return { type: "open_management_menu", menuId: value, title: "메뉴", items: [] };
+    const menu = savedMenus.find((item) => item.id === value);
+    const action: Extract<RuntimeAction, { type: "open_management_menu" }> = {
+      type: "open_management_menu",
+      menuId: value,
+      title: menu?.name ?? "메뉴",
+      items: [],
+    };
+
+    if (menu?.defaultDisplay) {
+      action.display = menu.defaultDisplay;
+    }
+
+    if (typeof menu?.closeOnSelect === "boolean") {
+      action.closeOnSelect = menu.closeOnSelect;
+    }
+
+    if (typeof menu?.draggable === "boolean") {
+      action.draggable = menu.draggable;
+    }
+
+    return action;
+  }
+
+  if (actionType === "request_profile_change") {
+    return { type: "request_profile_change", profileId: value, reason: "menu" };
   }
 
   return { type: "log", label: value };

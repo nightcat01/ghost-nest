@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+﻿import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -235,7 +235,7 @@ async function verifyMappingEditor(page) {
     canvasWidth: document.querySelector("#mappingEditorCanvas .nanika-paint-canvas")?.getBoundingClientRect().width ?? 0,
   }));
   await page.locator("#editorZoomResetButton").click();
-  await page.locator("#mappingPaletteTabs button").first().click();
+  await page.locator("#mappingPaletteTabs button[data-palette-category='conditions']").click();
   const conditionPaletteMetrics = await page.evaluate(() => ({
     hasConditionTab: Array.from(document.querySelectorAll("#mappingPaletteTabs button"))
       .some((button) => button.textContent?.trim().length > 0)
@@ -256,10 +256,9 @@ async function verifyMappingEditor(page) {
       .map((text) => (text.includes("scope: runtime") ? "runtime" : text.includes("scope: character") ? "character" : "unknown")),
   }));
   await page.locator("#mappingPaletteDeck .nanika-palette-card[data-kind='condition']").first().click();
-  await page.locator("#mappingPaletteTabs button").nth(1).click();
+  await page.locator("#mappingPaletteTabs button[data-palette-category='characters']").click();
   const characterPaletteMetrics = await page.evaluate(() => ({
-    hasCharacterTab: Array.from(document.querySelectorAll("#mappingPaletteTabs button"))
-      .some((button) => button.textContent?.trim() === "캐릭터"),
+    hasCharacterTab: Boolean(document.querySelector("#mappingPaletteTabs button[data-palette-category='characters']")),
     characterCardCount: document.querySelectorAll("#mappingPaletteDeck .nanika-palette-card[data-kind='character']").length,
     characterDeckText: document.querySelector("#mappingPaletteDeck")?.textContent ?? "",
   }));
@@ -277,7 +276,11 @@ async function verifyMappingEditor(page) {
       .filter(Boolean)
       .map((text) => (text.includes("scope: character") ? "character" : text.includes("scope: runtime") ? "runtime" : "unknown")),
   }));
-  await page.locator("#mappingPaletteTabs button").last().click();
+
+  await page.reload({ waitUntil: "load" });
+  await page.locator("#mappingEditorCanvas .nanika-paint-node[data-kind='character']").first().click();
+  await page.locator("#mappingEditorCanvas .nanika-node-popover .asset-small-button").first().click();
+  await page.locator("#mappingPaletteTabs button[data-palette-category='resources']").click();
   const characterSceneGroupPathMetrics = await page.evaluate(() => ({
     hasCharacterPopover: Boolean(document.querySelector("#mappingEditorCanvas .nanika-node-popover")),
     activePaletteText: document.querySelector("#mappingPaletteTabs button[data-active='true']")?.textContent?.trim() ?? "",
@@ -381,7 +384,7 @@ async function verifyMappingEditor(page) {
     activeTab: document.querySelector("[data-view-target][data-active='true']")?.textContent?.trim(),
     activeEditorMode: document.querySelector("[data-editor-mode-target][data-active='true'] strong")?.textContent?.trim(),
     visibleSections: Array.from(document.querySelectorAll(".nanika-view-section")).filter((section) => !section.hidden).length,
-    createSectionVisible: !(document.querySelector("[data-view='create']")?.hidden ?? true),
+    createSectionVisible: document.querySelector("[data-editor-mode-target='create']")?.getAttribute("data-active") === "true",
     editorPanelVisible: !(document.querySelector(".nanika-editor-panel")?.hidden ?? false),
     paletteVisible: getComputedStyle(document.querySelector(".nanika-editor-palette")).display !== "none",
     hasTargetSelect: Boolean(document.querySelector("#draftTargetSelect")),
@@ -424,7 +427,7 @@ async function verifyMappingEditor(page) {
     }));
     await page.locator("#mappingEditorCanvas .nanika-node-popover .asset-small-button").last().click();
   }
-  await page.locator("#mappingPaletteTabs button").filter({ hasText: "액션" }).click();
+  await page.locator("#mappingPaletteTabs button[data-palette-category='actions']").click();
   const nodeCountBeforeDrop = await page.locator("#mappingEditorCanvas .nanika-paint-node").count();
   await page.locator("#mappingPaletteDeck .nanika-palette-card").first().dragTo(page.locator("#mappingEditorCanvas"), {
     targetPosition: { x: 460, y: 250 },
@@ -823,7 +826,7 @@ async function verifyCharacterEditors(page) {
       title: document.title,
       hasHeading: Boolean(document.querySelector("h1")),
       hasMain: Boolean(document.querySelector("main")),
-      hasProductionFlow: document.querySelectorAll(".asset-production-flow li").length === 5,
+      hasProductionFlow: document.querySelectorAll(".asset-production-flow li").length === 6,
       hasConceptMap: name === "dev-character.html"
         ? document.querySelectorAll(".asset-character-concept-map article").length >= 5
         : true,
@@ -930,44 +933,45 @@ async function verifyRuntimeDemo(page) {
   };
 }
 
-async function verifyFortuneEmbed(page) {
+async function verifyRuntimeEmbed(page) {
   await page.setViewportSize({ width: 447, height: 845 });
-  await page.goto(`${baseUrl}/dev-fortune-embed.html`, { waitUntil: "load" });
-  await page.waitForSelector("#fortuneNanikaRuntime .fortune-nanika-stage.ghostnest-runtime");
-  await page.waitForFunction(() => document.querySelector("#fortuneRuntimeStatus")?.textContent?.includes("ready"));
+  await page.goto(`${baseUrl}/dev-runtime-embed.html`, { waitUntil: "load" });
+  await page.waitForSelector("#nanikaRuntimeEmbed .embed-nanika-stage.ghostnest-runtime");
+  await page.waitForFunction(() => document.querySelector("#embedRuntimeStatus")?.textContent?.includes("ready"));
+  await page.waitForTimeout(150);
 
   async function collectEmbedMetrics() {
     return page.evaluate(() => {
-      const screen = document.querySelector(".fortune-screen");
-      const mount = document.querySelector("#fortuneNanikaRuntime");
-      const stage = mount?.querySelector(".fortune-nanika-stage");
+      const screen = document.querySelector(".embed-screen");
+      const mount = document.querySelector("#nanikaRuntimeEmbed");
+      const stage = mount?.querySelector(".embed-nanika-stage");
       const runtimeRoots = Array.from(document.querySelectorAll(".ghostnest-runtime"));
       const runtimeRootOutsideCount = runtimeRoots.filter((node) => !mount?.contains(node)).length;
-      const stageOutsideCount = Array.from(document.querySelectorAll(".fortune-nanika-stage"))
+      const stageOutsideCount = Array.from(document.querySelectorAll(".embed-nanika-stage"))
         .filter((node) => !mount?.contains(node)).length;
-      const speechOutsideCount = Array.from(document.querySelectorAll(".speech-balloon, .fortune-nanika-speech"))
+      const speechOutsideCount = Array.from(document.querySelectorAll(".speech-balloon, .embed-nanika-speech"))
         .filter((node) => !mount?.contains(node)).length;
-      const spriteOutsideCount = Array.from(document.querySelectorAll(".character-sprite, .fortune-nanika-sprite"))
+      const spriteOutsideCount = Array.from(document.querySelectorAll(".character-sprite, .embed-nanika-sprite"))
         .filter((node) => !mount?.contains(node)).length;
       const sceneLayerOutsideCount = Array.from(document.querySelectorAll(".scene-layer-root"))
         .filter((node) => !mount?.contains(node)).length;
-      const menuOutsideCount = Array.from(document.querySelectorAll(".balloon-action-menu, .management-panel-menu, .fortune-nanika-actions"))
+      const menuOutsideCount = Array.from(document.querySelectorAll(".balloon-action-menu, .management-panel-menu, .embed-nanika-actions"))
         .filter((node) => !mount?.contains(node)).length;
       const screenRect = screen?.getBoundingClientRect();
       const mountRect = mount?.getBoundingClientRect();
       const stageRect = stage?.getBoundingClientRect();
-      const speech = mount?.querySelector(".fortune-nanika-speech");
+      const speech = mount?.querySelector(".embed-nanika-speech");
       const speechRect = speech?.getBoundingClientRect();
 
       return {
         title: document.title,
         hasMount: Boolean(mount),
         hasStage: Boolean(stage),
-        hasSprite: Boolean(mount?.querySelector(".fortune-nanika-sprite")),
-        hasSpeechBalloon: Boolean(mount?.querySelector(".fortune-nanika-speech")),
+        hasSprite: Boolean(mount?.querySelector(".embed-nanika-sprite")),
+        hasSpeechBalloon: Boolean(mount?.querySelector(".embed-nanika-speech")),
         runtimeRootCount: runtimeRoots.length,
         runtimeRootOutsideCount,
-        stageCountInsideMount: mount?.querySelectorAll(".fortune-nanika-stage").length ?? 0,
+        stageCountInsideMount: mount?.querySelectorAll(".embed-nanika-stage").length ?? 0,
         stageOutsideCount,
         speechOutsideCount,
         spriteOutsideCount,
@@ -975,13 +979,13 @@ async function verifyFortuneEmbed(page) {
         menuOutsideCount,
         sceneLayerRootCount: mount?.querySelectorAll(".scene-layer-root").length ?? 0,
         sceneLayerCount: mount?.querySelectorAll(".scene-layer-root .scene-layer").length ?? 0,
-        bootText: document.querySelector("#fortuneRuntimeStatus")?.textContent?.trim() ?? "",
+        bootText: document.querySelector("#embedRuntimeStatus")?.textContent?.trim() ?? "",
         sceneId: stage?.getAttribute("data-scene-id") ?? "",
         speechAnchor: stage?.getAttribute("data-speech-anchor") ?? "",
         speechLayout: stage?.getAttribute("data-speech-layout") ?? "",
         speechPlacement: stage?.getAttribute("data-speech-placement") ?? "",
-        surfaceId: mount?.querySelector(".fortune-nanika-sprite")?.getAttribute("data-surface-id") ?? "",
-        speechText: mount?.querySelector(".fortune-nanika-text")?.textContent?.trim() ?? "",
+        surfaceId: mount?.querySelector(".embed-nanika-sprite")?.getAttribute("data-surface-id") ?? "",
+        speechText: mount?.querySelector(".embed-nanika-text")?.textContent?.trim() ?? "",
         speechWithinStage: Boolean(
           stageRect
           && speechRect
@@ -1019,29 +1023,29 @@ async function verifyFortuneEmbed(page) {
 
   const initial = await collectEmbedMetrics();
 
-  await page.locator("[data-fortune-page='zodiac']").click();
-  await page.waitForFunction(() => document.querySelector("#fortuneRuntimeStatus")?.textContent?.includes("ready #2"));
-  await page.waitForFunction(() => document.querySelector("#fortuneNanikaRuntime .fortune-nanika-sprite")?.getAttribute("data-surface-id") === "8");
-  const afterZodiac = await collectEmbedMetrics();
-  const zodiacSpeechText = afterZodiac.speechText;
+  await page.locator("[data-embed-page='subpage']").click();
+  await page.waitForFunction(() => document.querySelector("#embedRuntimeStatus")?.textContent?.includes("ready #2"));
+  await page.waitForFunction(() => document.querySelector("#nanikaRuntimeEmbed .embed-nanika-sprite")?.getAttribute("data-surface-id") === "8");
+  const afterSubpage = await collectEmbedMetrics();
+  const subpageSpeechText = afterSubpage.speechText;
 
-  await page.locator("[data-fortune-event='fortune:menu:selected']").first().click();
+  await page.locator("[data-embed-event='demo:menu:selected']").first().click();
   await page.waitForFunction((previousText) => {
-    const text = document.querySelector("#fortuneNanikaRuntime .fortune-nanika-text")?.textContent ?? "";
+    const text = document.querySelector("#nanikaRuntimeEmbed .embed-nanika-text")?.textContent ?? "";
 
     return text.trim().length > 0 && text.trim() !== previousText;
-  }, zodiacSpeechText);
+  }, subpageSpeechText);
   const afterHostEvent = await collectEmbedMetrics();
 
-  await page.locator("#fortuneRuntimeRestart").click();
-  await page.waitForFunction(() => document.querySelector("#fortuneRuntimeStatus")?.textContent?.includes("ready #3"));
+  await page.locator("#embedRuntimeRestart").click();
+  await page.waitForFunction(() => document.querySelector("#embedRuntimeStatus")?.textContent?.includes("ready #3"));
   const afterRestart = await collectEmbedMetrics();
-  const textFit = await collectTextFitMetrics(page, ".fortune-screen");
-  const screenshot = await capturePage(page, "dev-fortune-embed");
+  const textFit = await collectTextFitMetrics(page, ".embed-screen");
+  const screenshot = await capturePage(page, "dev-runtime-embed");
 
   return {
     initial,
-    afterZodiac,
+    afterSubpage,
     afterHostEvent,
     afterRestart,
     textFit,
@@ -1351,7 +1355,7 @@ async function main() {
       const cropEditor = await verifyCropEditor(page);
       const characterEditors = await verifyCharacterEditors(page);
       const runtime = await verifyRuntimeDemo(page);
-      const fortuneEmbed = await verifyFortuneEmbed(page);
+      const runtimeEmbed = await verifyRuntimeEmbed(page);
       const apiReadiness = await verifyDevtoolsApiReadiness();
       const productionSmoke = await verifyCharacterProductionSmoke();
       const mappingRoundTrip = await verifyNanikaMappingRoundTrip();
@@ -1369,8 +1373,8 @@ async function main() {
       assertMetric(mapping.overviewMetrics.initialStatsCount >= 6, "Editor summary stats are missing.");
       assertMetric(mapping.overviewMetrics.initialZoomText.includes("100%"), "Editor summary stats do not show zoom state.");
       assertMetric(mapping.overviewMetrics.runtimeProfileCardCount >= 2, "Runtime profile overview cards are missing.");
-      assertMetric(mapping.overviewMetrics.runtimeProfileText.includes("fortune.home.rine"), "Runtime profile overview does not show the home profile.");
-      assertMetric(mapping.overviewMetrics.runtimeProfileText.includes("fortune.zodiac.rine"), "Runtime profile overview does not show the zodiac profile.");
+      assertMetric(mapping.overviewMetrics.runtimeProfileText.includes("demo.home.rine"), "Runtime profile overview does not show the home profile.");
+      assertMetric(mapping.overviewMetrics.runtimeProfileText.includes("demo.subpage.rine"), "Runtime profile overview does not show the subpage profile.");
       assertMetric(!mapping.overviewMetrics.overviewAuxGraphVisible, "Auxiliary graph should not be visible on the main editor workspace.");
       assertMetric(mapping.editorZoomMetrics.zoomText.includes("110%"), "Editor zoom-in control did not update summary zoom state.");
       assertMetric(mapping.editorZoomMetrics.canvasWidth > mapping.editorZoomMetrics.viewportWidth * 0.95, "Editor zoom-in control did not scale the canvas.");
@@ -1598,41 +1602,41 @@ async function main() {
       assertMetric(runtime.metrics.visibleManagementMenuId === "balloonActionMenu", "Runtime applied stale stored management menu display over mapped preset options.");
       assertMetric(runtime.metrics.managementMenuButtonCount > 0, "Runtime management menu opened without actionable items.");
       assertMetric(!runtime.metrics.overflowX, "Runtime demo has horizontal overflow.");
-      assertTextFit(fortuneEmbed.textFit, "Fortune embed");
-      assertMetric(fortuneEmbed.initial.hasMount, "Fortune embed mount is missing.");
-      assertMetric(fortuneEmbed.initial.hasStage, "Fortune embed stage is missing.");
-      assertMetric(fortuneEmbed.initial.hasSprite, "Fortune embed sprite is missing.");
-      assertMetric(fortuneEmbed.initial.hasSpeechBalloon, "Fortune embed speech balloon is missing.");
-      assertMetric(fortuneEmbed.initial.speechLayout === "dialogue-box", "Fortune embed should use the dialogue-box layout.");
-      assertMetric(fortuneEmbed.initial.speechPlacement === "overlay-bottom", "Fortune embed should use the bottom overlay placement.");
-      assertMetric(fortuneEmbed.initial.speechAnchor === "right", "Fortune embed should anchor the dialogue overlay to the right.");
-      assertMetric(fortuneEmbed.initial.speechWithinStage, "Fortune embed speech balloon escaped the stage boundary.");
-      assertMetric(fortuneEmbed.initial.speechAnchoredRight, "Fortune embed speech balloon is not visually anchored to the right.");
-      assertMetric(fortuneEmbed.initial.runtimeRootCount === 1, "Fortune embed should create exactly one runtime root.");
-      assertMetric(fortuneEmbed.initial.runtimeRootOutsideCount === 0, "Fortune embed runtime root escaped the mount boundary.");
-      assertMetric(fortuneEmbed.initial.stageOutsideCount === 0, "Fortune embed stage escaped the mount boundary.");
-      assertMetric(fortuneEmbed.initial.speechOutsideCount === 0, "Fortune embed speech UI escaped the mount boundary.");
-      assertMetric(fortuneEmbed.initial.spriteOutsideCount === 0, "Fortune embed sprite escaped the mount boundary.");
-      assertMetric(fortuneEmbed.initial.sceneLayerOutsideCount === 0, "Fortune embed scene layers escaped the mount boundary.");
-      assertMetric(fortuneEmbed.initial.menuOutsideCount === 0, "Fortune embed menus escaped the mount boundary.");
-      assertMetric(fortuneEmbed.initial.mountWithinScreen, "Fortune embed mount does not stay inside the host screen.");
-      assertMetric(fortuneEmbed.initial.stageWithinMount, "Fortune embed stage does not stay inside the mount.");
-      assertMetric(!fortuneEmbed.initial.overflowX, "Fortune embed initial page has horizontal overflow.");
+      assertTextFit(runtimeEmbed.textFit, "Runtime embed");
+      assertMetric(runtimeEmbed.initial.hasMount, "Runtime embed mount is missing.");
+      assertMetric(runtimeEmbed.initial.hasStage, "Runtime embed stage is missing.");
+      assertMetric(runtimeEmbed.initial.hasSprite, "Runtime embed sprite is missing.");
+      assertMetric(runtimeEmbed.initial.hasSpeechBalloon, "Runtime embed speech balloon is missing.");
+      assertMetric(runtimeEmbed.initial.speechLayout === "dialogue-box", "Runtime embed should use the dialogue-box layout.");
+      assertMetric(runtimeEmbed.initial.speechPlacement === "overlay-bottom", "Runtime embed should use the bottom overlay placement.");
+      assertMetric(runtimeEmbed.initial.speechAnchor === "right", "Runtime embed should anchor the dialogue overlay to the right.");
+      assertMetric(runtimeEmbed.initial.speechWithinStage, "Runtime embed speech balloon escaped the stage boundary.");
+      assertMetric(runtimeEmbed.initial.speechAnchoredRight, "Runtime embed speech balloon is not visually anchored to the right.");
+      assertMetric(runtimeEmbed.initial.runtimeRootCount === 1, "Runtime embed should create exactly one runtime root.");
+      assertMetric(runtimeEmbed.initial.runtimeRootOutsideCount === 0, "Runtime embed runtime root escaped the mount boundary.");
+      assertMetric(runtimeEmbed.initial.stageOutsideCount === 0, "Runtime embed stage escaped the mount boundary.");
+      assertMetric(runtimeEmbed.initial.speechOutsideCount === 0, "Runtime embed speech UI escaped the mount boundary.");
+      assertMetric(runtimeEmbed.initial.spriteOutsideCount === 0, "Runtime embed sprite escaped the mount boundary.");
+      assertMetric(runtimeEmbed.initial.sceneLayerOutsideCount === 0, "Runtime embed scene layers escaped the mount boundary.");
+      assertMetric(runtimeEmbed.initial.menuOutsideCount === 0, "Runtime embed menus escaped the mount boundary.");
+      assertMetric(runtimeEmbed.initial.mountWithinScreen, "Runtime embed mount does not stay inside the host screen.");
+      assertMetric(runtimeEmbed.initial.stageWithinMount, "Runtime embed stage does not stay inside the mount.");
+      assertMetric(!runtimeEmbed.initial.overflowX, "Runtime embed initial page has horizontal overflow.");
       assertMetric(
-        fortuneEmbed.initial.sceneId === "desk-room" || fortuneEmbed.initial.sceneId === "desk-room-default",
-        `Fortune embed did not apply the home initial scene: ${fortuneEmbed.initial.sceneId}`,
+        runtimeEmbed.initial.sceneId === "desk-room" || runtimeEmbed.initial.sceneId === "desk-room-default",
+        `Runtime embed did not apply the home initial scene: ${runtimeEmbed.initial.sceneId}`,
       );
-      assertMetric(fortuneEmbed.initial.sceneLayerCount > 0, "Fortune embed initial scene did not render any scene layers.");
-      assertMetric(fortuneEmbed.afterZodiac.bootText.includes("ready #2"), "Fortune embed did not recreate runtime for the zodiac page.");
-      assertMetric(fortuneEmbed.afterZodiac.runtimeRootCount === 1, "Fortune embed duplicated runtime roots after page movement.");
-      assertMetric(fortuneEmbed.afterZodiac.stageCountInsideMount === 1, "Fortune embed duplicated stages after page movement.");
-      assertMetric(fortuneEmbed.afterZodiac.surfaceId === "8", "Fortune embed did not apply the zodiac initial surface.");
-      assertMetric(fortuneEmbed.afterHostEvent.speechText.length > 0, "Fortune embed host event did not drive Nanika speech.");
-      assertMetric(fortuneEmbed.afterRestart.bootText.includes("ready #3"), "Fortune embed restart did not recreate the runtime.");
-      assertMetric(fortuneEmbed.afterRestart.runtimeRootCount === 1, "Fortune embed duplicated runtime roots after restart.");
-      assertMetric(fortuneEmbed.afterRestart.stageCountInsideMount === 1, "Fortune embed duplicated stages after restart.");
-      assertMetric(fortuneEmbed.afterRestart.sceneLayerRootCount <= 1, "Fortune embed duplicated scene layer roots after restart.");
-      assertMetric(!fortuneEmbed.afterRestart.overflowX, "Fortune embed restart caused horizontal overflow.");
+      assertMetric(runtimeEmbed.initial.sceneLayerCount > 0, "Runtime embed initial scene did not render any scene layers.");
+      assertMetric(runtimeEmbed.afterSubpage.bootText.includes("ready #2"), "Runtime embed did not recreate runtime for the subpage page.");
+      assertMetric(runtimeEmbed.afterSubpage.runtimeRootCount === 1, "Runtime embed duplicated runtime roots after page movement.");
+      assertMetric(runtimeEmbed.afterSubpage.stageCountInsideMount === 1, "Runtime embed duplicated stages after page movement.");
+      assertMetric(runtimeEmbed.afterSubpage.surfaceId === "8", "Runtime embed did not apply the subpage initial surface.");
+      assertMetric(runtimeEmbed.afterHostEvent.speechText.length > 0, "Runtime embed host event did not drive Nanika speech.");
+      assertMetric(runtimeEmbed.afterRestart.bootText.includes("ready #3"), "Runtime embed restart did not recreate the runtime.");
+      assertMetric(runtimeEmbed.afterRestart.runtimeRootCount === 1, "Runtime embed duplicated runtime roots after restart.");
+      assertMetric(runtimeEmbed.afterRestart.stageCountInsideMount === 1, "Runtime embed duplicated stages after restart.");
+      assertMetric(runtimeEmbed.afterRestart.sceneLayerRootCount <= 1, "Runtime embed duplicated scene layer roots after restart.");
+      assertMetric(!runtimeEmbed.afterRestart.overflowX, "Runtime embed restart caused horizontal overflow.");
       assertMetric(apiReadiness.workspaceHasSourceDirectory, "Character workspace source directory is missing.");
       assertMetric(apiReadiness.workspaceHasBrowserPrefix, "Character workspace browser prefix is missing.");
       assertMetric(apiReadiness.characterCount >= 2, "Character list is unexpectedly small.");
@@ -1654,7 +1658,7 @@ async function main() {
       compactLayouts.forEach((layout) => {
         assertMetric(layout.hasVisibleHeading, `${layout.page} heading is not visible at 1366x768.`);
         assertMetric(!layout.overflowX, `${layout.page} has horizontal overflow at 1366x768.`);
-        assertMetric(layout.productionFlowCount === 5 || layout.page === "dev-nanika-mapping.html", `${layout.page} lost the five-step character flow at 1366x768.`);
+        assertMetric(layout.productionFlowCount === 6 || layout.page === "dev-nanika-mapping.html", `${layout.page} lost the six-step character flow at 1366x768.`);
         assertMetric(layout.mappingDeckScrollsInternally, `${layout.page} card deck does not scroll internally at 1366x768.`);
         assertTextFit(layout.textFit, `${layout.page} compact desktop`);
       });
@@ -1668,7 +1672,7 @@ async function main() {
         cropEditor,
         characterEditors,
         runtime,
-        fortuneEmbed,
+        runtimeEmbed,
         apiReadiness,
         productionSmoke,
         mappingRoundTrip,
@@ -1691,3 +1695,4 @@ async function main() {
 }
 
 await main();
+

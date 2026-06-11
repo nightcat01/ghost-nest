@@ -150,7 +150,7 @@ surface는 expression보다 실제 렌더링에 가까운 표시 단위이며, s
 등록된 `RuntimePlugin`을 `pluginId`로 찾아 실행한다.
 
 ```ts
-{ type: "call_plugin", pluginId: "fortune" }
+{ type: "call_plugin", pluginId: "sample_result" }
 ```
 
 플러그인은 API, DB, AI, 미니게임, 상점 같은 외부 기능을 감싸는 경계다. 결과는 `PluginResult`로 반환하고 런타임이 말풍선, 표정, script에 반영한다.
@@ -162,11 +162,11 @@ surface는 expression보다 실제 렌더링에 가까운 표시 단위이며, s
 `data-runtime-ui`가 일치하는 UI 요소를 연다.
 
 ```ts
-{ type: "open_ui", target: "fortune_modal" }
+{ type: "open_ui", target: "sample_result_modal" }
 ```
 
 ```html
-<section data-runtime-ui="fortune_modal" hidden>...</section>
+<section data-runtime-ui="sample_result_modal" hidden>...</section>
 ```
 
 ### close_ui
@@ -174,7 +174,7 @@ surface는 expression보다 실제 렌더링에 가까운 표시 단위이며, s
 `data-runtime-ui`가 일치하는 UI 요소를 닫는다.
 
 ```ts
-{ type: "close_ui", target: "fortune_modal" }
+{ type: "close_ui", target: "sample_result_modal" }
 ```
 
 ### open_management_menu
@@ -186,6 +186,9 @@ surface는 expression보다 실제 렌더링에 가까운 표시 단위이며, s
   type: "open_management_menu",
   menuId: "system-tools",
   title: "시스템 도구",
+  display: "panel",
+  closeOnSelect: false,
+  draggable: false,
   items: [
     {
       id: "weather",
@@ -197,7 +200,9 @@ surface는 expression보다 실제 렌더링에 가까운 표시 단위이며, s
 }
 ```
 
-`menuId`가 있으면 메뉴별 표시 방식 설정에 사용할 수 있다.
+`display`가 있으면 이 액션의 표시 위치를 직접 정한다. 없으면 `menuId`별 표시 방식 설정과 기본 표시 방식을 따른다.
+`closeOnSelect: false`를 주면 항목 실행 후 메뉴를 자동으로 닫지 않는다. `draggable: false`는 패널 메뉴의 제목 드래그 이동을 끈다.
+매핑 편집기에서는 `items`를 비워도 `menuId` 또는 기본 메뉴 프리셋으로 메뉴 항목을 채울 수 있다.
 
 ### close_management_menu
 
@@ -358,7 +363,7 @@ idle, 랜덤 발화 타이밍을 밀어내는 데 사용한다.
 알림을 표시한다.
 
 ```ts
-{ type: "show_notification", title: "오늘의 운세", message: "새 결과가 도착했어요." }
+{ type: "show_notification", title: "오늘의 샘플 결과", message: "새 결과가 도착했어요." }
 ```
 
 브라우저 알림 권한이 있으면 Notification을 사용하고, 아니면 말풍선으로 출력한다.
@@ -368,7 +373,7 @@ idle, 랜덤 발화 타이밍을 밀어내는 데 사용한다.
 캐릭터별 저장소에 데이터를 저장한다.
 
 ```ts
-{ type: "save_data", key: "last_fortune_result", value: "great_luck" }
+{ type: "save_data", key: "last_sample_result", value: "ready" }
 ```
 
 기본 저장소의 키는 내부적으로 `ghostNest:{characterId}:{key}` 형식이 된다.
@@ -378,7 +383,7 @@ idle, 랜덤 발화 타이밍을 밀어내는 데 사용한다.
 캐릭터별 저장소에서 데이터를 불러온다.
 
 ```ts
-{ type: "load_data", key: "last_fortune_result", speak: true }
+{ type: "load_data", key: "last_sample_result", speak: true }
 ```
 
 `speak: true`이면 불러온 값을 말풍선으로 출력한다.

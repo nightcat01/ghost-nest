@@ -1,4 +1,4 @@
-import { fortunePlugin } from "../plugins/fortune/index.js";
+import { sampleResultPlugin } from "../plugins/sampleResult/index.js";
 import { createMinigamePlugin } from "../plugins/minigame/index.js";
 import { systemInfoPlugin } from "../plugins/systemInfo/index.js";
 import { timerPlugin } from "../plugins/timer/index.js";
@@ -11,7 +11,7 @@ import type { RuntimePlugin } from "../core/types.js";
  */
 export function createDemoPlugins(): RuntimePlugin[] {
   return [
-    fortunePlugin,
+    sampleResultPlugin,
     systemInfoPlugin,
     weatherPlugin,
     timerPlugin,

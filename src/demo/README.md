@@ -8,7 +8,7 @@
 
 | 파일 | 역할 |
 | --- | --- |
-| `demoPlugins.ts` | 운세, 날씨, 타이머, 시스템 정보, 미니게임 샘플 플러그인 등록 |
+| `demoPlugins.ts` | 샘플 결과, 날씨, 타이머, 시스템 정보, 미니게임 샘플 플러그인 등록 |
 | `demoManagementMenu.ts` | 여러 메뉴 프리셋을 조합해서 데모 관리 메뉴 생성 |
 | `demoRules.ts` | 런타임 이벤트를 액션 배열에 매핑하는 데모 rule |
 | [menuPresets/](./menuPresets/README.md) | 데모 메뉴 항목을 기능군별로 분리한 영역 |

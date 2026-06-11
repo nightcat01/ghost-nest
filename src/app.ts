@@ -285,7 +285,7 @@ function createRuntimeTestRules(): RuntimeRule[] {
           type: "set_speech_balloon_size",
           size: runtimeSpeechPresets.dialogueOverlay.size,
         },
-        { type: "change_balloon", theme: "fortune_prompt" },
+        { type: "change_balloon", theme: "prompt_overlay" },
         { type: "speak_text", text: "하단 대사창 모드예요. 긴 문장이 들어와도 정해진 영역 안에서만 움직여요." },
         { type: "log", label: "test:layout.dialogue_overlay" },
       ],
@@ -302,7 +302,7 @@ function createRuntimeTestRules(): RuntimeRule[] {
           type: "set_speech_balloon_size",
           size: runtimeSpeechPresets.dialogueBelow.size,
         },
-        { type: "change_balloon", theme: "fortune_prompt" },
+        { type: "change_balloon", theme: "prompt_overlay" },
         { type: "speak_text", text: "하단 대사창 모드예요. 캐릭터 아래쪽에 대사창을 분리해서 보여줄게요." },
         { type: "log", label: "test:layout.dialogue_below" },
       ],
@@ -434,7 +434,7 @@ function emitRuntimeEvent(eventName: RuntimeEventName) {
   }
 
   if (eventName === "command:hover") {
-    runtime.emit(eventName, { command: "fortune" });
+    runtime.emit(eventName, { command: "sample_result" });
     return;
   }
 

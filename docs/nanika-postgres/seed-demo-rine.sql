@@ -1,4 +1,4 @@
--- Minimal Fortune Master / Rine seed data for the GhostNest Nanika PostgreSQL schema.
+-- Minimal host app / Rine seed data for the GhostNest Nanika PostgreSQL schema.
 -- Run docs/nanika-postgres/schema.sql first.
 -- Replace asset URLs with your Supabase Storage, CDN, or host public paths.
 
@@ -37,7 +37,7 @@ insert into public.nanika_characters (
 values (
   'rine',
   'Rine',
-  'Demo guide character used by GhostNest and Fortune Master examples.',
+  'Demo guide character used by GhostNest and host app examples.',
   '/assets/nanika/rine',
   '{
     "id": "rine",
@@ -104,44 +104,44 @@ insert into public.nanika_mappings (
 )
 values
   (
-    'fortune-home-open',
-    'Fortune home open',
-    'Boot line and scene for the Fortune Master home page.',
+    'demo-home-open',
+    'Host home open',
+    'Boot line and scene for the host app home page.',
     'page',
     'home',
-    'Fortune home',
-    'fortune:home:open',
+    'Host home',
+    'demo:home:open',
     '[
-      { "type": "change_balloon", "theme": "fortune_prompt" },
-      { "type": "speak_text", "text": "Stella: What fortune would you like to see today? Choose a menu and I will guide you." },
+      { "type": "change_balloon", "theme": "prompt_overlay" },
+      { "type": "speak_text", "text": "Stella: What sample_result would you like to see today? Choose a menu and I will guide you." },
       { "type": "scene", "id": "desk-room" }
     ]'::jsonb,
     10
   ),
   (
-    'fortune-zodiac-open',
-    'Fortune zodiac open',
-    'Boot line and scene for the zodiac page.',
+    'demo-subpage-open',
+    'Host subpage open',
+    'Boot line and scene for the subpage page.',
     'page',
-    'zodiac',
-    'Fortune zodiac',
-    'fortune:zodiac:open',
+    'subpage',
+    'Host subpage',
+    'demo:subpage:open',
     '[
-      { "type": "change_balloon", "theme": "fortune_prompt" },
-      { "type": "speak_text", "text": "Choose the zodiac sign you want to read, or enter your birthday." },
+      { "type": "change_balloon", "theme": "prompt_overlay" },
+      { "type": "speak_text", "text": "Choose the subpage sign you want to read, or enter your birthday." },
       { "type": "scene", "id": "desk-room" },
       { "type": "surface", "id": "8", "startIdleLayers": true }
     ]'::jsonb,
     20
   ),
   (
-    'fortune-zodiac-selected',
-    'Fortune zodiac selected',
-    'Reaction after the host app selects a zodiac sign.',
+    'demo-subpage-selected',
+    'Host subpage selected',
+    'Reaction after the host app selects a subpage sign.',
     'host',
-    'zodiac:selected',
-    'Zodiac selected',
-    'zodiac:selected',
+    'choice:selected',
+    'Subpage selected',
+    'choice:selected',
     '[
       { "type": "speak_text", "text": "Good. I will read today with that sign in mind." },
       { "type": "surface", "id": "8", "startIdleLayers": true }
@@ -149,13 +149,13 @@ values
     30
   ),
   (
-    'fortune-menu-selected',
-    'Fortune menu selected',
-    'Generic reaction after a Fortune Master menu is selected.',
+    'sample_result-menu-selected',
+    'Host menu selected',
+    'Generic reaction after a host app menu is selected.',
     'host',
-    'fortune:menu:selected',
+    'demo:menu:selected',
     'Menu selected',
-    'fortune:menu:selected',
+    'demo:menu:selected',
     '[
       { "type": "speak_text", "text": "I can connect this menu to the host page action." }
     ]'::jsonb,
@@ -184,29 +184,29 @@ insert into public.nanika_feature_sets (
 )
 values
   (
-    'fortune.home',
-    'Fortune home basics',
-    'Feature set for the Fortune Master home page.',
+    'demo.home',
+    'Host home basics',
+    'Feature set for the host app home page.',
     'character-template',
     null,
     '[
       { "kind": "scene", "id": "desk-room", "label": "Desk room", "required": false },
       { "kind": "surface", "id": "0", "label": "Idle surface", "required": true }
     ]'::jsonb,
-    array['fortune-home-open', 'fortune-menu-selected', 'fortune-zodiac-selected'],
+    array['demo-home-open', 'sample_result-menu-selected', 'demo-subpage-selected'],
     10
   ),
   (
-    'fortune.zodiac',
-    'Fortune zodiac basics',
-    'Feature set for the Fortune Master zodiac page.',
+    'demo.subpage',
+    'Host subpage basics',
+    'Feature set for the host app subpage page.',
     'character-template',
     null,
     '[
       { "kind": "scene", "id": "desk-room", "label": "Desk room", "required": false },
       { "kind": "surface", "id": "8", "label": "Guide surface", "required": true }
     ]'::jsonb,
-    array['fortune-zodiac-open', 'fortune-menu-selected', 'fortune-zodiac-selected'],
+    array['demo-subpage-open', 'sample_result-menu-selected', 'demo-subpage-selected'],
     20
   ),
   (
@@ -221,7 +221,7 @@ values
       { "kind": "surface", "id": "8", "label": "Guide surface", "required": false },
       { "kind": "scene", "id": "desk-room", "label": "Desk room", "required": false }
     ]'::jsonb,
-    array['fortune-home-open', 'fortune-zodiac-open', 'fortune-menu-selected', 'fortune-zodiac-selected'],
+    array['demo-home-open', 'demo-subpage-open', 'sample_result-menu-selected', 'demo-subpage-selected'],
     30
   )
 on conflict (id) do update set
@@ -231,6 +231,57 @@ on conflict (id) do update set
   source_character_id = excluded.source_character_id,
   requirements_json = excluded.requirements_json,
   mapping_ids = excluded.mapping_ids,
+  sort_order = excluded.sort_order,
+  enabled = true;
+
+insert into public.nanika_menus (
+  id,
+  name,
+  description,
+  audience,
+  default_display,
+  close_on_select,
+  draggable,
+  items_json,
+  sort_order
+)
+values
+  (
+    'demo.home.default',
+    'Host home menu',
+    'Minimal menu seed for a host app home integration.',
+    'user',
+    'panel',
+    false,
+    false,
+    '[
+      {
+        "id": "sample_result-talk",
+        "label": "대화하기",
+        "description": "캐릭터가 현재 화면 안내를 말합니다.",
+        "actions": [
+          { "type": "speak_text", "text": "필요한 메뉴를 골라주세요. 제가 안내할게요." }
+        ]
+      },
+      {
+        "id": "sample_result-close",
+        "label": "닫기",
+        "description": "메뉴를 닫습니다.",
+        "actions": [
+          { "type": "close_management_menu" }
+        ]
+      }
+    ]'::jsonb,
+    10
+  )
+on conflict (id) do update set
+  name = excluded.name,
+  description = excluded.description,
+  audience = excluded.audience,
+  default_display = excluded.default_display,
+  close_on_select = excluded.close_on_select,
+  draggable = excluded.draggable,
+  items_json = excluded.items_json,
   sort_order = excluded.sort_order,
   enabled = true;
 
@@ -252,9 +303,9 @@ insert into public.nanika_runtime_profiles (
 )
 values
   (
-    'fortune.home.rine',
-    'Fortune home / Rine',
-    'Runtime profile for the Fortune Master home page.',
+    'demo.home.rine',
+    'Host home / Rine',
+    'Runtime profile for the host app home page.',
     '{ "pageId": "home", "urlPattern": "*" }'::jsonb,
     '{ "scene": "desk-room" }'::jsonb,
     '{
@@ -282,16 +333,16 @@ values
       "mobileWidth": "210px",
       "mobileHeight": "286px"
     }'::jsonb,
-    'fortune_prompt',
+    'prompt_overlay',
     false,
-    array['fortune.home'],
+    array['demo.home'],
     10
   ),
   (
-    'fortune.zodiac.rine',
-    'Fortune zodiac / Rine',
-    'Runtime profile for the Fortune Master zodiac page.',
-    '{ "pageId": "zodiac", "urlPattern": "*" }'::jsonb,
+    'demo.subpage.rine',
+    'Host subpage / Rine',
+    'Runtime profile for the host app subpage page.',
+    '{ "pageId": "subpage", "urlPattern": "*" }'::jsonb,
     '{ "scene": "desk-room" }'::jsonb,
     '{
       "devtools": false,
@@ -319,9 +370,9 @@ values
       "mobileWidth": "210px",
       "mobileHeight": "286px"
     }'::jsonb,
-    'fortune_prompt',
+    'prompt_overlay',
     false,
-    array['fortune.zodiac'],
+    array['demo.subpage'],
     20
   )
 on conflict (id) do update set
@@ -348,8 +399,8 @@ insert into public.nanika_runtime_profile_characters (
   feature_set_ids
 )
 values
-  ('fortune.home.rine', 'rine', 10, '{ "surface": "0" }'::jsonb, array[]::text[]),
-  ('fortune.zodiac.rine', 'rine', 10, '{ "surface": "8" }'::jsonb, array[]::text[])
+  ('demo.home.rine', 'rine', 10, '{ "surface": "0" }'::jsonb, array[]::text[]),
+  ('demo.subpage.rine', 'rine', 10, '{ "surface": "8" }'::jsonb, array[]::text[])
 on conflict (profile_id, character_id) do update set
   sort_order = excluded.sort_order,
   initial_json = excluded.initial_json,

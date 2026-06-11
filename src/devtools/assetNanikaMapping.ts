@@ -27,6 +27,7 @@ import type {
   RuntimeActionCatalogItem,
   RuntimeActionParameterCatalogItem,
 } from "../plugins/nanikaMapping/index.js";
+import type { NanikaRuntimeProfile } from "../plugins/nanikaMapping/profile.js";
 
 type NanikaCondition = {
   id: string;
@@ -65,6 +66,20 @@ type ActionCategoryOption = {
   id: RuntimeActionCatalogCategory;
   title: string;
   description: string;
+};
+
+type DraftStartTemplate = {
+  id: string;
+  title: string;
+  description: string;
+  mappingId: string;
+  mappingName: string;
+  targetValue?: string;
+  scope: MappingScopeId;
+  event: RuntimeEventName;
+  actionCategory: RuntimeActionCatalogCategory;
+  actionType: string;
+  actions: () => RuntimeAction[];
 };
 
 type ParameterOption = CharacterResourceCatalogOption;
@@ -154,10 +169,12 @@ type EditorSelection =
   | { type: "draft" }
   | { type: "mapping"; mapping: RuntimeRule | NanikaMapping; source: "applied" | "saved" }
   | { type: "feature-set"; featureSet: NanikaFeatureSet }
+  | { type: "profile"; profile: NanikaRuntimeProfile; source: "preset" | "saved" }
   | { type: "catalog"; title: string; description: string; meta?: string[] };
 
 type CanvasNodeKind =
   | "runtime"
+  | "profile"
   | "character"
   | "condition"
   | "config"
@@ -176,6 +193,7 @@ type CanvasNode = {
   id: string;
   kind: CanvasNodeKind;
   resourceKind?: NanikaResourceKind;
+  action?: RuntimeAction;
   sourceId?: string;
   title: string;
   description: string;
@@ -211,12 +229,14 @@ type CanvasState = {
   extraEdges: CanvasEdge[];
 };
 
-type PaletteCategoryId = "characters" | "conditions" | "saved" | "events" | "actions" | "feature-sets" | "resources";
+type PaletteCategoryId = "templates" | "profiles" | "characters" | "conditions" | "saved" | "events" | "actions" | "feature-sets" | "resources";
 
 type PaletteItem = {
   id: string;
   kind: CanvasNodeKind;
   resourceKind?: NanikaResourceKind;
+  templateId?: string;
+  subcategory?: string;
   title: string;
   description: string;
   meta?: string[];
@@ -265,8 +285,8 @@ const registry = createNanikaMappingRegistry(nanikaPreset);
 const canvasStateStorageKey = "ghostNest.nanikaMapping.canvasState.v1";
 const editorCanvasMinWidth = 1680;
 const editorCanvasMinHeight = 1040;
-const editorCanvasNodeWidth = 184;
-const editorCanvasNodeHeight = 100;
+const editorCanvasNodeWidth = 188;
+const editorCanvasNodeHeight = 88;
 const editorCanvasPaddingX = 420;
 const editorCanvasPaddingY = 320;
 const jsonParameterTypes = new Set([
@@ -353,6 +373,53 @@ const internalManagementMenuPresets = [
 
 type InternalManagementMenuPreset = (typeof internalManagementMenuPresets)[number];
 
+const draftStartTemplates: DraftStartTemplate[] = [
+  {
+    id: "runtime-fixed-panel-menu",
+    title: "고정 패널 메뉴 열기",
+    description: "나니카가 시작될 때 패널 메뉴를 열고, 항목을 눌러도 메뉴를 닫지 않습니다.",
+    mappingId: "runtime.fixed-panel-menu",
+    mappingName: "시작 시 고정 패널 메뉴 열기",
+    scope: "runtime",
+    event: "runtime:ready",
+    actionCategory: "ui",
+    actionType: "open_management_menu",
+    actions: () => [{
+      type: "open_management_menu",
+      menuId: "demo.user",
+      title: "사용자 메뉴",
+      display: "panel",
+      closeOnSelect: false,
+      draggable: false,
+      items: createDemoUserMenuItems(),
+    }],
+  },
+  {
+    id: "runtime-start-greeting",
+    title: "시작 인사",
+    description: "나니카가 표시되면 짧은 고정 대사를 말합니다.",
+    mappingId: "runtime.start-greeting",
+    mappingName: "시작 인사",
+    scope: "runtime",
+    event: "runtime:ready",
+    actionCategory: "speech",
+    actionType: "speak_text",
+    actions: () => [{ type: "speak_text", text: "안녕하세요. 무엇을 도와드릴까요?" }],
+  },
+  {
+    id: "character-click-dialogue",
+    title: "캐릭터 클릭 대사",
+    description: "캐릭터를 클릭하면 등록된 대사 카테고리에서 대사를 말합니다.",
+    mappingId: "character.click-dialogue",
+    mappingName: "캐릭터 클릭 대사",
+    scope: "character",
+    event: "character:click",
+    actionCategory: "speech",
+    actionType: "speak",
+    actions: () => [{ type: "speak", category: "onClick" }],
+  },
+];
+
 function getInternalManagementMenuPreset(presetId: string | null | undefined): InternalManagementMenuPreset {
   return internalManagementMenuPresets.find((preset) => preset.id === presetId) ?? internalManagementMenuPresets[0]!;
 }
@@ -419,6 +486,8 @@ const actionLabelMap: Record<string, string> = {
   scene_overlay: "무대 오버레이 켜기/끄기",
   set_touched_part: "터치 부위 기록",
   toggle_hidden: "표시 전환",
+  request_character_change: "캐릭터 변경 요청",
+  request_profile_change: "프로필 전환 요청",
   call_plugin: "플러그인 호출",
   log: "로그 추가",
   touch_interaction: "상호작용 시각 갱신",
@@ -491,7 +560,7 @@ const balloonThemeOptions: ParameterOption[] = [
   { id: "default", label: "기본", description: "기본 말풍선 테마" },
   { id: "soft", label: "밝고 부드러운 말풍선", description: "저장 키: soft" },
   { id: "dark", label: "어두운 배경용 말풍선", description: "저장 키: dark" },
-  { id: "fortune-master", label: "포춘마스터 말풍선", description: "저장 키: fortune-master / 포춘마스터 화면에 맞춘 반투명 말풍선 테마" },
+  { id: "prompt-overlay", label: "반투명 프롬프트 말풍선", description: "저장 키: prompt-overlay / 어두운 화면에 겹쳐 쓰는 반투명 말풍선 테마" },
 ];
 
 const speechLayoutOptions: ParameterOption[] = [
@@ -538,72 +607,283 @@ const genericFeatureRequirements = [
 
 const runtimeProfileOverviewCards: RuntimeProfileOverviewCard[] = [
   {
-    id: "fortune.home.rine",
-    name: "포춘마스터 홈",
-    description: "홈 화면에서 리네를 안내 캐릭터로 시작하는 런타임 프로필입니다.",
+    id: "demo.home.rine",
+    name: "기본 홈",
+    description: "홈 화면에서 리네를 안내 캐릭터로 시작하는 예시 런타임 프로필입니다.",
     match: "pageId: home",
     characterId: "rine",
     initial: ["surface: 0", "scene: desk-room-default"],
-    featureSetIds: ["fortune-home-core"],
+    featureSetIds: ["demo-home-core"],
     controls: ["hover", "drag", "managementMenu"],
   },
   {
-    id: "fortune.zodiac.rine",
-    name: "포춘마스터 별자리",
-    description: "별자리 선택 화면에서 다른 시작 상태와 대사를 쓰는 런타임 프로필입니다.",
-    match: "pageId: zodiac",
+    id: "demo.subpage.rine",
+    name: "기본 서브 페이지",
+    description: "서브 화면에서 다른 시작 상태와 대사를 쓰는 예시 런타임 프로필입니다.",
+    match: "pageId: subpage",
     characterId: "rine",
     initial: ["surface: 8", "scene: desk-room-default"],
-    featureSetIds: ["fortune-zodiac-core"],
+    featureSetIds: ["demo-subpage-core"],
     controls: ["hover off", "drag off", "managementMenu off"],
   },
 ];
 
+function createRuntimeProfileFromOverviewCard(profile: RuntimeProfileOverviewCard): NanikaRuntimeProfile {
+  const [rawMatchKey = "", ...matchValueParts] = profile.match.split(":");
+  const matchKey = rawMatchKey.trim();
+  const matchValue = matchValueParts.join(":").trim();
+  const match = matchKey === "pageId" && matchValue ? { pageId: matchValue } : undefined;
+  const initial = profile.initial.reduce<NonNullable<NanikaRuntimeProfile["initial"]>>((result, item) => {
+    const [rawKey = "", ...valueParts] = item.split(":");
+    const key = rawKey.trim();
+    const value = valueParts.join(":").trim();
+
+    if (key === "surface" && value) {
+      result.surface = value;
+    }
+
+    if (key === "scene" && value) {
+      result.scene = value;
+    }
+
+    return result;
+  }, {});
+
+  return {
+    id: profile.id,
+    name: profile.name,
+    description: profile.description,
+    ...(match ? { match } : {}),
+    characterProfiles: [{
+      characterId: profile.characterId,
+      ...(Object.keys(initial).length > 0 ? { initial } : {}),
+      featureSetIds: profile.featureSetIds,
+    }],
+  };
+}
+
+function getRuntimeProfilesForDisplay(): NanikaRuntimeProfile[] {
+  const savedIds = new Set(savedRuntimeProfiles.map((profile) => profile.id));
+  const presetProfiles = runtimeProfileOverviewCards
+    .filter((profile) => !savedIds.has(profile.id))
+    .map(createRuntimeProfileFromOverviewCard);
+
+  return [...savedRuntimeProfiles, ...presetProfiles];
+}
+
+function getRuntimeProfileCharacterId(profile: NanikaRuntimeProfile) {
+  return profile.characterProfiles?.[0]?.characterId ?? "runtime";
+}
+
+function getRuntimeProfileInitialLabels(profile: NanikaRuntimeProfile) {
+  const initial = profile.characterProfiles?.[0]?.initial ?? profile.initial;
+  const labels: string[] = [];
+
+  if (initial?.surface) {
+    labels.push(`surface: ${initial.surface}`);
+  }
+
+  if (initial?.scene) {
+    labels.push(`scene: ${initial.scene}`);
+  }
+
+  if (initial?.expression) {
+    labels.push(`expression: ${initial.expression}`);
+  }
+
+  return labels;
+}
+
+function getRuntimeProfileFeatureSetIds(profile: NanikaRuntimeProfile) {
+  return profile.featureSetIds ?? profile.characterProfiles?.[0]?.featureSetIds ?? [];
+}
+
+function formatProfileMatchValue(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value.join(", ");
+  }
+
+  return value ?? "";
+}
+
+function getRuntimeProfileConditionTitle(profile: NanikaRuntimeProfile) {
+  const match = profile.match;
+
+  if (!match) {
+    return "항상 사용";
+  }
+
+  if (match.enabled === false) {
+    return "사용 안 함";
+  }
+
+  if (match.pageId) {
+    return `${match.pageId} 페이지에서 사용`;
+  }
+
+  if (match.pageIds && match.pageIds.length > 0) {
+    return `${match.pageIds.join(", ")} 페이지에서 사용`;
+  }
+
+  if (match.urlContains) {
+    return `URL 포함: ${formatProfileMatchValue(match.urlContains)}`;
+  }
+
+  if (match.urlStartsWith) {
+    return `URL 시작: ${formatProfileMatchValue(match.urlStartsWith)}`;
+  }
+
+  if (match.urlEquals) {
+    return `URL 일치: ${formatProfileMatchValue(match.urlEquals)}`;
+  }
+
+  if (match.urlPattern) {
+    return `URL 패턴: ${match.urlPattern}`;
+  }
+
+  if (match.urlPatterns && match.urlPatterns.length > 0) {
+    return `URL 패턴: ${match.urlPatterns.join(", ")}`;
+  }
+
+  return "조건 지정됨";
+}
+
+function getRuntimeProfileMatchLabel(profile: NanikaRuntimeProfile) {
+  if (profile.match?.enabled === false) {
+    return "enabled: false";
+  }
+
+  if (profile.match?.pageId) {
+    return `pageId: ${profile.match.pageId}`;
+  }
+
+  if (profile.match?.pageIds && profile.match.pageIds.length > 0) {
+    return `pageIds: ${profile.match.pageIds.join(", ")}`;
+  }
+
+  if (profile.match?.urlContains) {
+    return `url contains: ${formatProfileMatchValue(profile.match.urlContains)}`;
+  }
+
+  if (profile.match?.urlStartsWith) {
+    return `url startsWith: ${formatProfileMatchValue(profile.match.urlStartsWith)}`;
+  }
+
+  if (profile.match?.urlEquals) {
+    return `url equals: ${formatProfileMatchValue(profile.match.urlEquals)}`;
+  }
+
+  if (profile.match?.urlPattern) {
+    return `url pattern: ${profile.match.urlPattern}`;
+  }
+
+  if (profile.match?.urlPatterns && profile.match.urlPatterns.length > 0) {
+    return `url patterns: ${profile.match.urlPatterns.join(", ")}`;
+  }
+
+  return "조건 없음";
+}
+
+function getRuntimeProfileMatchReadableLabel(profile: NanikaRuntimeProfile) {
+  if (profile.match?.enabled === false) {
+    return "사용 안 함";
+  }
+
+  if (profile.match?.pageId) {
+    return `${profile.match.pageId} 페이지`;
+  }
+
+  if (profile.match?.pageIds && profile.match.pageIds.length > 0) {
+    return `${profile.match.pageIds.join(", ")} 페이지`;
+  }
+
+  if (profile.match?.urlContains) {
+    return `URL에 ${formatProfileMatchValue(profile.match.urlContains)}가 포함될 때`;
+  }
+
+  if (profile.match?.urlStartsWith) {
+    return `URL이 ${formatProfileMatchValue(profile.match.urlStartsWith)}로 시작할 때`;
+  }
+
+  if (profile.match?.urlEquals) {
+    return `URL이 ${formatProfileMatchValue(profile.match.urlEquals)}와 같을 때`;
+  }
+
+  if (profile.match?.urlPattern) {
+    return `URL 패턴 ${profile.match.urlPattern}에 맞을 때`;
+  }
+
+  if (profile.match?.urlPatterns && profile.match.urlPatterns.length > 0) {
+    return `URL 패턴 ${profile.match.urlPatterns.join(", ")}에 맞을 때`;
+  }
+
+  return "항상";
+}
+
 function createRuntimeConditionPaletteItems(): PaletteItem[] {
-  return runtimeProfileOverviewCards.map((profile) => ({
+  return getRuntimeProfilesForDisplay().map((profile) => ({
     id: `runtime-condition:${profile.id}`,
     kind: "condition",
-    title: `${profile.name} 런타임 조건`,
-    description: `${profile.match} 조건에서 이 런타임 프로필을 사용합니다.`,
+    title: getRuntimeProfileConditionTitle(profile),
+    description: `${getRuntimeProfileMatchReadableLabel(profile)} 조건에서 이 런타임 프로필을 사용합니다.`,
     meta: [
-      "scope: runtime",
+      "적용 범위: 런타임",
       "붙이는 곳: 런타임 또는 이벤트 앞",
+      "scope: runtime",
       profile.id,
-      profile.match,
-      `character: ${profile.characterId}`,
-      ...profile.initial,
+      getRuntimeProfileMatchLabel(profile),
+      `character: ${getRuntimeProfileCharacterId(profile)}`,
+      ...getRuntimeProfileInitialLabels(profile),
     ],
   }));
 }
 
 function createCharacterConditionPaletteItems(): PaletteItem[] {
-  return runtimeProfileOverviewCards.map((profile) => ({
+  return getRuntimeProfilesForDisplay().map((profile) => ({
     id: `character-condition:${profile.id}`,
     kind: "condition",
-    title: `${profile.name} 캐릭터 조건`,
-    description: `${profile.characterId} 캐릭터가 ${profile.match} 조건에서 쓸 시작 상태와 기능 묶음입니다.`,
+    title: `${getRuntimeProfileCharacterId(profile)}: ${getRuntimeProfileConditionTitle(profile)}`,
+    description: `${getRuntimeProfileCharacterId(profile)} 캐릭터가 ${getRuntimeProfileMatchReadableLabel(profile)} 조건에서 쓸 시작 상태와 연결 세트입니다.`,
     meta: [
-      "scope: character",
+      "적용 범위: 캐릭터",
       "붙이는 곳: 캐릭터 또는 이벤트 앞",
+      "scope: character",
       profile.id,
-      profile.match,
-      ...profile.initial,
-      ...profile.featureSetIds.map((featureSetId) => `feature set: ${featureSetId}`),
+      getRuntimeProfileMatchLabel(profile),
+      ...getRuntimeProfileInitialLabels(profile),
+      ...getRuntimeProfileFeatureSetIds(profile).map((featureSetId) => `연결 세트: ${featureSetId}`),
+    ],
+  }));
+}
+
+function createRuntimeProfilePaletteItems(): PaletteItem[] {
+  return getRuntimeProfilesForDisplay().map((profile) => ({
+    id: profile.id,
+    kind: "profile" as const,
+    subcategory: getRuntimeProfileCharacterId(profile),
+    title: profile.name ?? profile.id,
+    description: profile.description ?? "저장된 런타임 프로필입니다.",
+    meta: [
+      `profile: ${profile.id}`,
+      getRuntimeProfileMatchLabel(profile),
+      `character: ${getRuntimeProfileCharacterId(profile)}`,
+      ...getRuntimeProfileInitialLabels(profile).slice(0, 2),
     ],
   }));
 }
 
 function createSavedConditionPaletteItems(): PaletteItem[] {
   return savedConditions.map((condition) => {
-    const typeLabel = getReadableConditionTypeLabel(condition);
-    const scopeLabel = condition.scope === "runtime" ? "런타임" : "캐릭터";
+    const scopeLabel = getReadableConditionScopeLabel(condition.scope);
 
     return {
       id: `saved-condition:${condition.id}`,
       kind: "condition",
       title: condition.name ?? condition.id,
-      description: condition.description || `${typeLabel}: ${condition.value}`,
+      description: condition.description || getReadableConditionExpression(condition),
       meta: [
+        `적용 범위: ${scopeLabel}`,
+        getReadableConditionExpression(condition),
         `scope: ${condition.scope}`,
         "붙이는 곳: 이벤트/연결 앞",
         condition.id,
@@ -628,6 +908,7 @@ const runtimeStateOptions: ParameterOption[] = [
 ];
 
 const maxActionFlowSteps = 8;
+const maxFeatureSetMappingCount = 24;
 const mappingTargetSeparator = "::";
 const unassignedCharacterId = "__unassigned";
 
@@ -639,6 +920,23 @@ function createUniqueMappingCopyId(sourceId: string) {
   const existingIds = new Set([
     ...savedMappings.map((mapping) => mapping.id),
     ...registry.mappings.map((mapping) => mapping.id),
+  ]);
+  const baseId = `${sourceId}.copy`.replace(/[^a-zA-Z0-9_.:-]/g, ".");
+  let candidate = baseId;
+  let index = 2;
+
+  while (existingIds.has(candidate)) {
+    candidate = `${baseId}.${index}`;
+    index += 1;
+  }
+
+  return candidate.slice(0, 128);
+}
+
+function createUniqueRuntimeProfileCopyId(sourceId: string) {
+  const existingIds = new Set([
+    ...savedRuntimeProfiles.map((profile) => profile.id),
+    ...runtimeProfileOverviewCards.map((profile) => profile.id),
   ]);
   const baseId = `${sourceId}.copy`.replace(/[^a-zA-Z0-9_.:-]/g, ".");
   let candidate = baseId;
@@ -841,6 +1139,8 @@ let draftQuickConnectionActive = false;
 let savedMappings: NanikaMapping[] = [];
 let savedMappingsLoaded = false;
 let savedFeatureSets: NanikaFeatureSet[] = [];
+let savedRuntimeProfiles: NanikaRuntimeProfile[] = [];
+let runtimeProfilesLoaded = false;
 let savedConditions: NanikaCondition[] = [];
 let availableCharacterIds: string[] = [registry.character.id];
 let activeCharacterResourceId: string | null = registry.character.id;
@@ -855,15 +1155,18 @@ let mappingGraphExpanded = false;
 let activeView: MappingView = "overview";
 let editorSelection: EditorSelection = { type: "character" };
 let selectedPaletteCategory: PaletteCategoryId = "resources";
+let selectedPaletteSubcategory = "all";
 let activeCatalogView: CatalogView = "summary";
 let editorReadOnly = false;
 let editorCanvasZoom = 1;
+const collapsedFeatureSetGraphKeys = new Set<string>();
 let emptyEditorTitle = "선택된 항목 없음";
 let emptyEditorDescription = "카드를 선택하면 이 영역이 공통 편집 캔버스처럼 바뀝니다. 다음 단계에서는 이 재료를 드래그해서 연결하는 방식으로 확장할 수 있습니다.";
 let emptyEditorMeta = ["대기 중"];
 let currentEditorGraph: CanvasGraph | null = null;
 let currentEditorGraphKey = "empty";
 let selectedCanvasNodeId: string | null = null;
+let selectedCanvasNodeIds = new Set<string>();
 let pendingConnectionNodeId: string | null = null;
 let selectedCanvasNodeForPopover: CanvasNode | null = null;
 const canvasStateByKey = new Map<string, CanvasState>();
@@ -935,10 +1238,13 @@ const mappingSnippetPreview = requireElement(document.querySelector<HTMLPreEleme
 const mappingSnippetHelp = requireElement(document.querySelector<HTMLElement>("#mappingSnippetHelp"), "#mappingSnippetHelp");
 const snippetFeatureSetPicker = requireElement(document.querySelector<HTMLElement>("#snippetFeatureSetPicker"), "#snippetFeatureSetPicker");
 const draftScopeOptions = requireElement(document.querySelector<HTMLElement>("#draftScopeOptions"), "#draftScopeOptions");
+const draftStartTemplateOptions = requireElement(document.querySelector<HTMLElement>("#draftStartTemplateOptions"), "#draftStartTemplateOptions");
 const draftEventOptions = requireElement(document.querySelector<HTMLElement>("#draftEventOptions"), "#draftEventOptions");
 const draftActionCategoryOptions = requireElement(document.querySelector<HTMLElement>("#draftActionCategoryOptions"), "#draftActionCategoryOptions");
 const draftActionOptions = requireElement(document.querySelector<HTMLElement>("#draftActionOptions"), "#draftActionOptions");
 const draftMappingIdInput = requireElement(document.querySelector<HTMLInputElement>("#draftMappingIdInput"), "#draftMappingIdInput");
+const editorMappingIdInput = requireElement(document.querySelector<HTMLInputElement>("#editorMappingIdInput"), "#editorMappingIdInput");
+const editorMappingIdStatus = requireElement(document.querySelector<HTMLElement>("#editorMappingIdStatus"), "#editorMappingIdStatus");
 const draftMappingNameInput = requireElement(document.querySelector<HTMLInputElement>("#draftMappingNameInput"), "#draftMappingNameInput");
 const draftTargetSelect = requireElement(document.querySelector<HTMLSelectElement>("#draftTargetSelect"), "#draftTargetSelect");
 const draftEventHelp = requireElement(document.querySelector<HTMLElement>("#draftEventHelp"), "#draftEventHelp");
@@ -975,6 +1281,7 @@ const featureSetStatus = requireElement(document.querySelector<HTMLElement>("#fe
 const featureSetList = requireElement(document.querySelector<HTMLElement>("#featureSetList"), "#featureSetList");
 const mappingPaletteTabs = requireElement(document.querySelector<HTMLElement>("#mappingPaletteTabs"), "#mappingPaletteTabs");
 const mappingPaletteDeck = requireElement(document.querySelector<HTMLElement>("#mappingPaletteDeck"), "#mappingPaletteDeck");
+const conditionForm = requireElement(document.querySelector<HTMLElement>(".nanika-condition-form"), ".nanika-condition-form");
 const conditionIdInput = requireElement(document.querySelector<HTMLInputElement>("#conditionIdInput"), "#conditionIdInput");
 const conditionNameInput = requireElement(document.querySelector<HTMLInputElement>("#conditionNameInput"), "#conditionNameInput");
 const conditionScopeSelect = requireElement(document.querySelector<HTMLSelectElement>("#conditionScopeSelect"), "#conditionScopeSelect");
@@ -992,15 +1299,38 @@ const mappingEditorDetail = requireElement(document.querySelector<HTMLElement>("
 const editorLoadDraftButton = requireElement(document.querySelector<HTMLButtonElement>("#editorLoadDraftButton"), "#editorLoadDraftButton");
 const editorAddToFeatureSetButton = requireElement(document.querySelector<HTMLButtonElement>("#editorAddToFeatureSetButton"), "#editorAddToFeatureSetButton");
 const editorSaveButton = requireElement(document.querySelector<HTMLButtonElement>("#editorSaveButton"), "#editorSaveButton");
+const editorHelpToggleButton = requireElement(document.querySelector<HTMLButtonElement>("#editorHelpToggleButton"), "#editorHelpToggleButton");
+const editorHelpCloseButton = requireElement(document.querySelector<HTMLButtonElement>("#editorHelpCloseButton"), "#editorHelpCloseButton");
+const mappingEditorHelpPanel = requireElement(document.querySelector<HTMLElement>("#mappingEditorHelpPanel"), "#mappingEditorHelpPanel");
+const mappingEditorHelpPanelBody = requireElement(document.querySelector<HTMLElement>("#mappingEditorHelpPanelBody"), "#mappingEditorHelpPanelBody");
 const editorZoomOutButton = requireElement(document.querySelector<HTMLButtonElement>("#editorZoomOutButton"), "#editorZoomOutButton");
 const editorZoomInButton = requireElement(document.querySelector<HTMLButtonElement>("#editorZoomInButton"), "#editorZoomInButton");
 const editorZoomResetButton = requireElement(document.querySelector<HTMLButtonElement>("#editorZoomResetButton"), "#editorZoomResetButton");
+const editorPaletteToggleButton = requireElement(document.querySelector<HTMLButtonElement>("#editorPaletteToggleButton"), "#editorPaletteToggleButton");
 const editorCopyGraphButton = requireElement(document.querySelector<HTMLButtonElement>("#editorCopyGraphButton"), "#editorCopyGraphButton");
 const viewButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-view-target]"));
 const editorModeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-editor-mode-target]"));
 const viewSections = Array.from(document.querySelectorAll<HTMLElement>(".nanika-view-section"));
 const catalogButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-catalog-target]"));
 const catalogSections = Array.from(document.querySelectorAll<HTMLElement>("[data-catalog-section]"));
+const editorPaletteCollapsedStorageKey = "ghostNest.nanikaMapping.paletteCollapsed.v1";
+
+function getEditorPanelElement() {
+  return requireElement(mappingEditorCanvas.closest<HTMLElement>(".nanika-editor-panel"), ".nanika-editor-panel");
+}
+
+function setEditorPaletteCollapsed(collapsed: boolean) {
+  const editorPanel = getEditorPanelElement();
+  editorPanel.dataset.paletteCollapsed = collapsed ? "true" : "false";
+  editorPaletteToggleButton.setAttribute("aria-pressed", collapsed ? "true" : "false");
+  editorPaletteToggleButton.textContent = collapsed ? "카드덱 열기" : "카드덱 접기";
+  localStorage.setItem(editorPaletteCollapsedStorageKey, collapsed ? "true" : "false");
+}
+
+function toggleEditorPalette() {
+  const editorPanel = getEditorPanelElement();
+  setEditorPaletteCollapsed(editorPanel.dataset.paletteCollapsed !== "true");
+}
 
 function getReadableEventLabel(event: string) {
   return eventLabelMap[event] ?? event;
@@ -1049,6 +1379,14 @@ function getReadableConditionTypeLabel(condition: Pick<NanikaCondition, "type" |
   }
 
   return `URL ${getReadableConditionOperatorLabel(getConditionOperator(condition))}`;
+}
+
+function getReadableConditionScopeLabel(scope: NanikaCondition["scope"]) {
+  return scope === "runtime" ? "런타임" : "캐릭터";
+}
+
+function getReadableConditionExpression(condition: NanikaCondition) {
+  return `${getReadableConditionTypeLabel(condition)}: ${condition.value}`;
 }
 
 function formatRuntimeConditionValue(condition: RuntimeCondition) {
@@ -1117,6 +1455,52 @@ function getMappingSaveIssues(mapping: NanikaMapping | null, options: { requireT
   issues.push(...getConditionSaveIssues(mapping.conditions ?? []));
 
   return issues;
+}
+
+function getFeatureSetSaveIssues(
+  mappingIds: readonly string[],
+  mappingById = new Map(savedMappings.map((mapping) => [mapping.id, mapping])),
+): MappingSaveIssue[] {
+  const issues: MappingSaveIssue[] = [];
+  const normalizedIds = mappingIds.map((mappingId) => mappingId.trim()).filter(Boolean);
+  const uniqueIds = Array.from(new Set(normalizedIds));
+
+  if (uniqueIds.length === 0) {
+    issues.push({ severity: "error", message: "연결 세트에 넣을 저장 연결을 하나 이상 선택하세요." });
+  }
+
+  if (uniqueIds.length > maxFeatureSetMappingCount) {
+    issues.push({ severity: "error", message: `연결 세트에는 저장 연결을 최대 ${maxFeatureSetMappingCount}개까지만 넣을 수 있습니다.` });
+  }
+
+  if (normalizedIds.length !== uniqueIds.length) {
+    issues.push({ severity: "warning", message: "중복 선택된 저장 연결은 저장 시 한 번만 포함됩니다." });
+  }
+
+  uniqueIds.forEach((mappingId) => {
+    const mapping = mappingById.get(mappingId);
+    if (!mapping) {
+      issues.push({ severity: "error", message: `${mappingId}: 저장된 연결 목록에 없습니다.` });
+      return;
+    }
+
+    const mappingIssues = getMappingSaveIssues(mapping, { requireTarget: false });
+    getBlockingSaveIssueMessages(mappingIssues).forEach((message) => {
+      issues.push({ severity: "error", message: `${getDisplayMappingName(mapping)}: ${message}` });
+    });
+    getWarningSaveIssueMessages(mappingIssues).forEach((message) => {
+      issues.push({ severity: "warning", message: `${getDisplayMappingName(mapping)}: ${message}` });
+    });
+  });
+
+  return issues;
+}
+
+function getValidFeatureSetMappingIds(mappingIds: readonly string[]) {
+  const savedIds = new Set(savedMappings.map((mapping) => mapping.id));
+
+  return Array.from(new Set(mappingIds.map((mappingId) => mappingId.trim()).filter(Boolean)))
+    .filter((mappingId) => savedIds.has(mappingId));
 }
 
 function getBlockingSaveIssueMessages(issues: readonly MappingSaveIssue[]) {
@@ -1254,6 +1638,26 @@ function getParameterOptions(actionType: string, parameterName: string): Paramet
     return managementMenuDisplayOptions;
   }
 
+  if (actionType === "open_management_menu" && parameterName === "display") {
+    return managementMenuDisplayOptions;
+  }
+
+  if (actionType === "open_management_menu" && parameterName === "menuId") {
+    return internalManagementMenuPresets.map((preset) => ({
+      id: preset.id,
+      label: preset.title,
+      description: preset.description,
+    }));
+  }
+
+  if (actionType === "request_profile_change" && parameterName === "profileId") {
+    return getRuntimeProfilesForDisplay().map((profile) => ({
+      id: profile.id,
+      label: profile.name ?? profile.id,
+      description: profile.description ?? getRuntimeProfileMatchLabel(profile),
+    }));
+  }
+
   if (actionType === "set_state" && parameterName === "state") {
     return runtimeStateOptions;
   }
@@ -1320,10 +1724,94 @@ function resetDraftBuilder() {
   renderDraftPreview();
 }
 
+function getDefaultDraftTargetValue(scope: MappingScopeId) {
+  const preferredTarget = targetOptions.find((target) => target.scope === scope)
+    ?? targetOptions.find((target) => target.scope === "runtime")
+    ?? targetOptions[0];
+
+  return preferredTarget ? createMappingTargetValue(preferredTarget.scope, preferredTarget.id) : "";
+}
+
+function applyDraftStartTemplate(template: DraftStartTemplate) {
+  canvasStateByKey.delete("draft");
+  currentEditorGraph = null;
+  currentEditorGraphKey = "draft";
+  selectedCanvasNodeId = null;
+  selectedCanvasNodeForPopover = null;
+  pendingConnectionNodeId = null;
+  selectedScope = template.scope;
+  selectedEvent = template.event;
+  selectedActionCategory = template.actionCategory;
+  selectedActionType = template.actionType;
+  draftActionFlow = template.actions().map(cloneRuntimeAction);
+  draftParameterPrefill = {};
+  draftQuickConnectionActive = false;
+  draftMappingIdInput.value = template.mappingId;
+  draftMappingNameInput.value = template.mappingName;
+  draftTargetSelect.value = template.targetValue ?? getDefaultDraftTargetValue(template.scope);
+
+  setActiveView("create");
+  renderStepBuilder();
+  renderActionFlow();
+  renderDraftFlowPreview();
+  renderDraftPreview();
+  selectEditorDraft();
+  renderDetailPanel("대상", template.title, template.description, [
+    `event: ${template.event}`,
+    `action: ${template.actionType}`,
+  ]);
+  draftMappingStatus.textContent = `${template.title} 템플릿을 적용했어요. 필요한 값을 확인한 뒤 저장하세요.`;
+  draftMappingStatus.dataset.state = "ready";
+}
+
+function renderDraftStartTemplates() {
+  draftStartTemplateOptions.replaceChildren(...draftStartTemplates.map((template) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "nanika-start-template-card";
+    button.dataset.templateId = template.id;
+
+    const title = document.createElement("strong");
+    title.textContent = template.title;
+
+    const description = document.createElement("span");
+    description.textContent = template.description;
+
+    const meta = document.createElement("small");
+    meta.textContent = `${getReadableEventLabel(template.event)} -> ${getReadableActionLabel(template.actionType)}`;
+
+    button.append(title, description, meta);
+    button.addEventListener("click", () => applyDraftStartTemplate(template));
+    return button;
+  }));
+}
+
+function createDraftStartTemplatePaletteItems(): PaletteItem[] {
+  return draftStartTemplates.map((template) => ({
+    id: `template:${template.id}`,
+    kind: "catalog",
+    templateId: template.id,
+    subcategory: template.scope === "runtime" ? "runtime" : "character",
+    title: template.title,
+    description: template.description,
+    meta: [
+      "시작 템플릿",
+      template.scope === "runtime" ? "런타임" : "캐릭터",
+      `${getReadableEventLabel(template.event)} -> ${getReadableActionLabel(template.actionType)}`,
+    ],
+  }));
+}
+
 function setEditorMode(view: MappingView, options: { resetDraft?: boolean } = {}) {
   activeView = view;
+  const editorPanel = mappingEditorCanvas.closest<HTMLElement>(".nanika-editor-panel");
+  if (editorPanel) {
+    editorPanel.dataset.mode = view;
+  }
+
+  const workspaceOnlyView = view === "create" || view === "saved";
   viewSections.forEach((section) => {
-    section.hidden = view === "create" || section.dataset.view !== view;
+    section.hidden = workspaceOnlyView || section.dataset.view !== view;
   });
   editorModeButtons.forEach((button) => {
     button.dataset.active = button.dataset.editorModeTarget === view ? "true" : "false";
@@ -1340,14 +1828,14 @@ function setEditorMode(view: MappingView, options: { resetDraft?: boolean } = {}
   } else if (view === "saved") {
     selectedPaletteCategory = "saved";
     emptyEditorTitle = "저장 연결";
-    emptyEditorDescription = "왼쪽 카드 덱에서 저장된 연결을 고르면 작업판에 불러옵니다. 불러온 연결은 새 연결로 복사하거나 기능 묶음에 추가할 수 있습니다.";
+    emptyEditorDescription = "왼쪽 카드 덱에서 저장된 연결을 고르면 작업판에 불러옵니다. 불러온 연결은 새 연결로 복사하거나 연결 세트에 추가할 수 있습니다.";
     emptyEditorMeta = ["저장된 연결 선택"];
     setEditorSelection({ type: "empty" });
   } else if (view === "feature-sets") {
     selectedPaletteCategory = "feature-sets";
-    emptyEditorTitle = "기능 묶음";
-    emptyEditorDescription = "왼쪽 카드 덱에서 기능 묶음을 고르면 포함된 연결을 작업판에서 확인합니다. 저장 연결을 묶음에 추가할 수도 있습니다.";
-    emptyEditorMeta = ["기능 묶음 선택"];
+    emptyEditorTitle = "연결 세트";
+    emptyEditorDescription = "왼쪽 카드 덱에서 연결 세트를 고르면 포함된 저장 연결을 작업판에서 확인합니다. 저장 연결을 세트에 추가할 수도 있습니다.";
+    emptyEditorMeta = ["연결 세트 선택"];
     setEditorSelection({ type: "empty" });
   } else if (view === "catalog") {
     renderEditorCanvas();
@@ -1589,31 +2077,35 @@ function renderFlowBoard(target: HTMLElement, columns: FlowBoardColumn[]) {
   target.replaceChildren(...columns.map(createFlowBoardColumn));
 }
 
-function createProfileOverviewCard(profile: RuntimeProfileOverviewCard) {
+function createProfileOverviewCard(profile: NanikaRuntimeProfile) {
   const card = document.createElement("article");
   const heading = document.createElement("h3");
   const description = document.createElement("p");
   const meta = document.createElement("div");
   const knownFeatureSetIds = new Set(savedFeatureSets.map((featureSet) => featureSet.id));
-  const featureStatus = profile.featureSetIds.length === 0
-    ? "feature set 없음"
-    : profile.featureSetIds.every((featureSetId) => knownFeatureSetIds.has(featureSetId))
-      ? "feature set 저장됨"
-      : "feature set 초안/코드 기준";
+  const featureSetIds = getRuntimeProfileFeatureSetIds(profile);
+  const controls = profile.controls
+    ? Object.entries(profile.controls).map(([key, value]) => `${key}: ${String(value)}`)
+    : [];
+  const featureStatus = featureSetIds.length === 0
+    ? "연결 세트 없음"
+    : featureSetIds.every((featureSetId) => knownFeatureSetIds.has(featureSetId))
+      ? "연결 세트 저장됨"
+      : "연결 세트 초안/코드 기준";
 
   card.className = "nanika-runtime-profile-card";
   card.dataset.profileId = profile.id;
-  heading.textContent = profile.name;
-  description.textContent = profile.description;
+  heading.textContent = profile.name ?? profile.id;
+  description.textContent = profile.description ?? "저장된 런타임 프로필입니다.";
   meta.className = "nanika-mapping-meta";
   [
     profile.id,
-    profile.match,
-    `character: ${profile.characterId}`,
-    ...profile.initial,
+    getRuntimeProfileMatchLabel(profile),
+    `character: ${getRuntimeProfileCharacterId(profile)}`,
+    ...getRuntimeProfileInitialLabels(profile),
     featureStatus,
     `common keys: ${defaultNanikaCommonKeys.length}`,
-    ...profile.controls.map((control) => `control: ${control}`),
+    ...controls.map((control) => `control: ${control}`),
   ].forEach((item) => {
     const pill = document.createElement("span");
 
@@ -1626,7 +2118,7 @@ function createProfileOverviewCard(profile: RuntimeProfileOverviewCard) {
 }
 
 function renderRuntimeProfileOverview() {
-  runtimeProfileOverview.replaceChildren(...runtimeProfileOverviewCards.map(createProfileOverviewCard));
+  runtimeProfileOverview.replaceChildren(...getRuntimeProfilesForDisplay().map(createProfileOverviewCard));
 }
 
 function createEditorMeta(meta: readonly string[] = []) {
@@ -1659,8 +2151,18 @@ function createEditorSummary(title: string, description: string, meta: readonly 
   return summaryPanel;
 }
 
+function setEditorHelpPanelOpen(open: boolean) {
+  mappingEditorHelpPanel.hidden = !open;
+  editorHelpToggleButton.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+function setEditorHelpContent(title: string, description: string, meta: readonly string[] = []) {
+  mappingEditorHelp.textContent = description;
+  mappingEditorHelpPanelBody.replaceChildren(createEditorSummary(title, description, meta));
+}
+
 function appendEditorSaveGuide(title: string, description: string, meta: readonly string[] = []) {
-  mappingEditorDetail.append(createEditorSummary(title, description, meta));
+  mappingEditorHelpPanelBody.append(createEditorSummary(title, description, meta));
 }
 
 function createCanvasNode(
@@ -1845,7 +2347,7 @@ function createActionCanvasNodes(
       .filter((item): item is string => Boolean(item)),
   ];
 
-  graph.nodes.push(createCanvasNode(
+  const actionNode = createCanvasNode(
     nodeId,
     kind,
     `${index + 1}. ${getReadableActionLabel(action.type)}`,
@@ -1853,7 +2355,9 @@ function createActionCanvasNodes(
     baseX,
     baseY,
     actionMeta,
-  ));
+  );
+  actionNode.action = cloneRuntimeAction(action);
+  graph.nodes.push(actionNode);
   graph.edges.push({
     id: `${parentId}->${nodeId}`,
     from: parentId,
@@ -1883,32 +2387,35 @@ function getRuntimeConditionDisplay(condition: RuntimeCondition, index: number) 
     return {
       title: condition.negate ? "페이지 코드 제외" : "페이지 코드 조건",
       description: `${condition.negate ? "pageId가 다음 값이 아닐 때" : "pageId가 다음 값일 때"}: ${value}`,
-      meta: [`page_id: ${value}`],
+      meta: [`페이지 코드: ${value}`],
     };
   }
 
   if (condition.type === "url") {
     const value = Array.isArray(condition.value) ? condition.value.join(", ") : condition.value;
     const operator = condition.operator ?? "contains";
+    const operatorLabel = getReadableConditionOperatorLabel(operator);
     return {
       title: condition.negate ? "URL 제외 조건" : "URL 조건",
-      description: `${condition.negate ? "URL이 조건에 맞지 않을 때" : "URL이 조건에 맞을 때"}: ${operator} ${value}`,
-      meta: [`url ${operator}: ${value}`],
+      description: `${condition.negate ? "URL이 조건에 맞지 않을 때" : "URL이 조건에 맞을 때"}: ${operatorLabel} ${value}`,
+      meta: [`URL ${operatorLabel}: ${value}`],
     };
   }
 
   if (condition.type === "host_context") {
+    const value = formatRuntimeConditionValue(condition);
     return {
-      title: condition.negate ? "Host context 제외" : "Host context 조건",
-      description: `${condition.key} 기준으로 host context를 확인합니다.`,
-      meta: [`host: ${condition.key}`],
+      title: condition.negate ? "호스트 값 제외 조건" : "호스트 값 조건",
+      description: `${condition.key} 기준으로 host context를 확인합니다.${value ? ` 값: ${value}` : ""}`,
+      meta: [`호스트 값: ${condition.key}`],
     };
   }
 
+  const fallbackType = condition.type ? `종류: ${condition.type}` : "종류를 알 수 없음";
   return {
-    title: `조건 ${index + 1}`,
-    description: condition.type,
-    meta: [condition.type],
+    title: `확인 필요 조건 ${index + 1}`,
+    description: `아직 표시 규칙이 없는 조건입니다. ${fallbackType}`,
+    meta: [fallbackType],
   };
 }
 
@@ -1940,13 +2447,15 @@ function createMappingCanvasGraph(mapping: RuntimeRule | NanikaMapping, source: 
   const targetId = "target";
   const eventId = "event";
   const mappingId = "mapping";
+  const mappingNode = createCanvasNode(mappingId, "mapping", mappingName, mapping.id, 496, 96, [`id: ${mapping.id}`, getMappingPortabilityLabel(mapping)]);
+  mappingNode.sourceId = mapping.id;
   const graph: CanvasGraph = {
     title: mappingName,
     description: `${getReadableEventLabel(mapping.event)} 이벤트에서 ${countNestedActions(mapping.actions)}개 액션을 실행합니다.`,
     nodes: [
       createCanvasNode(targetId, "target", getMappingTargetLabel(mapping), source === "saved" ? "저장된 연결 대상" : "실행 대상", 24, 96, [source]),
       createCanvasNode(eventId, "event", getReadableEventLabel(mapping.event), mapping.event, 260, 96, [`event: ${mapping.event}`]),
-      createCanvasNode(mappingId, "mapping", mappingName, mapping.id, 496, 96, [`id: ${mapping.id}`, getMappingPortabilityLabel(mapping)]),
+      mappingNode,
     ],
     edges: [
       { id: "target->event", from: targetId, to: eventId, relation: "executes" },
@@ -1969,6 +2478,129 @@ function createMappingCanvasGraph(mapping: RuntimeRule | NanikaMapping, source: 
   });
 
   return graph;
+}
+
+function getFeatureSetFlowSummary(featureSet: NanikaFeatureSet, mappingById = new Map(savedMappings.map((mapping) => [mapping.id, mapping]))) {
+  const mappings = featureSet.mappingIds
+    .map((mappingId) => mappingById.get(mappingId))
+    .filter((mapping): mapping is NanikaMapping => Boolean(mapping));
+  const missingCount = featureSet.mappingIds.length - mappings.length;
+  const eventLabels = Array.from(new Set(mappings.map((mapping) => getReadableEventLabel(mapping.event))));
+  const actionCount = mappings.reduce((total, mapping) => total + countNestedActions(mapping.actions), 0);
+
+  return {
+    mappings,
+    missingCount,
+    eventLabels,
+    actionCount,
+    label: `${featureSet.mappingIds.length}개 연결 · 액션 ${actionCount}개`,
+  };
+}
+
+function getFeatureSetCanvasMeta(featureSet: NanikaFeatureSet, mappingById = new Map(savedMappings.map((mapping) => [mapping.id, mapping]))) {
+  const summary = getFeatureSetFlowSummary(featureSet, mappingById);
+
+  return [
+    featureSet.mode === "character-template" ? "캐릭터 미지정 템플릿" : "캐릭터 전용 세트",
+    summary.label,
+    summary.eventLabels.length > 0 ? `이벤트: ${summary.eventLabels.slice(0, 4).join(", ")}` : "이벤트 없음",
+    summary.missingCount > 0 ? `누락 연결 ${summary.missingCount}개` : "누락 없음",
+  ];
+}
+
+function createConditionCanvasNodesAt(
+  graph: CanvasGraph,
+  targetNodeId: string,
+  conditions: readonly RuntimeCondition[],
+  baseX: number,
+  baseY: number,
+  prefix: string,
+) {
+  conditions.forEach((condition, index) => {
+    const display = getRuntimeConditionDisplay(condition, index);
+    const nodeId = `${prefix}:condition:${index}`;
+    graph.nodes.push(createCanvasNode(
+      nodeId,
+      "condition",
+      display.title,
+      display.description,
+      baseX,
+      baseY + (index * 112),
+      display.meta,
+    ));
+    graph.edges.push({
+      id: `${nodeId}->${targetNodeId}`,
+      from: nodeId,
+      to: targetNodeId,
+      relation: "executes",
+      label: "조건",
+    });
+  });
+}
+
+function addMappingFlowToCanvasGraph(
+  graph: CanvasGraph,
+  mapping: NanikaMapping,
+  parentId: string,
+  prefix: string,
+  baseX: number,
+  baseY: number,
+) {
+  const mappingNodeId = `${prefix}:mapping:${sanitizeCanvasIdPart(mapping.id)}`;
+  const eventNodeId = `${prefix}:event:${sanitizeCanvasIdPart(mapping.event)}`;
+  const mappingNode = createCanvasNode(
+    mappingNodeId,
+    "mapping",
+    getDisplayMappingName(mapping),
+    `${getReadableEventLabel(mapping.event)}에서 ${countNestedActions(mapping.actions)}개 액션을 실행합니다.`,
+    baseX + 260,
+    baseY,
+    [`id: ${mapping.id}`, getMappingPortabilityLabel(mapping)],
+  );
+  mappingNode.sourceId = mapping.id;
+  graph.nodes.push(
+    createCanvasNode(
+      eventNodeId,
+      "event",
+      getReadableEventLabel(mapping.event),
+      mapping.event,
+      baseX,
+      baseY,
+      [`event: ${mapping.event}`],
+    ),
+    mappingNode,
+  );
+  graph.edges.push(
+    {
+      id: `${parentId}->${mappingNodeId}`,
+      from: parentId,
+      to: mappingNodeId,
+      relation: "contains",
+      label: "포함",
+    },
+    {
+      id: `${eventNodeId}->${mappingNodeId}`,
+      from: eventNodeId,
+      to: mappingNodeId,
+      relation: "executes",
+      label: "이벤트",
+    },
+  );
+
+  createConditionCanvasNodesAt(graph, eventNodeId, mapping.conditions ?? [], baseX, baseY + 112, `${prefix}:${sanitizeCanvasIdPart(mapping.id)}`);
+
+  let previousId = mappingNodeId;
+  mapping.actions.forEach((action, index) => {
+    previousId = createActionCanvasNodes(
+      action,
+      index,
+      previousId,
+      graph,
+      baseX + 520 + (index * 230),
+      baseY,
+      `${prefix}:${sanitizeCanvasIdPart(mapping.id)}`,
+    );
+  });
 }
 
 function createDraftSetupCanvasGraph(): CanvasGraph {
@@ -2061,6 +2693,16 @@ function getConnectedResourceForAction(graph: CanvasGraph, actionNode: CanvasNod
     .find((node): node is CanvasNode => Boolean(node && node.kind === "resource")) ?? null;
 }
 
+function getConnectedProfileForAction(graph: CanvasGraph, actionNode: CanvasNode) {
+  const profileNodeIds = graph.edges
+    .filter((edge) => edge.relation === "references" && (edge.from === actionNode.id || edge.to === actionNode.id))
+    .map((edge) => edge.from === actionNode.id ? edge.to : edge.from);
+
+  return profileNodeIds
+    .map((nodeId) => graph.nodes.find((node) => node.id === nodeId))
+    .find((node): node is CanvasNode => Boolean(node && node.kind === "profile")) ?? null;
+}
+
 function applyResourceToCanvasAction(action: Record<string, unknown>, resourceNode: CanvasNode | null) {
   if (!resourceNode) {
     return;
@@ -2091,6 +2733,14 @@ function applyResourceToCanvasAction(action: Record<string, unknown>, resourceNo
   if (resourceNode.resourceKind === "hitArea" && action.type === "set_touched_part") {
     action.part = resourceId;
   }
+}
+
+function applyProfileToCanvasAction(action: Record<string, unknown>, profileNode: CanvasNode | null) {
+  if (!profileNode || action.type !== "request_profile_change") {
+    return;
+  }
+
+  action.profileId = getCanvasNodeSourceId(profileNode);
 }
 
 const defaultDialogueCategoryByEvent: Partial<Record<RuntimeEventName, string>> = {
@@ -2144,15 +2794,20 @@ function applyDefaultDialogueCategoryToCanvasAction(graph: CanvasGraph, node: Ca
   }
 }
 
-function applyDefaultManagementMenuToCanvasAction(node: CanvasNode, action: Record<string, unknown>) {
+function applyDefaultManagementMenuToAction(action: Record<string, unknown>, presetId?: string | null) {
   if (action.type !== "open_management_menu" || action.items !== undefined) {
     return;
   }
 
-  const preset = getInternalManagementMenuPreset(getCanvasNodeManagementMenuPresetId(node));
+  const actionMenuId = typeof action.menuId === "string" ? action.menuId : null;
+  const preset = getInternalManagementMenuPreset(presetId ?? actionMenuId);
   action.menuId = action.menuId ?? preset.id;
   action.title = action.title ?? preset.title;
   action.items = preset.createItems();
+}
+
+function applyDefaultManagementMenuToCanvasAction(node: CanvasNode, action: Record<string, unknown>) {
+  applyDefaultManagementMenuToAction(action, getCanvasNodeManagementMenuPresetId(node));
 }
 
 function getMissingRequiredCanvasActionParameters(action: Record<string, unknown>, catalogItem: RuntimeActionCatalogItem | undefined) {
@@ -2167,8 +2822,11 @@ function createRuntimeActionCandidateFromCanvasNode(graph: CanvasGraph, node: Ca
     return null;
   }
 
-  const action = { type: actionType } as Record<string, unknown>;
+  const action = node.action
+    ? cloneRuntimeAction(node.action) as Record<string, unknown>
+    : { type: actionType } as Record<string, unknown>;
   applyResourceToCanvasAction(action, getConnectedResourceForAction(graph, node));
+  applyProfileToCanvasAction(action, getConnectedProfileForAction(graph, node));
   applyDefaultDialogueCategoryToCanvasAction(graph, node, action);
   applyDefaultManagementMenuToCanvasAction(node, action);
 
@@ -2481,6 +3139,68 @@ function getCharacterCanvasLiveRequiredIssues(graph: CanvasGraph) {
   return Array.from(new Set(issues));
 }
 
+function getCanvasNodeSaveIssueMessages(graph: CanvasGraph, node: CanvasNode) {
+  if (node.kind === "missing") {
+    return ["참조한 재료나 연결을 찾지 못했습니다."];
+  }
+
+  if (node.kind === "event") {
+    const hasExecutableChild = graph.edges.some((edge) => {
+      const child = graph.nodes.find((candidate) => candidate.id === edge.to);
+      return edge.relation === "executes"
+        && edge.from === node.id
+        && Boolean(child && (child.kind === "action" || child.kind === "group" || child.kind === "mapping"));
+    });
+
+    return hasExecutableChild ? [] : ["이 이벤트 뒤에 실행할 연결이나 액션이 없습니다."];
+  }
+
+  if (node.kind === "group") {
+    const childActionCount = graph.edges.filter((edge) => {
+      const child = graph.nodes.find((candidate) => candidate.id === edge.to);
+      return edge.relation === "executes"
+        && edge.from === node.id
+        && Boolean(child && (child.kind === "action" || child.kind === "group"));
+    }).length;
+
+    return childActionCount > 0 ? [] : ["묶음 안에 실행할 액션 카드가 없습니다."];
+  }
+
+  if (node.kind === "action") {
+    const candidate = createRuntimeActionCandidateFromCanvasNode(graph, node);
+    if (!candidate) {
+      return ["액션 종류를 확인할 수 없습니다."];
+    }
+
+    return candidate.missingRequired.length > 0
+      ? [getCanvasActionMissingReason(candidate.actionType, candidate.missingRequired)]
+      : [];
+  }
+
+  if (node.kind === "mapping") {
+    const mappingId = getCanvasNodeSourceId(node);
+    const mapping = mappingId ? savedMappings.find((item) => item.id === mappingId) ?? null : null;
+    if (!mapping) {
+      return [];
+    }
+
+    return getBlockingSaveIssueMessages(getMappingSaveIssues(mapping, { requireTarget: false }));
+  }
+
+  if (node.kind === "feature-set") {
+    const featureSetId = getCanvasNodeSourceId(node);
+    const featureSet = getFeatureSetsForDisplay()
+      .find((item) => item.id === featureSetId || item.id === node.title) ?? null;
+    if (!featureSet) {
+      return [];
+    }
+
+    return getBlockingSaveIssueMessages(getFeatureSetSaveIssues(featureSet?.mappingIds ?? []));
+  }
+
+  return [];
+}
+
 async function saveMappingsFromCharacterCanvas() {
   if (!currentEditorGraph) {
     return false;
@@ -2582,12 +3302,12 @@ function createCharacterCanvasGraph(): CanvasGraph {
     title: `${characterName} 연결 작업판`,
     description: "이 캐릭터가 언제 말하고, 어떤 표정/상태/무대/기능을 쓰는지 한 장의 연결 지도로 보여줍니다.",
     nodes: [
-      createCanvasNode("runtime", "runtime", "나니카 실행", registry.preset.name, 32, 220, [
+      createCanvasNode("runtime", "runtime", "나니카 실행", registry.preset.name, 32, 40, [
         `preset: ${registry.preset.id}`,
         `rules: ${configuredMappings.length}`,
         `source: ${getConfiguredMappingSourceLabel()}`,
       ]),
-      createCanvasNode("character", "character", characterName, characterDescription, 292, 220, [
+      createCanvasNode("character", "character", characterName, characterDescription, 292, 40, [
         `id: ${activeCharacterId ?? unassignedCharacterId}`,
         `기본 표정: ${defaultExpression}`,
         `표정 ${resources.expressions.length}개`,
@@ -2606,48 +3326,76 @@ function createCharacterCanvasGraph(): CanvasGraph {
 
   const groups = getCharacterResourceGroupPaletteItems();
   const relevantProfiles = activeCharacterId
-    ? runtimeProfileOverviewCards.filter((profile) => profile.characterId === activeCharacterId)
+    ? getRuntimeProfilesForDisplay().filter((profile) => getRuntimeProfileCharacterId(profile) === activeCharacterId)
     : [];
   relevantProfiles.forEach((profile, index) => {
-    const runtimeConditionId = `runtime-condition:${profile.id}`;
-    const characterConditionId = `character-condition:${profile.id}`;
-    const conditionY = 40 + (index * 360);
+    const profileId = `profile:${profile.id}`;
+    const conditionId = `profile-condition:${profile.id}`;
+    const profileCharacter = getRuntimeProfileCharacterId(profile);
+    const profileFeatureSetIds = getRuntimeProfileFeatureSetIds(profile);
+    const profileCharacterId = `profile-character:${profile.id}:${profileCharacter}`;
+    const featureSetId = profileFeatureSetIds[0] ? `profile-feature-set:${profile.id}:${profileFeatureSetIds[0]}` : null;
+    const profileY = 260 + (index * 300);
 
     graph.nodes.push(
-      createCanvasNode(runtimeConditionId, "condition", `${profile.name} 런타임 조건`, profile.match, 32, conditionY, [
+      createCanvasNode(profileId, "profile", profile.name ?? profile.id, profile.description ?? "저장된 런타임 프로필입니다.", 32, profileY, [
+        profile.id,
+        getRuntimeProfileMatchLabel(profile),
+        `character: ${profileCharacter}`,
+        ...getRuntimeProfileInitialLabels(profile),
+      ]),
+      createCanvasNode(conditionId, "condition", getRuntimeProfileConditionTitle(profile), getRuntimeProfileMatchLabel(profile), 292, profileY + 156, [
         "scope: runtime",
         profile.id,
-        profile.match,
       ]),
-      createCanvasNode(characterConditionId, "condition", `${profile.name} 캐릭터 조건`, `${profile.characterId} 캐릭터 시작 설정`, 32, 760 + (index * 220), [
-        "scope: character",
-        ...profile.initial,
-        ...profile.featureSetIds.map((featureSetId) => `feature set: ${featureSetId}`),
+      createCanvasNode(profileCharacterId, "character", characterName, `${profile.name ?? profile.id}에서 사용할 캐릭터입니다.`, 292, profileY, [
+        `id: ${profileCharacter}`,
+        ...getRuntimeProfileInitialLabels(profile),
       ]),
     );
+    if (featureSetId) {
+      graph.nodes.push(createCanvasNode(
+        featureSetId,
+        "feature-set",
+        profileFeatureSetIds[0]!,
+        `${profile.name ?? profile.id}에서 불러올 연결 세트입니다.`,
+        552,
+        profileY + 156,
+        profileFeatureSetIds,
+      ));
+    }
     graph.edges.push(
       {
-        id: `runtime->${runtimeConditionId}`,
+        id: `runtime->${profileId}`,
         from: "runtime",
-        to: runtimeConditionId,
+        to: profileId,
         relation: "contains",
-        label: "조건",
+        label: "프로필",
       },
       {
-        id: `${runtimeConditionId}->character`,
-        from: runtimeConditionId,
-        to: "character",
+        id: `${profileId}->${profileCharacterId}`,
+        from: profileId,
+        to: profileCharacterId,
         relation: "contains",
-        label: "대상",
+        label: "캐릭터",
       },
       {
-        id: `character->${characterConditionId}`,
-        from: "character",
-        to: characterConditionId,
+        id: `${profileId}->${conditionId}`,
+        from: profileId,
+        to: conditionId,
         relation: "references",
         label: "조건",
       },
     );
+    if (featureSetId) {
+      graph.edges.push({
+        id: `${profileId}->${featureSetId}`,
+        from: profileId,
+        to: featureSetId,
+        relation: "references",
+        label: "묶음",
+      });
+    }
   });
 
   let groupY = 40;
@@ -2655,7 +3403,7 @@ function createCharacterCanvasGraph(): CanvasGraph {
     const groupId = `group:${group.id}`;
     const optionCount = Math.min(group.options.length, 8);
     const optionRows = Math.max(1, Math.ceil(optionCount / 2));
-    const optionGapY = 176;
+    const optionGapY = 260;
     const optionGapX = 276;
     const blockHeight = Math.max(188, optionRows * optionGapY + (group.options.length > 8 ? 188 : 56));
     graph.nodes.push(createCanvasNode(
@@ -2704,11 +3452,11 @@ function createCharacterCanvasGraph(): CanvasGraph {
 
       if (optionUsageDetails.length > 0) {
         const usageNodeId = `${nodeId}:usage`;
-        const usageMeta = optionUsageDetails.slice(0, 6).map((detail) =>
+        const usageMeta = optionUsageDetails.slice(0, 3).map((detail) =>
           `${detail.mappingName} / ${getReadableEventLabel(detail.event)} / ${detail.actionLabel}`,
         );
-        if (optionUsageDetails.length > 6) {
-          usageMeta.push(`+${optionUsageDetails.length - 6}개 더 있음`);
+        if (optionUsageDetails.length > 3) {
+          usageMeta.push(`+${optionUsageDetails.length - 3}개 더 있음`);
         }
         graph.nodes.push(createCanvasNode(
           usageNodeId,
@@ -2756,65 +3504,282 @@ function createCharacterCanvasGraph(): CanvasGraph {
 
 function createFeatureSetCanvasGraph(featureSet: NanikaFeatureSet): CanvasGraph {
   const mappingById = new Map(savedMappings.map((mapping) => [mapping.id, mapping]));
+  const summary = getFeatureSetFlowSummary(featureSet, mappingById);
   const rootId = "feature-set";
   const graph: CanvasGraph = {
     title: featureSet.name ?? featureSet.id,
-    description: `${featureSet.mappingIds.length}개 연결을 포함합니다.`,
+    description: `${summary.label}을 포함합니다.`,
     nodes: [
-      createCanvasNode(rootId, "feature-set", featureSet.name ?? featureSet.id, "기능 묶음", 24, 88, [
-        featureSet.mode === "character-template" ? "캐릭터 미지정 템플릿" : "캐릭터 전용 묶음",
-      ]),
+      createCanvasNode(rootId, "feature-set", featureSet.name ?? featureSet.id, "저장된 연결을 모아둔 재사용 묶음입니다.", 24, 88, getFeatureSetCanvasMeta(featureSet, mappingById)),
     ],
     edges: [],
   };
 
   featureSet.mappingIds.forEach((mappingId, index) => {
     const mapping = mappingById.get(mappingId);
-    const nodeId = `mapping:${mappingId}`;
-    const mappingX = 280 + ((index % 3) * 238);
-    const mappingY = 72 + (Math.floor(index / 3) * 220);
+    const mappingY = 72 + (index * 260);
+    if (mapping) {
+      addMappingFlowToCanvasGraph(graph, mapping, rootId, `feature-set:${sanitizeCanvasIdPart(featureSet.id)}:${index}`, 292, mappingY);
+      return;
+    }
+
+    const nodeId = `missing:${sanitizeCanvasIdPart(mappingId)}`;
     graph.nodes.push(createCanvasNode(
       nodeId,
-      mapping ? "mapping" : "missing",
-      mapping?.name ?? mappingId,
-      mapping ? `${getReadableEventLabel(mapping.event)} · 액션 ${countNestedActions(mapping.actions)}개` : "저장된 연결 목록에 없습니다.",
-      mappingX,
+      "missing",
+      mappingId,
+      "저장된 연결 목록에 없습니다.",
+      292,
       mappingY,
-      mapping ? [
-        mapping.event,
-        ...mapping.actions.slice(0, 3).map((action) => getReadableActionLabel(action.type)),
-      ] : ["누락"],
+      ["누락"],
     ));
     graph.edges.push({
       id: `${rootId}->${nodeId}`,
       from: rootId,
       to: nodeId,
       relation: "contains",
-      label: "포함",
+      label: "누락",
+    });
+  });
+
+  return graph;
+}
+
+function createRuntimeProfileCanvasGraph(profile: NanikaRuntimeProfile): CanvasGraph {
+  const characterId = getRuntimeProfileCharacterId(profile);
+  const featureSetIds = getRuntimeProfileFeatureSetIds(profile);
+  const initialLabels = getRuntimeProfileInitialLabels(profile);
+  const featureSetById = new Map(getFeatureSetsForDisplay().map((featureSet) => [featureSet.id, featureSet]));
+  const mappingById = new Map(savedMappings.map((mapping) => [mapping.id, mapping]));
+  const profileNodeId = "profile";
+  const characterNodeId = `profile-character:${characterId}`;
+  const conditionNodeId = `profile-condition:${profile.id}`;
+  const graph: CanvasGraph = {
+    title: profile.name ?? profile.id,
+    description: profile.description ?? "저장된 런타임 프로필입니다.",
+    nodes: [
+      createCanvasNode("runtime", "runtime", "나니카 실행", registry.preset.name, 32, 72, [
+        `preset: ${registry.preset.id}`,
+        `profile: ${profile.id}`,
+      ]),
+      createCanvasNode(profileNodeId, "profile", profile.name ?? profile.id, profile.description ?? "저장된 런타임 프로필입니다.", 292, 72, [
+        `profile: ${profile.id}`,
+        getRuntimeProfileMatchLabel(profile),
+        `character: ${characterId}`,
+        ...initialLabels,
+      ]),
+      createCanvasNode(characterNodeId, "character", characterId, "이 프로필에서 사용할 캐릭터입니다.", 552, 72, [
+        `id: ${characterId}`,
+        ...initialLabels,
+      ]),
+    ],
+    edges: [
+      {
+        id: "runtime->profile",
+        from: "runtime",
+        to: profileNodeId,
+        relation: "contains",
+        label: "프로필",
+      },
+      {
+        id: "profile->character",
+        from: profileNodeId,
+        to: characterNodeId,
+        relation: "contains",
+        label: "캐릭터",
+      },
+    ],
+  };
+
+  if (profile.match) {
+    graph.nodes.push(createCanvasNode(conditionNodeId, "condition", getRuntimeProfileConditionTitle(profile), getRuntimeProfileMatchLabel(profile), 292, 220, [
+      "scope: runtime",
+      profile.id,
+    ]));
+    graph.edges.push({
+      id: `${conditionNodeId}->${profileNodeId}`,
+      from: conditionNodeId,
+      to: profileNodeId,
+      relation: "contains",
+      label: "조건",
+    });
+  }
+
+  featureSetIds.forEach((featureSetId, index) => {
+    const featureSet = featureSetById.get(featureSetId);
+    const nodeId = `profile-feature-set:${featureSetId}`;
+    graph.nodes.push(createCanvasNode(
+      nodeId,
+      featureSet ? "feature-set" : "missing",
+      featureSet?.name ?? featureSetId,
+      featureSet ? "이 프로필에서 불러올 접힌 실행 흐름입니다." : "저장된 연결 세트 목록에 없습니다.",
+      812,
+      72 + (index * 420),
+      featureSet ? getFeatureSetCanvasMeta(featureSet, mappingById) : [featureSetId, "누락"],
+    ));
+    graph.edges.push({
+      id: `${characterNodeId}->${nodeId}`,
+      from: characterNodeId,
+      to: nodeId,
+      relation: "references",
+      label: "사용",
     });
 
-    mapping?.actions.slice(0, 3).forEach((action, actionIndex) => {
-      const actionNodeId = `${nodeId}:action:${actionIndex}:${action.type}`;
+    if (!featureSet) {
+      return;
+    }
+
+    featureSet.mappingIds.forEach((mappingId, mappingIndex) => {
+      const mapping = mappingById.get(mappingId);
+      const mappingY = 72 + (index * 420) + (mappingIndex * 260);
+
+      if (mapping) {
+        addMappingFlowToCanvasGraph(
+          graph,
+          mapping,
+          nodeId,
+          `profile:${sanitizeCanvasIdPart(profile.id)}:${sanitizeCanvasIdPart(featureSet.id)}:${mappingIndex}`,
+          1072,
+          mappingY,
+        );
+        return;
+      }
+
+      const missingNodeId = `${nodeId}:missing:${sanitizeCanvasIdPart(mappingId)}`;
       graph.nodes.push(createCanvasNode(
-        actionNodeId,
-        "action",
-        getReadableActionLabel(action.type),
-        formatAction(action),
-        mappingX + 32,
-        mappingY + 92 + (actionIndex * 76),
-        [action.type],
+        missingNodeId,
+        "missing",
+        mappingId,
+        "저장된 연결 목록에 없습니다.",
+        1072,
+        mappingY,
+        ["누락"],
       ));
       graph.edges.push({
-        id: `${nodeId}->${actionNodeId}`,
+        id: `${nodeId}->${missingNodeId}`,
         from: nodeId,
-        to: actionNodeId,
-        relation: "executes",
-        label: "실행",
+        to: missingNodeId,
+        relation: "contains",
+        label: "누락",
       });
     });
   });
 
   return graph;
+}
+
+function createProfileMatchFromCanvasCondition(condition: RuntimeCondition | null): NanikaRuntimeProfile["match"] | undefined {
+  if (!condition) {
+    return undefined;
+  }
+
+  if (condition.type === "page_id") {
+    return Array.isArray(condition.value)
+      ? { pageIds: condition.value }
+      : { pageId: condition.value };
+  }
+
+  if (condition.type === "url") {
+    const value = condition.value;
+    if (condition.operator === "startsWith") {
+      return { urlStartsWith: value };
+    }
+    if (condition.operator === "equals") {
+      return { urlEquals: value };
+    }
+    if (condition.operator === "pattern") {
+      return Array.isArray(value) ? { urlPatterns: value } : { urlPattern: value };
+    }
+    return { urlContains: value };
+  }
+
+  return undefined;
+}
+
+function findRuntimeProfileById(profileId: string) {
+  return getRuntimeProfilesForDisplay().find((profile) => profile.id === profileId) ?? null;
+}
+
+function findFeatureSetByCanvasNode(node: CanvasNode | undefined) {
+  if (!node) {
+    return null;
+  }
+
+  const sourceId = getCanvasNodeSourceId(node);
+  const idMeta = node.meta?.find((item) => item.startsWith("id: "));
+  const metaId = idMeta ? idMeta.slice("id: ".length).trim() : "";
+
+  return getFeatureSetsForDisplay().find((featureSet) =>
+    featureSet.id === sourceId ||
+    featureSet.id === metaId ||
+    featureSet.id === node.title ||
+    featureSet.name === node.title
+  ) ?? null;
+}
+
+function getProfileIdFromCanvasNode(node: CanvasNode | undefined) {
+  if (!node) {
+    return null;
+  }
+
+  const profileMeta = node.meta?.find((item) => item.startsWith("profile: "));
+  if (profileMeta) {
+    return profileMeta.slice("profile: ".length).trim() || null;
+  }
+
+  return getCanvasNodeSourceId(node);
+}
+
+function isRuntimeProfileGraph(graph: CanvasGraph | null) {
+  return Boolean(graph?.nodes.some((node) => node.kind === "profile"));
+}
+
+function createRuntimeProfileFromCanvasGraph(graph: CanvasGraph): NanikaRuntimeProfile | null {
+  const profileNode = graph.nodes.find((node) => node.kind === "profile");
+  if (!profileNode) {
+    return null;
+  }
+
+  const sourceProfileId = getProfileIdFromCanvasNode(profileNode) ?? "";
+  const sourceProfile = sourceProfileId ? findRuntimeProfileById(sourceProfileId) : null;
+  const idInput = editorMappingIdInput.value.trim();
+  const id = idInput && idInput !== "new.mapping"
+    ? idInput
+    : sourceProfileId || "new.runtime-profile";
+  const conditionNode = graph.nodes.find((node) => node.kind === "condition" && graph.edges.some((edge) =>
+    (edge.from === node.id && edge.to === profileNode.id) || (edge.to === node.id && edge.from === profileNode.id),
+  ));
+  const match = createProfileMatchFromCanvasCondition(conditionNode ? createRuntimeConditionFromCanvasNode(conditionNode) : null) ?? sourceProfile?.match;
+  const characterNode = graph.nodes.find((node) => node.kind === "character" && graph.edges.some((edge) =>
+    edge.from === profileNode.id && edge.to === node.id,
+  )) ?? graph.nodes.find((node) => node.kind === "character");
+  const characterId = getCanvasCharacterId(characterNode) ?? sourceProfile?.characterProfiles?.[0]?.characterId ?? registry.character.id;
+  const featureSetIds = Array.from(new Set(graph.nodes
+    .filter((node) => node.kind === "feature-set")
+    .map((node) => getCanvasNodeSourceId(node))
+    .filter((featureSetId): featureSetId is string => Boolean(featureSetId))));
+  const mappingIds = Array.from(new Set(graph.nodes
+    .filter((node) => node.kind === "mapping")
+    .map((node) => getCanvasNodeSourceId(node))
+    .filter((mappingId): mappingId is string => Boolean(mappingId))));
+  const initial = sourceProfile?.characterProfiles?.find((profile) => profile.characterId === characterId)?.initial
+    ?? sourceProfile?.characterProfiles?.[0]?.initial
+    ?? sourceProfile?.initial;
+  const description = profileNode.description || sourceProfile?.description;
+  const profile: NanikaRuntimeProfile = {
+    id,
+    name: profileNode.title || sourceProfile?.name || id,
+    ...(description ? { description } : {}),
+    ...(match ? { match } : {}),
+    characterProfiles: [{
+      characterId,
+      ...(initial ? { initial } : {}),
+      ...(featureSetIds.length > 0 ? { featureSetIds } : {}),
+      ...(mappingIds.length > 0 ? { mappingIds } : {}),
+    }],
+  };
+
+  return profile;
 }
 
 function createCatalogCanvasGraph(title: string, description: string, meta: string[] = []): CanvasGraph {
@@ -2885,6 +3850,10 @@ function getEditorGraphKey(selection: EditorSelection) {
     return `feature-set:${selection.featureSet.id}`;
   }
 
+  if (selection.type === "profile") {
+    return `${selection.source}:profile:${selection.profile.id}`;
+  }
+
   if (selection.type === "catalog") {
     return `catalog:${selection.title}`;
   }
@@ -2900,8 +3869,60 @@ function setCurrentEditorGraph(key: string, graph: CanvasGraph) {
   selectedCanvasNodeId = currentEditorGraph.nodes.some((node) => node.id === previousSelectedNodeId)
     ? previousSelectedNodeId
     : null;
+  selectedCanvasNodeIds = new Set(Array.from(selectedCanvasNodeIds).filter((nodeId) =>
+    currentEditorGraph?.nodes.some((node) => node.id === nodeId),
+  ));
+  if (selectedCanvasNodeId) {
+    selectedCanvasNodeIds.add(selectedCanvasNodeId);
+  }
   selectedCanvasNodeForPopover = null;
   pendingConnectionNodeId = null;
+}
+
+function isFeatureSetDetailGraph(graph: CanvasGraph) {
+  return editorSelection.type === "feature-set"
+    && graph.nodes.some((node) => node.id === "feature-set" && node.kind === "feature-set");
+}
+
+function hasCurrentGraphStructuralEdits() {
+  const state = getCanvasState(currentEditorGraphKey);
+
+  return state.extraNodes.length > 0
+    || state.extraEdges.length > 0
+    || state.removedNodeIds.length > 0;
+}
+
+function isCurrentFeatureSetGraphCollapsed(graph: CanvasGraph) {
+  return isFeatureSetDetailGraph(graph)
+    && collapsedFeatureSetGraphKeys.has(currentEditorGraphKey)
+    && !hasCurrentGraphStructuralEdits();
+}
+
+function createCollapsedFeatureSetGraph(graph: CanvasGraph): CanvasGraph {
+  const rootNode = graph.nodes.find((node) => node.id === "feature-set" && node.kind === "feature-set");
+  if (!rootNode) {
+    return graph;
+  }
+
+  return {
+    ...graph,
+    description: `${graph.description} 내부 연결은 접힌 상태입니다.`,
+    nodes: [{
+      ...rootNode,
+      description: "내부 연결을 접어둔 연결 세트입니다. 펼치면 포함된 저장 연결을 볼 수 있습니다.",
+      meta: [
+        ...(rootNode.meta ?? []),
+        "내부 흐름 접힘",
+      ],
+    }],
+    edges: [],
+  };
+}
+
+function getFeatureSetRenderGraph(graph: CanvasGraph) {
+  return isCurrentFeatureSetGraphCollapsed(graph)
+    ? createCollapsedFeatureSetGraph(graph)
+    : graph;
 }
 
 function getCanvasSize(graph: CanvasGraph) {
@@ -2967,15 +3988,67 @@ function renderEditorStats() {
   }));
 }
 
+function getCanvasNodeVisibleDetails(node: CanvasNode) {
+  if (node.kind === "condition") {
+    return [node.description].filter((detail) => detail && detail !== "조건 없음").slice(0, 1);
+  }
+
+  if (node.kind === "profile") {
+    return (node.meta ?? [])
+      .filter((detail) => !detail.startsWith("profile: "))
+      .slice(0, 3);
+  }
+
+  if (node.kind === "character") {
+    return (node.meta ?? [])
+      .filter((detail) => !detail.startsWith("id: "))
+      .slice(0, 2);
+  }
+
+  if (node.kind === "feature-set") {
+    return [node.description, ...(node.meta ?? [])]
+      .filter((detail, index, details) => detail && details.indexOf(detail) === index)
+      .slice(0, 2);
+  }
+
+  if (node.kind === "runtime") {
+    return (node.meta ?? []).slice(0, 2);
+  }
+
+  if (node.kind === "mapping") {
+    return [node.description, ...(node.meta ?? [])]
+      .filter((detail, index, details) => detail && details.indexOf(detail) === index)
+      .slice(0, 2);
+  }
+
+  if (node.kind === "event") {
+    return (node.meta ?? []).slice(0, 1);
+  }
+
+  if (node.kind === "action" || node.kind === "group") {
+    return [node.description, ...(node.meta ?? [])]
+      .filter((detail, index, details) => detail && details.indexOf(detail) === index)
+      .slice(0, 2);
+  }
+
+  return [];
+}
+
 function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } = {}) {
   const isReadonly = options.readonly ?? false;
+  const paintGraph = getFeatureSetRenderGraph(graph);
+  const featureSetGraphCollapsed = paintGraph !== graph;
+  const featureSetGraphHasEdits = isFeatureSetDetailGraph(graph) && hasCurrentGraphStructuralEdits();
   const viewport = document.createElement("div");
   viewport.className = "nanika-paint-viewport";
 
   const board = document.createElement("div");
   board.className = "nanika-paint-canvas";
-  board.dataset.graphTitle = graph.title;
+  board.dataset.graphTitle = paintGraph.title;
   board.dataset.readonly = isReadonly ? "true" : "false";
+  if (featureSetGraphCollapsed) {
+    board.dataset.featureSetCollapsed = "true";
+  }
   if (!isReadonly) {
     board.addEventListener("dragover", (event) => {
       event.preventDefault();
@@ -2991,9 +4064,75 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
     });
   }
   let panStart: { id: number; x: number; y: number; scrollLeft: number; scrollTop: number; moved: boolean } | null = null;
+  let selectionStart: { id: number; x: number; y: number; moved: boolean; box: HTMLElement } | null = null;
+  const nodeElements = new Map<string, HTMLElement>();
+  const getBoardPoint = (event: PointerEvent) => {
+    const rect = board.getBoundingClientRect();
+    return {
+      x: (event.clientX - rect.left) / editorCanvasZoom,
+      y: (event.clientY - rect.top) / editorCanvasZoom,
+    };
+  };
+  const setNodeSelection = (nodeIds: Iterable<string>) => {
+    selectedCanvasNodeIds = new Set(nodeIds);
+    selectedCanvasNodeId = Array.from(selectedCanvasNodeIds)[0] ?? null;
+    selectedCanvasNodeForPopover = selectedCanvasNodeId
+      ? graph.nodes.find((node) => node.id === selectedCanvasNodeId) ?? null
+      : null;
+    nodeElements.forEach((element, nodeId) => {
+      element.dataset.selected = selectedCanvasNodeIds.has(nodeId) ? "true" : "false";
+    });
+    updateFeatureSetCreateButtonState();
+  };
+  const updateSelectionBox = (event: PointerEvent) => {
+    if (!selectionStart) {
+      return;
+    }
+
+    const point = getBoardPoint(event);
+    const left = Math.min(selectionStart.x, point.x);
+    const top = Math.min(selectionStart.y, point.y);
+    const width = Math.abs(point.x - selectionStart.x);
+    const height = Math.abs(point.y - selectionStart.y);
+    selectionStart.moved = selectionStart.moved || width > 3 || height > 3;
+    selectionStart.box.style.left = `${left}px`;
+    selectionStart.box.style.top = `${top}px`;
+    selectionStart.box.style.width = `${width}px`;
+    selectionStart.box.style.height = `${height}px`;
+
+    const selectedIds = paintGraph.nodes
+      .filter((node) =>
+        node.x < left + width
+        && node.x + editorCanvasNodeWidth > left
+        && node.y < top + height
+        && node.y + editorCanvasNodeHeight > top,
+      )
+      .map((node) => node.id);
+    setNodeSelection(selectedIds);
+  };
   board.addEventListener("pointerdown", (rawEvent) => {
     const event = rawEvent as PointerEvent;
     if (event.button !== 0 || event.target !== board) {
+      return;
+    }
+
+    if (!event.altKey && !isReadonly) {
+      const point = getBoardPoint(event);
+      const box = document.createElement("div");
+      box.className = "nanika-selection-box";
+      box.style.left = `${point.x}px`;
+      box.style.top = `${point.y}px`;
+      board.append(box);
+      selectionStart = {
+        id: event.pointerId,
+        x: point.x,
+        y: point.y,
+        moved: false,
+        box,
+      };
+      board.dataset.selecting = "true";
+      board.setPointerCapture(event.pointerId);
+      setNodeSelection([]);
       return;
     }
 
@@ -3010,6 +4149,11 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
   });
   board.addEventListener("pointermove", (rawEvent) => {
     const event = rawEvent as PointerEvent;
+    if (selectionStart) {
+      updateSelectionBox(event);
+      return;
+    }
+
     if (!panStart) {
       return;
     }
@@ -3024,6 +4168,18 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
   });
   board.addEventListener("pointerup", (rawEvent) => {
     const event = rawEvent as PointerEvent;
+    if (selectionStart?.id === event.pointerId) {
+      const moved = selectionStart.moved;
+      board.releasePointerCapture(event.pointerId);
+      selectionStart.box.remove();
+      selectionStart = null;
+      delete board.dataset.selecting;
+      if (!moved) {
+        clearEditorCanvasSelection(false);
+      }
+      return;
+    }
+
     if (panStart?.id === event.pointerId) {
       const moved = panStart.moved;
       board.releasePointerCapture(event.pointerId);
@@ -3036,10 +4192,13 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
   });
   board.addEventListener("pointercancel", () => {
     panStart = null;
+    selectionStart?.box.remove();
+    selectionStart = null;
     delete board.dataset.panning;
+    delete board.dataset.selecting;
   });
 
-  const size = getCanvasSize(graph);
+  const size = getCanvasSize(paintGraph);
   viewport.style.width = `${Math.round(size.width * editorCanvasZoom)}px`;
   viewport.style.height = `${Math.round(size.height * editorCanvasZoom)}px`;
   board.style.width = `${size.width}px`;
@@ -3065,22 +4224,20 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
   marker.append(markerPath);
   defs.append(marker);
 
-  const nodeElements = new Map<string, HTMLElement>();
-
   function updateEdges() {
     svg.replaceChildren(defs);
-    graph.edges.forEach((edge) => {
-      const from = graph.nodes.find((node) => node.id === edge.from);
-      const to = graph.nodes.find((node) => node.id === edge.to);
+    paintGraph.edges.forEach((edge) => {
+      const from = paintGraph.nodes.find((node) => node.id === edge.from);
+      const to = paintGraph.nodes.find((node) => node.id === edge.to);
 
       if (!from || !to) {
         return;
       }
 
-      const fromX = from.x + 184;
-      const fromY = from.y + 38;
+      const fromX = from.x + editorCanvasNodeWidth;
+      const fromY = from.y + Math.round(editorCanvasNodeHeight / 2);
       const toX = to.x;
-      const toY = to.y + 38;
+      const toY = to.y + Math.round(editorCanvasNodeHeight / 2);
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.setAttribute("d", `M ${fromX} ${fromY} C ${fromX + 60} ${fromY}, ${toX - 60} ${toY}, ${toX} ${toY}`);
       path.setAttribute("data-relation", edge.relation ?? "executes");
@@ -3109,12 +4266,37 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
       currentEditorGraph.edges = currentEditorGraph.edges.filter((edge) => edge.from !== node.id && edge.to !== node.id);
     }
     selectedCanvasNodeId = null;
+    selectedCanvasNodeIds.delete(node.id);
     selectedCanvasNodeForPopover = null;
     pendingConnectionNodeId = pendingConnectionNodeId === node.id ? null : pendingConnectionNodeId;
     renderEditorCanvas();
   }
 
   function editCanvasNode(node: CanvasNode) {
+    if (node.kind === "profile") {
+      const profileId = getProfileIdFromCanvasNode(node);
+      const profile = profileId ? findRuntimeProfileById(profileId) : null;
+
+      if (profile) {
+        selectRuntimeProfileInEditor(
+          profile,
+          savedRuntimeProfiles.some((candidate) => candidate.id === profile.id) ? "saved" : "preset",
+          false,
+        );
+        return;
+      }
+    }
+
+    if (node.kind === "feature-set") {
+      const featureSet = findFeatureSetByCanvasNode(node);
+
+      if (featureSet) {
+        setEditorMode("feature-sets");
+        selectFeatureSetInEditor(featureSet, false);
+        return;
+      }
+    }
+
     if (node.kind === "mapping" && editorSelection.type === "mapping") {
       loadMappingIntoDraft(editorSelection.mapping as NanikaMapping, { copy: true });
       setEditorMode("create");
@@ -3165,12 +4347,23 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
     renderDetailPanel(
       "액션",
       `${node.title} 빠른 연결`,
-      `${getResourceKindLabel(resourceKind)} 재료를 선택했어요. 이제 2단계에서 언제 쓸지 고른 뒤, 필요하면 함께 실행할 동작을 추가하세요.`,
+      `${getResourceKindLabel(resourceKind)} 재료를 선택했어요. 이제 2단계에서 이 재료를 실행할 이벤트나 조건을 고른 뒤, 필요하면 함께 실행할 동작을 추가하세요.`,
       [`재료: ${node.title}`, `선택값: ${resourceId}`, `추천 동작: ${getReadableActionLabel(actionType)}`],
     );
   }
 
   function startCanvasConnection(node: CanvasNode) {
+    if (!canStartCanvasConnection(node.kind)) {
+      mappingEditorDetail.replaceChildren(createEditorSummary(
+        "뒤에 연결할 수 없는 카드",
+        `${node.title} 카드는 재사용 묶음이므로 뒤에 직접 연결하지 않습니다. 필요한 경우 세트에 포함된 저장 연결을 작업판에 불러와 수정하세요.`,
+        getAllowedCanvasNextSteps(node.kind),
+      ));
+      pendingConnectionNodeId = null;
+      renderEditorPalette();
+      return;
+    }
+
     pendingConnectionNodeId = node.id;
     selectedPaletteCategory = getPreferredPaletteCategoryForKind(node.kind);
     selectedCanvasNodeForPopover = node;
@@ -3190,7 +4383,7 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
     board.querySelector(".nanika-node-popover")?.remove();
     const popover = document.createElement("div");
     popover.className = "nanika-node-popover";
-    popover.style.left = `${Math.min(size.width - 224, node.x + 196)}px`;
+    popover.style.left = `${Math.min(size.width - 224, node.x + editorCanvasNodeWidth + 12)}px`;
     popover.style.top = `${Math.max(16, node.y)}px`;
 
     const title = document.createElement("strong");
@@ -3202,11 +4395,22 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
 
     const actions = document.createElement("div");
     actions.className = "asset-lab-button-row";
-    const connectButton = createActionButton("연결 시작", () => startCanvasConnection(node));
+    const connectButton = canStartCanvasConnection(node.kind)
+      ? createActionButton("연결 시작", () => startCanvasConnection(node))
+      : null;
     const quickConnectButton = node.kind === "resource"
       ? createActionButton("새 연결로 쓰기", () => startQuickConnectionFromResource(node))
       : null;
-    const editButton = createActionButton("수정", () => editCanvasNode(node));
+    const popoverFeatureSet = node.kind === "feature-set" ? findFeatureSetByCanvasNode(node) : null;
+    const editButton = createActionButton("수정", () => {
+      if (popoverFeatureSet) {
+        setEditorMode("feature-sets");
+        selectFeatureSetInEditor(popoverFeatureSet, false);
+        return;
+      }
+
+      editCanvasNode(node);
+    });
     const deleteButton = createActionButton("삭제", () => removeCanvasNode(node));
     deleteButton.title = "현재 작업판에서 이 카드를 제거합니다. 원본 파일은 삭제하지 않습니다.";
     const closeButton = createActionButton("닫기", () => {
@@ -3216,29 +4420,43 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
       popover.remove();
       nodes.get(node.id)?.setAttribute("data-selected", "false");
     });
-    actions.append(connectButton);
+    if (connectButton) {
+      actions.append(connectButton);
+    }
     if (quickConnectButton) {
       actions.append(quickConnectButton);
     }
     actions.append(editButton, deleteButton, closeButton);
     const featureSetSummary = node.kind === "feature-set"
-      ? createFeatureSetReferenceSummary(getCanvasNodeSourceId(node))
+      ? createFeatureSetReferenceSummary(popoverFeatureSet?.id ?? getCanvasNodeSourceId(node), node.title)
       : null;
     if (featureSetSummary) {
-      popover.append(title, body, featureSetSummary, actions);
+      popover.append(title, actions, featureSetSummary);
     } else {
-      popover.append(title, body, actions);
+      popover.append(title, actions, body);
     }
     board.append(popover);
   }
 
-  function selectCanvasNode(node: CanvasNode) {
+  function selectCanvasNode(node: CanvasNode, additive = false) {
     selectedCanvasNodeId = node.id;
     selectedCanvasNodeForPopover = node;
+    if (additive) {
+      if (selectedCanvasNodeIds.has(node.id)) {
+        selectedCanvasNodeIds.delete(node.id);
+      } else {
+        selectedCanvasNodeIds.add(node.id);
+      }
+    } else if (!selectedCanvasNodeIds.has(node.id)) {
+      selectedCanvasNodeIds = new Set([node.id]);
+    }
     nodeElements.forEach((element) => {
       element.dataset.selected = "false";
     });
-    nodeElements.get(node.id)?.setAttribute("data-selected", "true");
+    selectedCanvasNodeIds.forEach((nodeId) => {
+      nodeElements.get(nodeId)?.setAttribute("data-selected", "true");
+    });
+    updateFeatureSetCreateButtonState();
     if (pendingConnectionNodeId && pendingConnectionNodeId !== node.id) {
       const relation = currentEditorGraph?.nodes.find((item) => item.id === pendingConnectionNodeId);
       if (relation && getCanvasRelation(relation.kind, node.kind)) {
@@ -3250,8 +4468,8 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
   }
 
   function moveNode(node: CanvasNode, x: number, y: number) {
-    node.x = Math.max(16, Math.min(size.width - 210, x));
-    node.y = Math.max(16, Math.min(size.height - 96, y));
+    node.x = Math.max(16, Math.min(size.width - editorCanvasNodeWidth - 26, x));
+    node.y = Math.max(16, Math.min(size.height - editorCanvasNodeHeight - 8, y));
     const element = nodeElements.get(node.id);
     if (element) {
       element.style.left = `${node.x}px`;
@@ -3266,7 +4484,7 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
     updateEdges();
   }
 
-  graph.nodes.forEach((node) => {
+  paintGraph.nodes.forEach((node) => {
     const element = document.createElement(isReadonly ? "article" : "button");
     element.className = "nanika-paint-node";
     if (element instanceof HTMLButtonElement) {
@@ -3285,18 +4503,92 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
 
     const title = document.createElement("strong");
     title.textContent = node.title;
-    const description = document.createElement("span");
-    description.textContent = node.description;
-    element.append(title, description);
+    const kindLabel = document.createElement("span");
+    kindLabel.className = "nanika-paint-node-kind";
+    kindLabel.textContent = getCanvasNodeKindLabel(node.kind);
+    const issueMessages = getCanvasNodeSaveIssueMessages(graph, node);
+    if (issueMessages.length > 0) {
+      element.dataset.status = "warning";
+    }
+    const tooltip = [
+      node.title,
+      node.description,
+      ...(node.meta ?? []),
+      ...issueMessages.map((message) => `저장 전 확인: ${message}`),
+    ].filter(Boolean).join("\n");
+    element.dataset.tooltip = tooltip;
+    element.setAttribute("aria-label", tooltip);
+    element.append(title, kindLabel);
+    if (node.kind === "feature-set" && isFeatureSetDetailGraph(graph) && node.id === "feature-set") {
+      const toggleButton = document.createElement("span");
+      toggleButton.className = "nanika-paint-node-toggle";
+      toggleButton.textContent = featureSetGraphCollapsed ? "펼치기" : "접기";
+      toggleButton.dataset.disabled = featureSetGraphHasEdits && !featureSetGraphCollapsed ? "true" : "false";
+      toggleButton.title = featureSetGraphHasEdits && !featureSetGraphCollapsed
+        ? "추가/삭제/연결 수정이 있는 연결 세트는 저장 전까지 접을 수 없습니다."
+        : featureSetGraphCollapsed
+          ? "연결 세트 내부 흐름을 펼칩니다."
+          : "연결 세트 내부 흐름을 접습니다.";
+      toggleButton.addEventListener("pointerdown", (event) => {
+        event.stopPropagation();
+      });
+      toggleButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (featureSetGraphHasEdits && !featureSetGraphCollapsed) {
+          mappingEditorDetail.replaceChildren(createEditorSummary(
+            "접기 전에 저장이 필요해요",
+            "이 연결 세트 작업판에 추가/삭제/연결 수정이 있어서 접으면 변경 내용을 놓치기 쉽습니다. 먼저 저장하거나 변경을 정리한 뒤 접어주세요.",
+            ["수정 중인 세트", "접기 잠금"],
+          ));
+          return;
+        }
 
-    if (node.meta && node.meta.length > 0) {
-      element.append(createEditorMeta(node.meta.slice(0, 3)));
+        if (featureSetGraphCollapsed) {
+          collapsedFeatureSetGraphKeys.delete(currentEditorGraphKey);
+        } else {
+          collapsedFeatureSetGraphKeys.add(currentEditorGraphKey);
+        }
+        renderEditorCanvas();
+      });
+      element.append(toggleButton);
+    }
+    if (issueMessages.length > 0) {
+      const warning = document.createElement("span");
+      warning.className = "nanika-paint-node-warning";
+      warning.textContent = "확인 필요";
+      element.append(warning);
+    }
+    const visibleDetails = getCanvasNodeVisibleDetails(node);
+    if (visibleDetails.length > 0) {
+      const details = document.createElement("span");
+      details.className = "nanika-paint-node-details";
+      details.textContent = visibleDetails.join(" · ");
+      element.append(details);
     }
 
     if (!isReadonly) {
-      let pointerStart: { id: number; x: number; y: number; nodeX: number; nodeY: number; moved: boolean } | null = null;
+      let pointerStart: {
+        id: number;
+        x: number;
+        y: number;
+        nodeX: number;
+        nodeY: number;
+        moved: boolean;
+        groupPositions: Array<{ node: CanvasNode; x: number; y: number }>;
+      } | null = null;
       element.addEventListener("pointerdown", (rawEvent) => {
         const event = rawEvent as PointerEvent;
+        if (!event.shiftKey && !selectedCanvasNodeIds.has(node.id)) {
+          selectedCanvasNodeIds = new Set([node.id]);
+          selectedCanvasNodeId = node.id;
+          selectedCanvasNodeForPopover = node;
+          nodeElements.forEach((candidate, nodeId) => {
+            candidate.dataset.selected = selectedCanvasNodeIds.has(nodeId) ? "true" : "false";
+          });
+        }
+        const groupNodeIds = selectedCanvasNodeIds.has(node.id)
+          ? selectedCanvasNodeIds
+          : new Set([node.id]);
         pointerStart = {
           id: event.pointerId,
           x: event.clientX,
@@ -3304,9 +4596,14 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
           nodeX: node.x,
           nodeY: node.y,
           moved: false,
+          groupPositions: paintGraph.nodes
+            .filter((candidate) => groupNodeIds.has(candidate.id))
+            .map((candidate) => ({ node: candidate, x: candidate.x, y: candidate.y })),
         };
         element.setPointerCapture(event.pointerId);
-        selectCanvasNode(node);
+        if (!event.shiftKey) {
+          selectedCanvasNodeForPopover = node;
+        }
       });
       element.addEventListener("pointermove", (rawEvent) => {
         const event = rawEvent as PointerEvent;
@@ -3319,13 +4616,23 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
         if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
           pointerStart.moved = true;
         }
+        if (pointerStart.groupPositions.length > 1) {
+          pointerStart.groupPositions.forEach((position) => {
+            moveNode(position.node, position.x + (dx / editorCanvasZoom), position.y + (dy / editorCanvasZoom));
+          });
+          return;
+        }
         moveNode(node, pointerStart.nodeX + (dx / editorCanvasZoom), pointerStart.nodeY + (dy / editorCanvasZoom));
       });
       element.addEventListener("pointerup", (rawEvent) => {
         const event = rawEvent as PointerEvent;
         if (pointerStart?.id === event.pointerId) {
+          const moved = pointerStart.moved;
           element.releasePointerCapture(event.pointerId);
           pointerStart = null;
+          if (!moved) {
+            selectCanvasNode(node, event.shiftKey);
+          }
         }
       });
       element.addEventListener("click", () => selectCanvasNode(node));
@@ -3341,6 +4648,7 @@ function renderCanvasGraph(graph: CanvasGraph, options: { readonly?: boolean } =
   if (selectedNode && !isReadonly) {
     selectCanvasNode(selectedNode);
   }
+  updateFeatureSetCreateButtonState();
 
   viewport.append(board);
   return viewport;
@@ -3366,6 +4674,32 @@ function renderCanvasNodeDetail(node: CanvasNode) {
   mappingEditorDetail.replaceChildren(detail);
 }
 
+function getCanvasNodeKindLabel(kind: CanvasNodeKind) {
+  const labels: Record<CanvasNodeKind, string> = {
+    runtime: "런타임",
+    profile: "프로필",
+    character: "캐릭터",
+    condition: "조건",
+    config: "설정",
+    "resource-group": "재료 묶음",
+    target: "대상",
+    event: "이벤트",
+    mapping: "연결",
+    action: "액션",
+    group: "묶음",
+    resource: "재료",
+    "feature-set": "연결 세트",
+    catalog: "카탈로그",
+    missing: "누락",
+  };
+
+  return labels[kind];
+}
+
+function canStartCanvasConnection(kind: CanvasNodeKind) {
+  return kind !== "feature-set" && kind !== "catalog" && kind !== "missing";
+}
+
 function getAllowedCanvasNextSteps(kind: CanvasNodeKind) {
   if (kind === "runtime") {
     return ["다음: 조건 또는 캐릭터", "조건을 붙이면 페이지/url/context별로 캐릭터나 기능을 나눌 수 있습니다."];
@@ -3376,7 +4710,7 @@ function getAllowedCanvasNextSteps(kind: CanvasNodeKind) {
   }
 
   if (kind === "condition") {
-    return ["다음: 캐릭터, 이벤트, 저장 연결, 기능 묶음", "조건 뒤에 붙은 항목만 조건을 통과했을 때 실행됩니다."];
+    return ["다음: 캐릭터, 이벤트, 저장 연결, 연결 세트", "조건 뒤에 붙은 항목만 조건을 통과했을 때 실행됩니다."];
   }
 
   if (kind === "resource-group") {
@@ -3392,7 +4726,7 @@ function getAllowedCanvasNextSteps(kind: CanvasNodeKind) {
   }
 
   if (kind === "event") {
-    return ["연결 가능: 매핑 카드", "사용 가능: 기능 묶음"];
+    return ["연결 가능: 매핑 카드", "사용 가능: 연결 세트"];
   }
 
   if (kind === "mapping" || kind === "group") {
@@ -3404,7 +4738,7 @@ function getAllowedCanvasNextSteps(kind: CanvasNodeKind) {
   }
 
   if (kind === "feature-set") {
-    return ["포함 가능: 저장된 연결", "중첩 제한: 기능 묶음 직접 포함은 보류"];
+    return ["연결 세트는 재사용 묶음입니다.", "뒤에 직접 연결하지 않고, 세트에 포함된 저장 연결을 불러와 사용합니다."];
   }
 
   return ["카드 덱에서 다음에 붙일 항목을 선택하세요."];
@@ -3423,7 +4757,7 @@ function getPreferredPaletteCategoryForKind(kind: CanvasNodeKind): PaletteCatego
     return "characters";
   }
 
-  if (kind === "event" || kind === "feature-set") {
+  if (kind === "event") {
     return "actions";
   }
 
@@ -3582,6 +4916,10 @@ function getPendingConnectionSourceNode() {
 }
 
 function getCanvasRelation(from: CanvasNodeKind, to: CanvasNodeKind): CanvasEdge["relation"] | null {
+  if (from === "runtime" && to === "profile") {
+    return "contains";
+  }
+
   if (from === "runtime" && to === "character") {
     return "contains";
   }
@@ -3594,7 +4932,27 @@ function getCanvasRelation(from: CanvasNodeKind, to: CanvasNodeKind): CanvasEdge
     return "references";
   }
 
+  if (from === "profile" && to === "condition") {
+    return "references";
+  }
+
+  if (from === "profile" && to === "character") {
+    return "contains";
+  }
+
+  if (from === "profile" && to === "feature-set") {
+    return "references";
+  }
+
+  if (from === "profile" && to === "event") {
+    return "executes";
+  }
+
   if (from === "condition" && to === "character") {
+    return "contains";
+  }
+
+  if (from === "condition" && to === "profile") {
     return "contains";
   }
 
@@ -3646,11 +5004,7 @@ function getCanvasRelation(from: CanvasNodeKind, to: CanvasNodeKind): CanvasEdge
     return "executes";
   }
 
-  if (from === "feature-set" && to === "mapping") {
-    return "contains";
-  }
-
-  if (from === "action" && (to === "resource" || to === "catalog")) {
+  if (from === "action" && (to === "resource" || to === "catalog" || to === "profile")) {
     return "references";
   }
 
@@ -3736,8 +5090,8 @@ function handlePaletteDrop(event: DragEvent, board: HTMLElement) {
   const rect = board.getBoundingClientRect();
   const node = createCanvasNodeFromPalette(
     item,
-    Math.max(16, ((event.clientX - rect.left) / editorCanvasZoom) - 92),
-    Math.max(16, ((event.clientY - rect.top) / editorCanvasZoom) - 38),
+    Math.max(16, ((event.clientX - rect.left) / editorCanvasZoom) - Math.round(editorCanvasNodeWidth / 2)),
+    Math.max(16, ((event.clientY - rect.top) / editorCanvasZoom) - Math.round(editorCanvasNodeHeight / 2)),
   );
   currentEditorGraph.nodes.push(node);
   getCanvasState(currentEditorGraphKey).extraNodes.push(node);
@@ -3750,25 +5104,25 @@ function getNextPaletteNodePosition() {
 
   if (!source) {
     return {
-      x: Math.max(16, Math.min(fallbackSize.width - 232, Math.round(fallbackSize.width / 2) - 92)),
-      y: Math.max(16, Math.min(fallbackSize.height - 112, Math.round(fallbackSize.height / 2) - 38)),
+      x: Math.max(16, Math.min(fallbackSize.width - editorCanvasNodeWidth - 48, Math.round(fallbackSize.width / 2) - Math.round(editorCanvasNodeWidth / 2))),
+      y: Math.max(16, Math.min(fallbackSize.height - editorCanvasNodeHeight - 24, Math.round(fallbackSize.height / 2) - Math.round(editorCanvasNodeHeight / 2))),
     };
   }
 
   const existingTargets = currentEditorGraph?.edges.filter((edge) => edge.from === source.id).length ?? 0;
-  const candidateX = source.x + 260;
-  const candidateY = source.y + (existingTargets * 112);
+  const candidateX = source.x + editorCanvasNodeWidth + 76;
+  const candidateY = source.y + (existingTargets * (editorCanvasNodeHeight + 20));
 
-  if (candidateX <= fallbackSize.width - 232) {
+  if (candidateX <= fallbackSize.width - editorCanvasNodeWidth - 48) {
     return {
       x: Math.max(16, candidateX),
-      y: Math.max(16, Math.min(fallbackSize.height - 112, candidateY)),
+      y: Math.max(16, Math.min(fallbackSize.height - editorCanvasNodeHeight - 24, candidateY)),
     };
   }
 
   return {
-    x: Math.max(16, Math.min(fallbackSize.width - 232, source.x)),
-    y: Math.max(16, Math.min(fallbackSize.height - 112, source.y + 128 + (existingTargets * 112))),
+    x: Math.max(16, Math.min(fallbackSize.width - editorCanvasNodeWidth - 48, source.x)),
+    y: Math.max(16, Math.min(fallbackSize.height - editorCanvasNodeHeight - 24, source.y + editorCanvasNodeHeight + 40 + (existingTargets * (editorCanvasNodeHeight + 20)))),
   };
 }
 
@@ -3823,8 +5177,14 @@ function getDefaultPaletteConnectionSourceId(item: PaletteItem) {
     return runtimeNode && getCanvasRelation(runtimeNode.kind, item.kind) ? runtimeNode.id : null;
   }
 
+  if (item.kind === "profile") {
+    const runtimeNode = currentEditorGraph.nodes.find((node) => node.kind === "runtime");
+
+    return runtimeNode && getCanvasRelation(runtimeNode.kind, item.kind) ? runtimeNode.id : null;
+  }
+
   if (item.kind === "event") {
-    const source = currentEditorGraph.nodes.find((node) => node.kind === "target" || node.kind === "character" || node.kind === "condition");
+    const source = currentEditorGraph.nodes.find((node) => node.kind === "target" || node.kind === "profile" || node.kind === "character" || node.kind === "condition");
 
     return source && getCanvasRelation(source.kind, item.kind) ? source.id : null;
   }
@@ -3865,7 +5225,7 @@ function getDefaultPaletteConnectionSourceId(item: PaletteItem) {
   }
 
   if (item.kind === "feature-set") {
-    const preferredKinds: CanvasNodeKind[] = ["event", "condition", "character", "runtime"];
+    const preferredKinds: CanvasNodeKind[] = ["event", "condition", "profile", "character", "runtime"];
     const source = preferredKinds
       .flatMap((kind) => currentEditorGraph!.nodes.filter((node) => node.kind === kind))
       .find((node) => Boolean(getCanvasRelation(node.kind, item.kind)));
@@ -3915,6 +5275,14 @@ function selectCharacterInEditor(reveal = true, readonly = false) {
 }
 
 function getPaletteItems(category: PaletteCategoryId): PaletteItem[] {
+  if (category === "templates") {
+    return createDraftStartTemplatePaletteItems();
+  }
+
+  if (category === "profiles") {
+    return createRuntimeProfilePaletteItems();
+  }
+
   if (category === "characters") {
     const knownCharacterItems = getKnownCharacterIds().map((characterId) => {
       const isCurrentCharacter = characterId === registry.character.id;
@@ -4145,6 +5513,114 @@ function createPaletteCategoryGuide(category: PaletteCategory) {
   return createEditorSummary(category.label, description, pendingSource ? ["연결 가능한 카드만 표시"] : []);
 }
 
+function createConditionPalettePanel() {
+  const panel = document.createElement("section");
+  panel.className = "nanika-palette-inline-panel";
+  panel.setAttribute("aria-label", "조건 만들기");
+
+  const title = document.createElement("strong");
+  title.textContent = "조건 만들기";
+
+  const help = document.createElement("p");
+  help.className = "asset-lab-help";
+  help.textContent = "페이지나 URL 조건을 저장하면 아래 조건 카드 목록에 추가되고, 작업판 노드 앞에 붙일 수 있어요.";
+
+  panel.append(title, help);
+  panel.append(conditionForm);
+
+  return panel;
+}
+
+function getPaletteItemSubcategory(category: PaletteCategoryId, item: PaletteItem) {
+  if (item.subcategory) {
+    return item.subcategory;
+  }
+
+  if (category === "profiles") {
+    return "runtime";
+  }
+
+  if (category === "actions") {
+    const actionType = item.id.startsWith("open_management_menu:") ? "open_management_menu" : item.id;
+    return registry.actions.find((action) => action.type === actionType)?.category ?? "other";
+  }
+
+  if (category === "resources") {
+    return item.resourceKind ?? "resource";
+  }
+
+  if (category === "conditions") {
+    if (item.id.startsWith("saved-condition:")) {
+      return "saved";
+    }
+    return getConditionScopeFromMeta(item.meta ?? []) || "runtime";
+  }
+
+  return "all";
+}
+
+function getPaletteSubcategoryLabel(category: PaletteCategoryId, subcategory: string) {
+  if (subcategory === "all") {
+    return "전체";
+  }
+
+  if (category === "actions") {
+    return getReadableActionCategoryLabel(subcategory as RuntimeActionCatalogCategory);
+  }
+
+  if (category === "resources") {
+    return getResourceKindLabel(subcategory as NanikaResourceKind);
+  }
+
+  const labels: Record<string, string> = {
+    create: "조건 만들기",
+    runtime: "런타임",
+    character: "캐릭터",
+    rine: "리네",
+    saved: "저장 조건",
+    resource: "재료",
+    other: "기타",
+  };
+
+  return labels[subcategory] ?? subcategory;
+}
+
+function createPaletteSubcategoryFilter(category: PaletteCategoryId, items: PaletteItem[]) {
+  const subcategories = Array.from(new Set(items.map((item) => getPaletteItemSubcategory(category, item))))
+    .filter((subcategory) => subcategory && subcategory !== "all");
+  if (category === "conditions" && !subcategories.includes("create")) {
+    subcategories.unshift("create");
+  }
+
+  if (subcategories.length <= 1) {
+    selectedPaletteSubcategory = "all";
+    return null;
+  }
+
+  if (selectedPaletteSubcategory !== "all" && !subcategories.includes(selectedPaletteSubcategory)) {
+    selectedPaletteSubcategory = "all";
+  }
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "nanika-editor-palette-subcategories";
+  wrapper.setAttribute("aria-label", "상세 카테고리");
+
+  ["all", ...subcategories].forEach((subcategory) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = getPaletteSubcategoryLabel(category, subcategory);
+    button.dataset.paletteSubcategory = subcategory;
+    button.dataset.active = selectedPaletteSubcategory === subcategory ? "true" : "false";
+    button.addEventListener("click", () => {
+      selectedPaletteSubcategory = subcategory;
+      renderEditorPalette();
+    });
+    wrapper.append(button);
+  });
+
+  return wrapper;
+}
+
 function renderEditorPalette() {
   if (pendingConnectionNodeId) {
     mappingPaletteDeck.dataset.pendingSourceId = pendingConnectionNodeId;
@@ -4153,6 +5629,16 @@ function renderEditorPalette() {
   }
 
   const baseCategories: PaletteCategory[] = [
+    {
+      id: "templates",
+      label: "템플릿",
+      description: "처음 만들 때 자주 쓰는 연결 흐름입니다. 선택하면 작업판에 기본 노드와 필수 값이 채워집니다.",
+    },
+    {
+      id: "profiles",
+      label: "프로필",
+      description: "런타임이 어떤 캐릭터, 시작 상태, 연결 세트로 실행될지 정하는 큰 실행 단위입니다.",
+    },
     {
       id: "characters",
       label: "시작",
@@ -4169,9 +5655,14 @@ function renderEditorPalette() {
       description: "현재 캐릭터가 가진 표정, 상태, 무대 조합, 파츠, 대사, 터치 영역입니다.",
     },
     {
+      id: "conditions",
+      label: "조건",
+      description: "페이지, URL, 호스트 상태처럼 특정 상황에서만 다음 연결이 실행되도록 하는 조건 카드입니다.",
+    },
+    {
       id: "feature-sets",
-      label: "묶음",
-      description: "여러 저장 연결을 하나의 재사용 가능한 묶음으로 다룹니다.",
+      label: "연결 세트",
+      description: "여러 저장 연결을 하나의 재사용 가능한 세트로 다룹니다.",
     },
     {
       id: "saved",
@@ -4192,6 +5683,7 @@ function renderEditorPalette() {
     button.dataset.active = selectedPaletteCategory === category.id ? "true" : "false";
     button.addEventListener("click", () => {
       selectedPaletteCategory = category.id;
+      selectedPaletteSubcategory = "all";
       renderEditorPalette();
     });
     return button;
@@ -4199,16 +5691,31 @@ function renderEditorPalette() {
 
   const selectedCategory = categories.find((category) => category.id === selectedPaletteCategory) ?? categories[0] ?? baseCategories[0]!;
   const guide = createPaletteCategoryGuide(selectedCategory);
+  guide.dataset.role = "palette-guide";
   const items = getPaletteItems(selectedPaletteCategory).filter(isPaletteItemAllowedForPending);
-  if (items.length === 0) {
-    mappingPaletteDeck.replaceChildren(guide, createEditorSummary(
+  const subcategoryFilter = createPaletteSubcategoryFilter(selectedCategory.id, items);
+  const visibleItems = selectedPaletteSubcategory === "all"
+    ? items
+    : selectedPaletteSubcategory === "create"
+      ? []
+    : items.filter((item) => getPaletteItemSubcategory(selectedCategory.id, item) === selectedPaletteSubcategory);
+  const supplementalNodes = selectedCategory.id === "conditions" && selectedPaletteSubcategory === "create"
+    ? [createConditionPalettePanel()]
+    : [];
+  const paletteHeaderNodes = subcategoryFilter ? [guide, subcategoryFilter] : [guide];
+  if (visibleItems.length === 0 && supplementalNodes.length > 0) {
+    mappingPaletteDeck.replaceChildren(...paletteHeaderNodes, ...supplementalNodes);
+    return;
+  }
+  if (visibleItems.length === 0) {
+    mappingPaletteDeck.replaceChildren(...paletteHeaderNodes, ...supplementalNodes, createEditorSummary(
       "연결 가능한 카드 없음",
       pendingConnectionNodeId ? "선택한 카드에서 이어 붙일 수 있는 카드가 이 카테고리에 없습니다." : "아직 이 카테고리에 끌어올 카드가 없습니다.",
     ));
     return;
   }
 
-  mappingPaletteDeck.replaceChildren(guide, ...items.map((item) => {
+  mappingPaletteDeck.replaceChildren(...paletteHeaderNodes, ...supplementalNodes, ...visibleItems.map((item) => {
     const card = document.createElement("button");
     card.className = "nanika-palette-card";
     card.type = "button";
@@ -4217,6 +5724,9 @@ function renderEditorPalette() {
     card.dataset.kind = item.kind;
     if (item.resourceKind) {
       card.dataset.resourceKind = item.resourceKind;
+    }
+    if (item.subcategory) {
+      card.dataset.subcategory = item.subcategory;
     }
 
     const title = document.createElement("strong");
@@ -4235,6 +5745,14 @@ function renderEditorPalette() {
       }
     });
     card.addEventListener("click", () => {
+      if (item.templateId) {
+        const template = draftStartTemplates.find((candidate) => candidate.id === item.templateId);
+        if (template) {
+          applyDraftStartTemplate(template);
+        }
+        return;
+      }
+
       const canOpenCharacterWorkspace = activeView === "overview";
       const canOpenSavedMappingWorkspace = activeView === "saved";
       const canOpenFeatureSetWorkspace = activeView === "feature-sets";
@@ -4258,7 +5776,15 @@ function renderEditorPalette() {
       if (item.kind === "feature-set" && !pendingConnectionNodeId && canOpenFeatureSetWorkspace) {
         const featureSet = getFeatureSetsForDisplay().find((savedFeatureSet) => savedFeatureSet.id === item.id);
         if (featureSet) {
-          selectFeatureSetInEditor(featureSet, false);
+          loadFeatureSetIntoForm(featureSet);
+          return;
+        }
+      }
+
+      if (item.kind === "profile" && !pendingConnectionNodeId) {
+        const profile = findRuntimeProfileById(item.id);
+        if (profile) {
+          selectRuntimeProfileInEditor(profile, savedRuntimeProfiles.some((candidate) => candidate.id === profile.id) ? "saved" : "preset", false);
           return;
         }
       }
@@ -4283,14 +5809,16 @@ function renderEditorPalette() {
       }
       const node = addPaletteItemToCurrentGraph(item, !shouldConnectPending);
 
+      if (item.kind === "profile" && editorMappingIdInput.value.trim() === "new.mapping") {
+        editorMappingIdInput.value = item.id;
+        draftMappingIdInput.value = item.id;
+      }
+
       if (pendingSourceId && node) {
         pendingConnectionNodeId = pendingSourceId;
         connectPendingNodeTo(node.id);
       }
       if (item.kind === "character") {
-        if (activeView === "create") {
-          selectedPaletteCategory = "events";
-        }
         void activateCharacterResources(item.id);
       }
       if (item.kind === "feature-set") {
@@ -4309,29 +5837,36 @@ function renderEditorCanvas() {
   const editorPanel = mappingEditorCanvas.closest<HTMLElement>(".nanika-editor-panel");
   if (editorPanel) {
     editorPanel.dataset.readonly = isReadonly ? "true" : "false";
+    editorPanel.dataset.mode = activeView;
   }
   editorLoadDraftButton.disabled = true;
-  editorLoadDraftButton.textContent = "새 연결로 불러오기";
-  editorAddToFeatureSetButton.disabled = true;
+  editorLoadDraftButton.textContent = "불러오기";
+  editorAddToFeatureSetButton.disabled = isReadonly;
   editorSaveButton.disabled = true;
   editorSaveButton.textContent = "저장";
   editorCopyGraphButton.disabled = !currentEditorGraph;
+  syncEditorMappingIdInput();
 
   if (editorSelection.type === "empty") {
     currentEditorGraph = null;
     editorCopyGraphButton.disabled = true;
-    mappingEditorHelp.textContent = emptyEditorDescription;
+    setEditorHelpContent(emptyEditorTitle, emptyEditorDescription, emptyEditorMeta);
     mappingEditorCanvas.replaceChildren(createEditorSummary(
       emptyEditorTitle,
       emptyEditorDescription,
       emptyEditorMeta,
     ));
     renderEditorStats();
+    updateFeatureSetCreateButtonState();
     return;
   }
 
   if (editorSelection.type === "character") {
-    mappingEditorHelp.textContent = "캐릭터 중심 작업판입니다. 런타임에서 실제 캐릭터로 들어오고, 캐릭터 재료와 런타임 무대 조합이 별도 재료로 이어집니다.";
+    setEditorHelpContent(
+      "기능 연결 작업판",
+      "캐릭터 중심 작업판입니다. 런타임에서 실제 캐릭터로 들어오고, 캐릭터 재료와 런타임 무대 조합이 별도 재료로 이어집니다.",
+      ["카드는 드래그해서 배치", "카드 선택 후 연결 시작", "상세 정보는 카드 hover 또는 선택 메뉴에서 확인"],
+    );
     selectedPaletteCategory = "resources";
     setCurrentEditorGraph(getEditorGraphKey(editorSelection), createCharacterCanvasGraph());
     editorCopyGraphButton.disabled = false;
@@ -4344,11 +5879,11 @@ function renderEditorCanvas() {
       "현재 캐릭터 작업판에서 새로 이어 붙인 이벤트와 액션을 generated/nanika-mappings.json에 저장합니다.",
       ["파일 저장", "캐릭터 -> 이벤트 -> 액션 연결 필요", "배치만 바꾸면 브라우저 작업판 상태도 함께 저장"],
     );
-    mappingEditorDetail.append(createEditorSummary(
-      "이 작업판에서 바로 저장",
-      "캐릭터에 이벤트 카드와 액션 카드를 이어 붙이면 이 버튼으로 generated/nanika-mappings.json에 바로 저장합니다. 연결이 없으면 배치 상태만 이 브라우저에 보존합니다.",
+    appendEditorSaveGuide(
+      "이 작업판에 바로 저장",
+      "캐릭터에 이벤트 카드와 액션 카드를 이어 붙이면 저장 버튼으로 generated/nanika-mappings.json에 바로 저장합니다. 연결이 없으면 배치 상태만 이 브라우저에 보존합니다.",
       ["캐릭터 -> 이벤트 -> 액션", "필수값은 재료 카드를 액션에 연결"],
-    ));
+    );
     const liveRequiredIssues = getCharacterCanvasLiveRequiredIssues(currentEditorGraph!);
     if (liveRequiredIssues.length > 0) {
       mappingEditorDetail.append(createEditorSummary(
@@ -4362,7 +5897,11 @@ function renderEditorCanvas() {
   }
 
   if (editorSelection.type === "draft") {
-    mappingEditorHelp.textContent = "새 연결 만들기에서 구성 중인 연결 흐름입니다.";
+    setEditorHelpContent(
+      "새 연결 만들기",
+      "새 연결 만들기에서 구성 중인 연결 흐름입니다.",
+      ["대상 + 이벤트 + 액션 필수", "ID를 바꾸면 다른 이름으로 저장", "조건 카드는 필요할 때 앞에 붙임"],
+    );
     const draftGraphKey = getEditorGraphKey(editorSelection);
     if (currentEditorGraphKey !== draftGraphKey || !currentEditorGraph) {
       const initialDraftGraph = lastDraftResult.mapping
@@ -4377,16 +5916,25 @@ function renderEditorCanvas() {
       runtimeRule: lastDraftResult.runtimeRule,
     }, null, 2);
 
-    const canSaveDraft = Boolean(lastDraftResult.mapping && lastDraftResult.errors.length === 0);
+    const canSaveProfileDraft = isRuntimeProfileGraph(currentEditorGraph);
+    const canSaveDraft = Boolean(lastDraftResult.mapping && lastDraftResult.errors.length === 0) || canSaveProfileDraft;
     editorCopyGraphButton.disabled = false;
     editorSaveButton.disabled = !canSaveDraft;
-    editorSaveButton.textContent = "연결 저장";
+    editorSaveButton.textContent = canSaveProfileDraft ? "프로필 저장" : "연결 저장";
     mappingEditorCanvas.replaceChildren(renderCanvasGraph(currentEditorGraph!, { readonly: isReadonly }));
-    appendEditorSaveGuide(
-      "저장 동작",
-      "새 연결 초안을 generated/nanika-mappings.json에 저장합니다. 기존 연결을 불러온 경우 ID를 바꾸면 다른 이름의 연결로 저장됩니다.",
-      ["파일 저장", "대상 + 이벤트 + 액션 필수", "조건 값이 비어 있으면 저장 불가"],
-    );
+    if (canSaveProfileDraft) {
+      appendEditorSaveGuide(
+        "저장 동작",
+        "현재 작업판을 런타임에서 불러올 수 있는 프로필로 저장합니다.",
+        ["프로필 파일 저장", "런타임 + 캐릭터 + 연결 세트 기준", "ID를 바꾸면 새 프로필로 저장"],
+      );
+    } else {
+      appendEditorSaveGuide(
+        "저장 동작",
+        "새 연결 초안을 generated/nanika-mappings.json에 저장합니다. 기존 연결을 불러온 경우 ID를 바꾸면 다른 이름의 연결로 저장됩니다.",
+        ["파일 저장", "대상 + 이벤트 + 액션 필수", "조건 값이 비어 있으면 저장 불가"],
+      );
+    }
 
     if (!canSaveDraft) {
       mappingEditorDetail.append(createEditorSummary(
@@ -4397,8 +5945,31 @@ function renderEditorCanvas() {
     }
     draftMappingStatus.textContent = canSaveDraft
       ? "저장 가능한 매핑입니다."
-      : lastDraftResult.errors.join(" / ");
+      : canSaveProfileDraft ? "프로필 저장 가능" : lastDraftResult.errors.join(" / ");
     draftMappingStatus.dataset.state = canSaveDraft ? "ready" : "warning";
+    renderEditorStats();
+    return;
+  }
+
+  if (editorSelection.type === "profile") {
+    const { profile, source } = editorSelection;
+    setCurrentEditorGraph(getEditorGraphKey(editorSelection), createRuntimeProfileCanvasGraph(profile));
+    editorCopyGraphButton.disabled = false;
+    editorLoadDraftButton.disabled = isReadonly;
+    editorLoadDraftButton.textContent = source === "saved" ? "새 ID로 복사" : "파일 저장 준비";
+    editorSaveButton.disabled = isReadonly;
+    editorSaveButton.textContent = isReadonly ? "조회 전용" : "프로필 저장";
+    setEditorHelpContent(
+      "런타임 프로필",
+      "런타임이 어떤 조건에서 어떤 캐릭터와 연결 세트를 사용할지 정하는 실행 프로필입니다.",
+      ["런타임 -> 프로필 -> 캐릭터 -> 연결 세트", "ID를 바꾸면 다른 프로필로 저장"],
+    );
+    appendEditorSaveGuide(
+      "저장 동작",
+      "현재 작업판의 프로필, 조건, 캐릭터, 연결 세트 연결을 generated/nanika-runtime-profiles.json에 저장합니다.",
+      [source === "saved" ? "저장된 프로필 수정" : "preset 프로필을 파일 프로필로 저장"],
+    );
+    mappingEditorCanvas.replaceChildren(renderCanvasGraph(currentEditorGraph!, { readonly: isReadonly }));
     renderEditorStats();
     return;
   }
@@ -4407,12 +5978,18 @@ function renderEditorCanvas() {
     const { mapping, source } = editorSelection;
     setCurrentEditorGraph(getEditorGraphKey(editorSelection), createMappingCanvasGraph(mapping, source));
     editorCopyGraphButton.disabled = false;
-    mappingEditorHelp.textContent = source === "saved"
+    setEditorHelpContent(
+      source === "saved" ? "저장 연결" : "적용된 실행 규칙",
+      source === "saved"
       ? "저장된 연결을 캔버스에 표시했습니다. 필요하면 새 연결 만들기 화면으로 불러와 수정할 수 있습니다."
-      : "현재 preset에 적용된 실행 규칙을 캔버스에 표시했습니다.";
+        : "현재 preset에 적용된 실행 규칙을 캔버스에 표시했습니다.",
+      source === "saved"
+        ? ["수정 저장 가능", "새 연결로 복사 가능", "연결 세트에 추가 가능"]
+        : ["조회용", "저장하려면 새 연결로 불러오기"],
+    );
     mappingEditorCanvas.replaceChildren(renderCanvasGraph(currentEditorGraph!, { readonly: isReadonly }));
     editorLoadDraftButton.disabled = isReadonly;
-    editorLoadDraftButton.textContent = source === "saved" ? "새 연결로 복사" : "새 연결로 저장 준비";
+    editorLoadDraftButton.textContent = source === "saved" ? "복사 편집" : "저장 준비";
     editorAddToFeatureSetButton.disabled = isReadonly || source !== "saved";
     editorSaveButton.disabled = isReadonly;
     editorSaveButton.textContent = isReadonly ? "조회 전용" : source === "saved" ? "수정 저장" : "작업판 저장";
@@ -4428,7 +6005,7 @@ function renderEditorCanvas() {
     if (source !== "saved") {
       mappingEditorDetail.append(createEditorSummary(
         "묶음 추가 전 저장 필요",
-        "기능 묶음은 저장된 연결 ID를 묶습니다. 현재 preset에만 있는 실행 규칙은 먼저 새 연결로 불러와 저장한 뒤 묶음에 추가할 수 있습니다.",
+        "연결 세트는 저장된 연결 ID를 묶습니다. 현재 preset에만 있는 실행 규칙은 먼저 새 연결로 불러와 저장한 뒤 세트에 추가할 수 있습니다.",
       ));
     }
     renderEditorStats();
@@ -4441,22 +6018,30 @@ function renderEditorCanvas() {
     setCurrentEditorGraph(getEditorGraphKey(editorSelection), createFeatureSetCanvasGraph(featureSet));
     editorCopyGraphButton.disabled = false;
     editorSaveButton.disabled = isReadonly;
-    editorSaveButton.textContent = isReadonly ? "조회 전용" : "묶음 저장";
+    editorSaveButton.textContent = isReadonly ? "조회 전용" : "세트 저장";
+    setEditorHelpContent(
+      "연결 세트",
+      "연결 세트는 여러 저장 연결을 재사용하기 위한 포함 세트입니다. 실행 순서 자체는 각 연결 내부에서 확인합니다.",
+      ["저장 연결 ID 참조", "여러 화면에서 재사용", "중첩 세트 직접 포함은 보류"],
+    );
     appendEditorSaveGuide(
       "저장 동작",
-      "선택한 저장 연결 ID들을 하나의 기능 묶음으로 저장합니다. 묶음은 연결 자체를 복사하지 않고 저장 연결을 참조합니다.",
-      ["묶음 파일 저장", "저장 연결 1개 이상 필요", "중첩 묶음 직접 포함은 보류"],
+      "선택한 저장 연결 ID들을 하나의 연결 세트로 저장합니다. 세트는 연결 자체를 복사하지 않고 저장 연결을 참조합니다.",
+      ["세트 파일 저장", "저장 연결 1개 이상 필요", "중첩 세트 직접 포함은 보류"],
     );
-    mappingEditorHelp.textContent = "기능 묶음은 여러 연결을 재사용하기 위한 포함 묶음입니다. 실행 순서 자체는 각 연결 내부에서 확인합니다.";
     mappingEditorCanvas.replaceChildren(renderCanvasGraph(currentEditorGraph!, { readonly: isReadonly }));
     if (compatibility.missing.length > 0) {
-      mappingEditorDetail.append(createEditorSummary("누락 재료", "이 묶음을 현재 캐릭터에 적용하기 전 확인이 필요합니다.", compatibility.missing));
+      mappingEditorDetail.append(createEditorSummary("누락 재료", "이 세트를 현재 캐릭터에 적용하기 전 확인이 필요합니다.", compatibility.missing));
     }
     renderEditorStats();
     return;
   }
 
-  mappingEditorHelp.textContent = "카탈로그 재료를 선택했습니다. 아직 실행 흐름에 붙기 전의 재사용 가능한 재료입니다.";
+  setEditorHelpContent(
+    "카탈로그 재료",
+    "카탈로그 재료를 선택했습니다. 아직 실행 흐름에 붙기 전의 재사용 가능한 재료입니다.",
+    ["실행 흐름에 붙기 전", "연결 시작으로 사용 가능", "상세는 카드 hover로 확인"],
+  );
   setCurrentEditorGraph(getEditorGraphKey(editorSelection), createCatalogCanvasGraph(
     editorSelection.title,
     editorSelection.description,
@@ -4477,12 +6062,114 @@ function selectFeatureSetInEditor(featureSet: NanikaFeatureSet, reveal = true, r
   setEditorSelection({ type: "feature-set", featureSet }, reveal, readonly);
 }
 
+function selectRuntimeProfileInEditor(
+  profile: NanikaRuntimeProfile,
+  source: "preset" | "saved" = savedRuntimeProfiles.some((candidate) => candidate.id === profile.id) ? "saved" : "preset",
+  reveal = true,
+  readonly = false,
+) {
+  setEditorSelection({ type: "profile", profile, source }, reveal, readonly);
+}
+
 function selectCatalogInEditor(title: string, description: string, meta: string[] = [], reveal = true) {
   setEditorSelection({ type: "catalog", title, description, meta }, reveal, true);
 }
 
+function updateEditorMappingIdStatus() {
+  const id = editorMappingIdInput.value.trim();
+  const saved = id ? savedMappings.find((mapping) => mapping.id === id) : null;
+  const preset = id ? registry.mappings.find((mapping) => mapping.id === id) : null;
+  const savedProfile = id ? savedRuntimeProfiles.find((profile) => profile.id === id) : null;
+  const presetProfile = id ? runtimeProfileOverviewCards.find((profile) => profile.id === id) : null;
+
+  if (!id) {
+    editorMappingIdStatus.textContent = "ID 필요";
+    editorMappingIdStatus.dataset.state = "warning";
+    editorMappingIdStatus.title = "저장할 매핑 ID를 입력하세요.";
+    return;
+  }
+
+  if (editorSelection.type === "mapping" && editorSelection.mapping.id === id) {
+    editorMappingIdStatus.textContent = "불러온 ID";
+    editorMappingIdStatus.dataset.state = "ready";
+    editorMappingIdStatus.title = "현재 작업판에 불러온 저장 설정입니다.";
+    return;
+  }
+
+  if (editorSelection.type === "profile" && editorSelection.profile.id === id) {
+    editorMappingIdStatus.textContent = "불러온 ID";
+    editorMappingIdStatus.dataset.state = "ready";
+    editorMappingIdStatus.title = "현재 작업판에 불러온 런타임 프로필 ID입니다.";
+    return;
+  }
+
+  if (savedProfile) {
+    editorMappingIdStatus.textContent = "프로필 있음";
+    editorMappingIdStatus.dataset.state = "warning";
+    editorMappingIdStatus.title = `${savedProfile.name ?? savedProfile.id} 프로필이 이미 저장되어 있어 같은 ID로 덮어씁니다.`;
+    return;
+  }
+
+  if (presetProfile) {
+    editorMappingIdStatus.textContent = "preset 있음";
+    editorMappingIdStatus.dataset.state = "warning";
+    editorMappingIdStatus.title = "현재 preset에 같은 프로필 ID가 있습니다. 저장하면 파일 프로필이 우선 표시됩니다.";
+    return;
+  }
+
+  if (saved) {
+    editorMappingIdStatus.textContent = "기존 있음";
+    editorMappingIdStatus.dataset.state = "warning";
+    editorMappingIdStatus.title = `${saved.name ?? saved.id} 저장 설정이 있어 저장 시 같은 ID를 덮어씁니다.`;
+    return;
+  }
+
+  if (preset) {
+    editorMappingIdStatus.textContent = "preset 있음";
+    editorMappingIdStatus.dataset.state = "warning";
+    editorMappingIdStatus.title = "현재 preset에 같은 ID가 있습니다. 저장 파일에는 새 항목으로 들어가지만 런타임 적용 시 충돌할 수 있습니다.";
+    return;
+  }
+
+  editorMappingIdStatus.textContent = "새 ID";
+  editorMappingIdStatus.dataset.state = "ready";
+  editorMappingIdStatus.title = "저장 시 새 매핑 ID로 추가됩니다.";
+}
+
+function syncEditorMappingIdInput() {
+  if (editorSelection.type === "draft") {
+    editorMappingIdInput.value = draftMappingIdInput.value;
+    editorMappingIdInput.disabled = false;
+    editorMappingIdInput.placeholder = "new.mapping";
+    updateEditorMappingIdStatus();
+    return;
+  }
+
+  if (editorSelection.type === "mapping") {
+    editorMappingIdInput.value = editorSelection.mapping.id;
+    editorMappingIdInput.disabled = true;
+    editorMappingIdInput.placeholder = "저장 연결 ID";
+    updateEditorMappingIdStatus();
+    return;
+  }
+
+  if (editorSelection.type === "profile") {
+    editorMappingIdInput.value = editorSelection.profile.id;
+    editorMappingIdInput.disabled = false;
+    editorMappingIdInput.placeholder = "runtime.profile.id";
+    updateEditorMappingIdStatus();
+    return;
+  }
+
+  editorMappingIdInput.value = "";
+  editorMappingIdInput.disabled = true;
+  editorMappingIdInput.placeholder = "새 연결에서 지정";
+  updateEditorMappingIdStatus();
+}
+
 function clearEditorCanvasSelection(render = false) {
   selectedCanvasNodeId = null;
+  selectedCanvasNodeIds = new Set();
   selectedCanvasNodeForPopover = null;
   pendingConnectionNodeId = null;
   if (render && currentEditorGraph) {
@@ -4494,12 +6181,13 @@ function clearEditorCanvasSelection(render = false) {
   });
 }
 
-function createFeatureSetReferenceSummary(featureSetId: string) {
-  const featureSet = getFeatureSetsForDisplay().find((candidate) => candidate.id === featureSetId);
+function createFeatureSetReferenceSummary(featureSetId: string, fallbackFeatureSetId?: string) {
+  const featureSet = getFeatureSetsForDisplay()
+    .find((candidate) => candidate.id === featureSetId || candidate.id === fallbackFeatureSetId);
   if (!featureSet) {
     return createEditorSummary(
-      "기능 묶음을 찾지 못했어요",
-      "현재 저장된 기능 묶음 목록에 없는 카드입니다.",
+      "연결 세트를 찾지 못했어요",
+      "현재 저장된 연결 세트 목록에 없는 카드입니다.",
       [featureSetId],
     );
   }
@@ -4512,14 +6200,17 @@ function createFeatureSetReferenceSummary(featureSetId: string) {
       ? `${getDisplayMappingName(mapping)} · ${getReadableEventLabel(mapping.event)} · 액션 ${countNestedActions(mapping.actions)}개`
       : `${mappingId} · 저장 연결 누락`;
   });
+  const visibleMappingLines = mappingLines.slice(0, 4);
+  const hiddenCount = mappingLines.length - visibleMappingLines.length;
 
   return createEditorSummary(
-    featureSet.name ?? featureSet.id,
-    "이 기능 묶음에 포함된 저장 연결입니다. 작업판에서는 하나의 묶음 카드로 쓰고, 실제 적용 시 포함 연결들이 실행 규칙으로 풀립니다.",
+    "포함 연결",
+    `${featureSet.mappingIds.length}개 저장 연결을 포함합니다.`,
     [
       `id: ${featureSet.id}`,
       getFeatureSetStatusText(featureSet),
-      ...mappingLines,
+      ...visibleMappingLines,
+      ...(hiddenCount > 0 ? [`+${hiddenCount}개 더 있음`] : []),
     ],
   );
 }
@@ -4942,7 +6633,7 @@ function createMappingsMermaid(
   });
 
   if (mode === "reference") {
-    lines.push("  %% 기능 묶음/카탈로그는 실행 흐름이 아니므로 이 Mermaid에는 연결하지 않습니다.");
+    lines.push("  %% 연결 세트/카탈로그는 실행 흐름이 아니므로 이 Mermaid에는 연결하지 않습니다.");
   }
 
   return lines.join("\n");
@@ -5039,7 +6730,7 @@ function getFeatureSetStatusText(featureSet: NanikaFeatureSet) {
   const compatibility = checkFeatureSetCompatibility(featureSet);
 
   if (featureSet.mode !== "character-template") {
-    return "캐릭터 전용 묶음";
+    return "캐릭터 전용 세트";
   }
 
   if (compatibility.status === "ready") {
@@ -5227,8 +6918,8 @@ function createMappingGraphColumns(): GraphColumn[] {
     },
     {
       id: "feature-sets",
-      title: "7. 기능 묶음",
-      description: "연결 여러 개를 재사용하는 묶음입니다.",
+      title: "7. 연결 세트",
+      description: "연결 여러 개를 재사용하는 세트입니다.",
       nodes: featureSets.map((featureSet): GraphNode => {
         const compatibility = checkFeatureSetCompatibility(featureSet);
         const missingPreview = compatibility.missing.slice(0, 3);
@@ -5362,12 +7053,12 @@ async function renderFeatureSetClonePreview() {
   const characterId = featureSetCloneCharacterSelect.value;
 
   if (!source || !characterId) {
-    featureSetClonePreview.replaceChildren(createCard("복제할 묶음 없음", "원본 기능 묶음과 대상 캐릭터를 먼저 선택하세요."));
+    featureSetClonePreview.replaceChildren(createCard("복제할 세트 없음", "원본 연결 세트와 대상 캐릭터를 먼저 선택하세요."));
     return;
   }
 
   syncFeatureSetCloneDefaults();
-  featureSetClonePreview.replaceChildren(createCard("복제 미리보기", `${source.name ?? source.id} 묶음을 ${characterId} 캐릭터용으로 확인하는 중입니다.`, [
+  featureSetClonePreview.replaceChildren(createCard("복제 미리보기", `${source.name ?? source.id} 세트를 ${characterId} 캐릭터용으로 확인하는 중입니다.`, [
     `새 ID: ${featureSetCloneIdInput.value.trim()}`,
     `연결 ${source.mappingIds.length}개`,
   ]));
@@ -5425,7 +7116,7 @@ async function saveClonedFeatureSet() {
   const cloneName = featureSetCloneNameInput.value.trim();
 
   if (!source || !characterId || !cloneId) {
-    featureSetStatus.textContent = "복제할 기능 묶음, 대상 캐릭터, 새 ID를 먼저 확인하세요.";
+    featureSetStatus.textContent = "복제할 연결 세트, 대상 캐릭터, 새 ID를 먼저 확인하세요.";
     featureSetStatus.dataset.state = "warning";
     return;
   }
@@ -5433,7 +7124,7 @@ async function saveClonedFeatureSet() {
   const featureSet: NanikaFeatureSet = {
     id: cloneId,
     name: cloneName || createDefaultFeatureSetCloneName(source, characterId),
-    description: source.description ?? `${source.name ?? source.id} 묶음을 ${characterId} 캐릭터용으로 복제했습니다.`,
+    description: source.description ?? `${source.name ?? source.id} 세트를 ${characterId} 캐릭터용으로 복제했습니다.`,
     mode: "character-specific",
     sourceCharacterId: characterId,
     ...(source.requirements ? { requirements: source.requirements } : {}),
@@ -5449,10 +7140,10 @@ async function saveClonedFeatureSet() {
     renderFeatureSets(result.path);
     refreshOverview();
     selectFeatureSetInEditor(featureSet);
-    featureSetStatus.textContent = `${featureSet.id} 기능 묶음 복제본을 저장했어요.`;
+    featureSetStatus.textContent = `${featureSet.id} 연결 세트 복제본을 저장했어요.`;
     featureSetStatus.dataset.state = "ready";
   } catch (error) {
-    featureSetStatus.textContent = error instanceof Error ? error.message : "기능 묶음 복제본을 저장하지 못했어요.";
+    featureSetStatus.textContent = error instanceof Error ? error.message : "연결 세트 복제본을 저장하지 못했어요.";
     featureSetStatus.dataset.state = "warning";
   }
 }
@@ -5631,8 +7322,8 @@ function createMappingFlowBoardColumns(
       nodes: actionNodes,
     },
     {
-      title: "5. 기능 묶음",
-      description: "여러 연결을 한 번에 적용하기 위한 묶음입니다.",
+      title: "5. 연결 세트",
+      description: "여러 연결을 한 번에 적용하기 위한 세트입니다.",
       nodes: featureSetNodes,
     },
   ];
@@ -6180,6 +7871,8 @@ function createActionFromSelectedInputs(errors: string[]) {
     action[parameter.name] = parsed.value;
   });
 
+  applyDefaultManagementMenuToAction(action);
+
   return errors.length > 0 ? null : action as RuntimeAction;
 }
 
@@ -6617,13 +8310,14 @@ function renderConditions(savedPath?: string) {
   }
 
   conditionList.replaceChildren(...savedConditions.map((condition) => {
+    const scopeLabel = getReadableConditionScopeLabel(condition.scope);
     const card = createCard(
       condition.name ?? condition.id,
-      condition.description || `${getReadableConditionTypeLabel(condition)}: ${condition.value}`,
+      condition.description || getReadableConditionExpression(condition),
       [
-        `id: ${condition.id}`,
-        `scope: ${condition.scope}`,
-        `${getConditionOperator(condition)} ${condition.type}: ${condition.value}`,
+        `적용 범위: ${scopeLabel}`,
+        getReadableConditionExpression(condition),
+        `저장 ID: ${condition.id}`,
       ],
     );
     const controls = document.createElement("div");
@@ -6787,7 +8481,7 @@ async function deleteSavedMapping(mappingId: string) {
 }
 
 async function loadFeatureSets() {
-  featureSetStatus.textContent = "저장된 기능 묶음을 불러오는 중입니다.";
+  featureSetStatus.textContent = "저장된 연결 세트를 불러오는 중입니다.";
   featureSetStatus.dataset.state = "ready";
 
   try {
@@ -6796,13 +8490,39 @@ async function loadFeatureSets() {
     savedFeatureSets = result.items;
     saveCanvasStatesToStorage();
     renderFeatureSets(result.path);
+    renderRuntimeProfileOverview();
     refreshOverview();
   } catch (error) {
     savedFeatureSets = [];
     renderFeatureSets();
+    renderRuntimeProfileOverview();
     refreshOverview();
-    featureSetStatus.textContent = error instanceof Error ? error.message : "저장된 기능 묶음을 불러오지 못했습니다.";
+    featureSetStatus.textContent = error instanceof Error ? error.message : "저장된 연결 세트를 불러오지 못했습니다.";
     featureSetStatus.dataset.state = "warning";
+  }
+}
+
+async function loadRuntimeProfiles() {
+  try {
+    const result = await listNanikaData<NanikaRuntimeProfile>("runtimeProfiles");
+
+    savedRuntimeProfiles = result.items;
+    runtimeProfilesLoaded = true;
+    renderRuntimeProfileOverview();
+    renderEditorPalette();
+    refreshOverview();
+    if (editorSelection.type === "empty") {
+      const defaultProfile = findRuntimeProfileById("rine.full-runtime.profile") ?? getRuntimeProfilesForDisplay()[0];
+      if (defaultProfile) {
+        selectRuntimeProfileInEditor(defaultProfile, savedRuntimeProfiles.some((profile) => profile.id === defaultProfile.id) ? "saved" : "preset", false);
+      }
+    }
+  } catch {
+    savedRuntimeProfiles = [];
+    runtimeProfilesLoaded = false;
+    renderRuntimeProfileOverview();
+    renderEditorPalette();
+    refreshOverview();
   }
 }
 
@@ -6810,10 +8530,18 @@ async function saveFeatureSet() {
   const mappingIds = getSelectedFeatureSetMappingIds();
   const featureSetId = featureSetIdInput.value.trim() || "new.feature-set";
   const featureSetName = featureSetNameInput.value.trim();
+  const saveIssues = getFeatureSetSaveIssues(mappingIds);
+  const blockingIssues = getBlockingSaveIssueMessages(saveIssues);
+  const warningIssues = getWarningSaveIssueMessages(saveIssues);
 
-  if (mappingIds.length === 0) {
-    featureSetStatus.textContent = "기능 묶음에 넣을 저장된 연결을 하나 이상 선택하세요.";
+  if (blockingIssues.length > 0) {
+    featureSetStatus.textContent = blockingIssues[0] ?? "연결 세트를 저장할 수 없습니다.";
     featureSetStatus.dataset.state = "warning";
+    featureSetPreview.replaceChildren(createCard(
+      "연결 세트 저장 불가",
+      "저장 전에 연결 세트에 포함할 저장 연결을 확인하세요.",
+      blockingIssues,
+    ));
     return;
   }
 
@@ -6821,7 +8549,7 @@ async function saveFeatureSet() {
     id: featureSetId,
     mode: "character-specific",
     sourceCharacterId: registry.character.id,
-    mappingIds,
+    mappingIds: getValidFeatureSetMappingIds(mappingIds),
   };
 
   if (featureSetName) {
@@ -6834,11 +8562,63 @@ async function saveFeatureSet() {
     savedFeatureSets = result.items;
     renderFeatureSets(result.path);
     refreshOverview();
-    featureSetStatus.textContent = `${featureSet.id} 기능 묶음을 저장했어요.`;
-    featureSetStatus.dataset.state = "ready";
+    featureSetStatus.textContent = warningIssues.length > 0
+      ? `${featureSet.id} 연결 세트를 저장했어요. 경고: ${warningIssues[0]}`
+      : `${featureSet.id} 연결 세트를 저장했어요.`;
+    featureSetStatus.dataset.state = warningIssues.length > 0 ? "warning" : "ready";
   } catch (error) {
-    featureSetStatus.textContent = error instanceof Error ? error.message : "기능 묶음을 저장하지 못했습니다.";
+    featureSetStatus.textContent = error instanceof Error ? error.message : "연결 세트를 저장하지 못했습니다.";
     featureSetStatus.dataset.state = "warning";
+  }
+}
+
+async function saveRuntimeProfileFromEditorGraph() {
+  if (!currentEditorGraph) {
+    return false;
+  }
+
+  const runtimeProfile = createRuntimeProfileFromCanvasGraph(currentEditorGraph);
+  if (!runtimeProfile) {
+    mappingEditorDetail.replaceChildren(createEditorSummary(
+      "프로필 저장 불가",
+      "작업판에 런타임 프로필 카드가 없어 저장할 수 없습니다.",
+      ["프로필 카드 필요"],
+    ));
+    return false;
+  }
+
+  try {
+    const result = await saveNanikaDataItem<NanikaRuntimeProfile>("runtimeProfiles", runtimeProfile.id, runtimeProfile);
+
+    savedRuntimeProfiles = result.items;
+    runtimeProfilesLoaded = true;
+    saveCanvasStatesToStorage();
+    renderRuntimeProfileOverview();
+    renderEditorPalette();
+    refreshOverview();
+    selectRuntimeProfileInEditor(runtimeProfile, "saved", false);
+    draftMappingStatus.textContent = `${runtimeProfile.id} 프로필을 저장했어요.`;
+    draftMappingStatus.dataset.state = "ready";
+    mappingEditorDetail.replaceChildren(createEditorSummary(
+      "프로필 저장 완료",
+      "현재 작업판의 연결을 런타임 프로필로 저장했습니다.",
+      [
+        `id: ${runtimeProfile.id}`,
+        `캐릭터: ${runtimeProfile.characterProfiles?.[0]?.characterId ?? "없음"}`,
+        `연결 세트: ${getRuntimeProfileFeatureSetIds(runtimeProfile).length}`,
+      ],
+    ));
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "프로필을 저장하지 못했어요.";
+    draftMappingStatus.textContent = message;
+    draftMappingStatus.dataset.state = "warning";
+    mappingEditorDetail.replaceChildren(createEditorSummary(
+      "프로필 저장 실패",
+      message,
+      [runtimeProfile.id],
+    ));
+    return false;
   }
 }
 
@@ -6849,10 +8629,10 @@ async function deleteFeatureSet(featureSetId: string) {
     savedFeatureSets = result.items;
     renderFeatureSets(result.path);
     refreshOverview();
-    featureSetStatus.textContent = `${featureSetId} 기능 묶음을 삭제했어요.`;
+    featureSetStatus.textContent = `${featureSetId} 연결 세트를 삭제했어요.`;
     featureSetStatus.dataset.state = "ready";
   } catch (error) {
-    featureSetStatus.textContent = error instanceof Error ? error.message : "기능 묶음을 삭제하지 못했습니다.";
+    featureSetStatus.textContent = error instanceof Error ? error.message : "연결 세트를 삭제하지 못했습니다.";
     featureSetStatus.dataset.state = "warning";
   }
 }
@@ -6966,23 +8746,23 @@ function updateSnippetPreview() {
   mappingMermaidPreview.textContent = createMappingsMermaid(getMermaidMappings(), savedMappings, "reference");
 
   if (savedFeatureSets.length === 0) {
-    mappingSnippetHelp.textContent = "저장된 기능 묶음이 없어서 저장된 연결 전체를 실행 규칙으로 생성합니다.";
+    mappingSnippetHelp.textContent = "저장된 연결 세트가 없어서 저장된 연결 전체를 실행 규칙으로 생성합니다.";
     return;
   }
 
   if (selectedFeatureSetIds.length === 0) {
-    mappingSnippetHelp.textContent = "선택한 기능 묶음이 없어서 저장된 연결 전체를 실행 규칙으로 생성합니다.";
+    mappingSnippetHelp.textContent = "선택한 연결 세트가 없어서 저장된 연결 전체를 실행 규칙으로 생성합니다.";
     return;
   }
 
-  mappingSnippetHelp.textContent = `${selectedFeatureSetIds.length}개 기능 묶음을 기준으로 실행 규칙을 생성합니다. 선택하지 않은 묶음과 묶음 밖 저장 연결은 적용 코드에 포함되지 않습니다.`;
+  mappingSnippetHelp.textContent = `${selectedFeatureSetIds.length}개 연결 세트를 기준으로 실행 규칙을 생성합니다. 선택하지 않은 세트와 세트 밖 저장 연결은 적용 코드에 포함되지 않습니다.`;
 }
 
 function renderSnippetFeatureSetPicker() {
   syncSelectedSnippetFeatureSetIds();
 
   if (savedFeatureSets.length === 0) {
-    snippetFeatureSetPicker.replaceChildren(createCard("적용할 기능 묶음 없음", "기능 묶음 탭에서 저장된 연결을 묶음으로 묶으면 여기에서 적용 대상을 고를 수 있습니다."));
+    snippetFeatureSetPicker.replaceChildren(createCard("적용할 연결 세트 없음", "연결 세트 탭에서 저장된 연결을 세트로 묶으면 여기에서 적용 대상을 고를 수 있습니다."));
     updateSnippetPreview();
     return;
   }
@@ -7088,7 +8868,7 @@ function renderSavedMappings(savedPath?: string) {
 
 function renderFeatureSetMappingPicker() {
   if (savedMappings.length === 0) {
-    featureSetMappingPicker.replaceChildren(createCard("저장된 연결 없음", "먼저 저장된 기능 연결을 만들어야 묶음으로 묶을 수 있습니다."));
+    featureSetMappingPicker.replaceChildren(createCard("저장된 연결 없음", "먼저 저장된 기능 연결을 만들어야 연결 세트로 묶을 수 있습니다."));
     renderFeatureSetDraftPreview();
     return;
   }
@@ -7119,29 +8899,57 @@ function renderFeatureSetMappingPicker() {
 }
 
 function getSelectedFeatureSetMappingIds() {
-  return Array.from(featureSetMappingPicker.querySelectorAll<HTMLInputElement>("input[type='checkbox']:checked"))
-    .map((input) => input.value);
+  return Array.from(new Set(
+    Array.from(featureSetMappingPicker.querySelectorAll<HTMLInputElement>("input[type='checkbox']:checked"))
+      .map((input) => input.value.trim())
+      .filter(Boolean),
+  ));
+}
+
+function createDraftFeatureSetFromSelectedMappings(selectedIds: readonly string[]): NanikaFeatureSet {
+  return {
+    id: featureSetIdInput.value.trim() || "new.feature-set",
+    name: featureSetNameInput.value.trim() || "새 연결 세트",
+    mode: "character-specific",
+    mappingIds: Array.from(new Set(selectedIds.map((mappingId) => mappingId.trim()).filter(Boolean))),
+  };
 }
 
 function renderFeatureSetDraftPreview() {
   const selectedIds = getSelectedFeatureSetMappingIds();
+  const saveIssues = getFeatureSetSaveIssues(selectedIds);
+  const blockingIssues = getBlockingSaveIssueMessages(saveIssues);
+  const warningIssues = getWarningSaveIssueMessages(saveIssues);
 
   if (selectedIds.length === 0) {
     featureSetPreview.replaceChildren(createCard(
-      "묶음 미리보기 없음",
-      "저장된 연결을 선택하면 이 묶음이 어떤 이벤트 줄기를 포함하는지 먼저 보여줍니다.",
+      "선택된 연결 없음",
+      "작업판에서 저장 연결 카드를 선택하면 이곳에 세트로 저장될 연결 수가 표시됩니다.",
+      blockingIssues,
     ));
     return;
   }
 
-  const previewSet: NanikaFeatureSet = {
-    id: featureSetIdInput.value.trim() || "new.feature-set",
-    name: featureSetNameInput.value.trim() || "새 기능 묶음",
-    mode: "character-specific",
-    mappingIds: selectedIds,
-  };
-  const card = createCard(previewSet.name ?? previewSet.id, `${selectedIds.length}개 연결을 포함할 예정입니다.`, selectedIds);
-  card.append(createFeatureSetFlow(previewSet));
+  const previewSet = createDraftFeatureSetFromSelectedMappings(selectedIds);
+  const card = createCard(
+    "저장될 연결 세트",
+    blockingIssues.length > 0
+      ? "저장 전에 해결해야 할 연결 문제가 있습니다."
+      : warningIssues.length > 0
+        ? "저장은 가능하지만 확인할 경고가 있습니다."
+        : `${selectedIds.length}개 저장 연결을 포함합니다.`,
+    [
+      `세트 ID: ${previewSet.id}`,
+      `이름: ${previewSet.name ?? previewSet.id}`,
+      ...selectedIds.slice(0, 5).map((mappingId) => {
+        const mapping = savedMappings.find((candidate) => candidate.id === mappingId);
+        return `연결: ${mapping ? getDisplayMappingName(mapping) : mappingId}`;
+      }),
+      ...(selectedIds.length > 5 ? [`외 ${selectedIds.length - 5}개 연결`] : []),
+      ...blockingIssues.map((issue) => `오류: ${issue}`),
+      ...warningIssues.map((issue) => `경고: ${issue}`),
+    ],
+  );
   featureSetPreview.replaceChildren(card);
   if (activeView === "feature-sets" && editorSelection.type === "feature-set") {
     selectFeatureSetInEditor(previewSet, false);
@@ -7152,65 +8960,21 @@ function renderFeatureSets(savedPath?: string) {
   renderSnippetFeatureSetPicker();
   const displayFeatureSets = getFeatureSetsForDisplay();
   renderFeatureSetCloneControls();
-  renderFlowBoard(featureSetFlowBoard, createMappingFlowBoardColumns(savedMappings, displayFeatureSets));
+  featureSetFlowBoard.replaceChildren();
   renderMappingGraph();
-  const featureSetMappingIds = new Set(displayFeatureSets.flatMap((featureSet) => featureSet.mappingIds));
-  const mappingsOutsideFeatureSets = savedMappings.filter((mapping) => !featureSetMappingIds.has(mapping.id));
 
   if (displayFeatureSets.length === 0) {
-    featureSetList.replaceChildren(createCard("저장된 기능 묶음 없음", "저장된 기능 연결을 골라 하나의 묶음으로 묶어보세요."));
+    featureSetList.replaceChildren();
     featureSetStatus.textContent = savedPath
-      ? `${savedPath}에 저장된 기능 묶음이 없습니다.`
-      : "저장된 기능 묶음이 없습니다.";
+      ? `${savedPath}에 저장된 연결 세트가 없습니다.`
+      : "저장된 연결 세트가 없습니다.";
     return;
   }
 
-  featureSetList.replaceChildren(
-    createCard("묶음 적용 범위", `${featureSetMappingIds.size}개 저장 연결이 기능 묶음에 포함되어 있습니다.`, [
-      `묶음 밖 저장 연결 ${mappingsOutsideFeatureSets.length}`,
-      ...mappingsOutsideFeatureSets.map((mapping) => getDisplayMappingName(mapping)),
-    ]),
-    ...displayFeatureSets.map((featureSet) => {
-    const missingMappingIds = featureSet.mappingIds.filter((mappingId) => !savedMappings.some((mapping) => mapping.id === mappingId));
-    const compatibility = checkFeatureSetCompatibility(featureSet);
-    const mappingById = new Map(savedMappings.map((mapping) => [mapping.id, mapping]));
-    const actionSummary = featureSet.mappingIds
-      .map((mappingId) => {
-        const mapping = mappingById.get(mappingId);
-        if (!mapping) {
-          return `${mappingId}: 연결 누락`;
-        }
-
-        return `${getDisplayMappingName(mapping)}: ${mapping.actions.slice(0, 3).map((action) => getReadableActionLabel(action.type)).join(" -> ")}`;
-      });
-    const card = createCard(
-      featureSet.name ?? featureSet.id,
-      `${featureSet.mappingIds.length}개 기능 연결을 포함합니다. ${getFeatureSetStatusText(featureSet)}`,
-      [
-        `id: ${featureSet.id}`,
-        featureSet.mode === "character-template" ? "캐릭터 미지정 템플릿" : "캐릭터 전용 묶음",
-        `호환 상태: ${compatibility.status === "ready" ? "사용 가능" : compatibility.status === "partial" ? "일부 사용 불가" : "사용 불가"}`,
-        ...featureSet.mappingIds.map((mappingId) => `연결: ${mappingId}`),
-        ...actionSummary.slice(0, 5).map((summary) => `실행: ${summary}`),
-        ...(missingMappingIds.length > 0 ? [`누락 연결 ${missingMappingIds.length}`] : []),
-        ...compatibility.missing.slice(0, 4).map((missing) => `누락 재료: ${missing}`),
-      ],
-    );
-    card.append(createFeatureSetFlow(featureSet));
-    const controls = document.createElement("div");
-    controls.className = "asset-lab-button-row";
-    controls.append(
-      createActionButton("편집기에서 보기", () => selectFeatureSetInEditor(featureSet)),
-      createActionButton("불러오기", () => loadFeatureSetIntoForm(featureSet)),
-      createActionButton("삭제", () => deleteFeatureSet(featureSet.id)),
-    );
-    card.append(controls);
-
-    return card;
-  }));
+  featureSetList.replaceChildren();
   featureSetStatus.textContent = savedPath
-    ? `${savedPath}에서 ${displayFeatureSets.length}개 기능 묶음을 불러왔어요.`
-    : `${displayFeatureSets.length}개 기능 묶음을 불러왔어요.`;
+    ? `${savedPath}에서 ${displayFeatureSets.length}개 연결 세트를 불러왔어요. 카드덱에서 세트를 누르면 작업판에서 확인할 수 있습니다.`
+    : `${displayFeatureSets.length}개 연결 세트를 불러왔어요. 카드덱에서 세트를 누르면 작업판에서 확인할 수 있습니다.`;
   featureSetStatus.dataset.state = "ready";
 }
 
@@ -7226,30 +8990,107 @@ function loadFeatureSetIntoForm(featureSet: NanikaFeatureSet) {
   });
   renderFeatureSetDraftPreview();
   selectFeatureSetInEditor(featureSet);
-  featureSetStatus.textContent = `${featureSet.id} 기능 묶음을 편집 폼으로 불러왔어요.`;
+  featureSetStatus.textContent = `${featureSet.id} 연결 세트를 편집 폼으로 불러왔어요.`;
   featureSetStatus.dataset.state = "ready";
 }
 
-function addSelectedEditorMappingToFeatureSet() {
-  if (editorSelection.type !== "mapping" || editorSelection.source !== "saved") {
-    return;
+function getSelectedCanvasMappingIds() {
+  if (!currentEditorGraph) {
+    return [];
   }
 
-  const mappingId = editorSelection.mapping.id;
-  setActiveView("feature-sets");
-  const checkbox = featureSetMappingPicker.querySelector<HTMLInputElement>(`input[value="${CSS.escape(mappingId)}"]`);
+  return Array.from(new Set(Array.from(selectedCanvasNodeIds)
+    .map((nodeId) => currentEditorGraph?.nodes.find((node) => node.id === nodeId))
+    .filter((node): node is CanvasNode => Boolean(node && node.kind === "mapping"))
+    .map((node) => getCanvasNodeSourceId(node))
+    .filter((mappingId): mappingId is string => Boolean(mappingId && savedMappings.some((mapping) => mapping.id === mappingId)))));
+}
 
-  if (!checkbox) {
-    featureSetStatus.textContent = `${mappingId} 연결을 기능 묶음 선택 목록에서 찾지 못했어요.`;
+function getSelectedCanvasMappingNodeCount() {
+  if (!currentEditorGraph) {
+    return 0;
+  }
+
+  return Array.from(selectedCanvasNodeIds)
+    .map((nodeId) => currentEditorGraph?.nodes.find((node) => node.id === nodeId))
+    .filter((node): node is CanvasNode => Boolean(node && node.kind === "mapping"))
+    .length;
+}
+
+function updateFeatureSetCreateButtonState() {
+  const selectedMappingCount = getSelectedCanvasMappingIds().length;
+  const selectedMappingNodeCount = getSelectedCanvasMappingNodeCount();
+  const canUseSelection = selectedMappingCount > 0 && !editorReadOnly;
+
+  editorAddToFeatureSetButton.disabled = !canUseSelection;
+  editorAddToFeatureSetButton.textContent = selectedMappingCount > 0
+    ? `선택 ${selectedMappingCount}개로 세트 만들기`
+    : selectedMappingNodeCount > 0
+      ? "저장 연결만 세트 가능"
+    : "선택한 연결로 세트 만들기";
+  editorAddToFeatureSetButton.title = selectedMappingCount > 0
+    ? "선택한 저장 연결 카드들을 연결 세트 후보에 넣고 세트 저장 화면으로 이동합니다."
+    : selectedMappingNodeCount > 0
+      ? "선택한 카드는 사용처 표시용 연결입니다. 저장 연결 카드 또는 프로필 상세에 펼쳐진 저장 연결 카드를 선택하세요."
+    : "작업판에서 저장 연결 카드를 드래그 선택하거나 Shift+클릭으로 여러 개 선택하세요.";
+}
+
+function addMappingIdsToFeatureSetCandidates(mappingIds: readonly string[]) {
+  const uniqueMappingIds = Array.from(new Set(mappingIds.map((mappingId) => mappingId.trim()).filter(Boolean)));
+  if (uniqueMappingIds.length === 0) {
+    featureSetStatus.textContent = "작업판에서 저장 연결 카드를 드래그 선택하거나 Shift+클릭으로 여러 개 선택하세요.";
     featureSetStatus.dataset.state = "warning";
     revealEditorPanel();
     return;
   }
 
-  checkbox.checked = true;
+  setActiveView("feature-sets");
+  const missingIds: string[] = [];
+  let addedCount = 0;
+
+  uniqueMappingIds.forEach((mappingId) => {
+    const checkbox = featureSetMappingPicker.querySelector<HTMLInputElement>(`input[value="${CSS.escape(mappingId)}"]`);
+
+    if (!checkbox) {
+      missingIds.push(mappingId);
+      return;
+    }
+
+    if (!checkbox.checked) {
+      addedCount += 1;
+    }
+    checkbox.checked = true;
+  });
   renderFeatureSetDraftPreview();
-  featureSetStatus.textContent = `${mappingId} 연결을 새 기능 묶음 후보에 추가했어요.`;
-  featureSetStatus.dataset.state = "ready";
+  const selectedIds = getSelectedFeatureSetMappingIds();
+  if (selectedIds.length > 0) {
+    selectFeatureSetInEditor(createDraftFeatureSetFromSelectedMappings(selectedIds), false);
+  }
+  if (missingIds.length > 0) {
+    featureSetStatus.textContent = `${missingIds.join(", ")} 연결을 연결 세트 선택 목록에서 찾지 못했어요.`;
+    featureSetStatus.dataset.state = "warning";
+  } else {
+    featureSetStatus.textContent = `${uniqueMappingIds.length}개 연결을 연결 세트 후보에 추가했어요.${addedCount === 0 ? " 이미 선택된 연결입니다." : ""} ID와 이름을 확인한 뒤 세트 저장을 누르세요.`;
+    featureSetStatus.dataset.state = "ready";
+  }
+  revealEditorPanel();
+}
+
+function addSelectedEditorMappingToFeatureSet() {
+  const selectedMappingIds = getSelectedCanvasMappingIds();
+
+  if (selectedMappingIds.length > 0) {
+    addMappingIdsToFeatureSetCandidates(selectedMappingIds);
+    return;
+  }
+
+  if (editorSelection.type === "mapping" && editorSelection.source === "saved") {
+    addMappingIdsToFeatureSetCandidates([editorSelection.mapping.id]);
+    return;
+  }
+
+  featureSetStatus.textContent = "작업판에서 저장 연결 카드를 드래그 선택하거나 Shift+클릭으로 여러 개 선택하세요.";
+  featureSetStatus.dataset.state = "warning";
   revealEditorPanel();
 }
 
@@ -7325,7 +9166,16 @@ async function saveEditorCanvasState() {
 function runEditorSave() {
   if (editorSelection.type === "draft") {
     saveCanvasStatesToStorage();
+    if (isRuntimeProfileGraph(currentEditorGraph)) {
+      void saveRuntimeProfileFromEditorGraph();
+      return;
+    }
     void saveDraftMapping();
+    return;
+  }
+
+  if (editorSelection.type === "profile") {
+    void saveRuntimeProfileFromEditorGraph();
     return;
   }
 
@@ -7349,7 +9199,22 @@ function createEditorGraphDraftJson() {
 function initDraftBuilder() {
   initMappingGraphControls();
   initTargetOptions();
-  draftMappingIdInput.addEventListener("input", renderDraftPreview);
+  renderDraftStartTemplates();
+  setEditorPaletteCollapsed(localStorage.getItem(editorPaletteCollapsedStorageKey) !== "false");
+  draftMappingIdInput.addEventListener("input", () => {
+    syncEditorMappingIdInput();
+    renderDraftPreview();
+  });
+  editorMappingIdInput.addEventListener("input", () => {
+    if (editorSelection.type !== "draft") {
+      syncEditorMappingIdInput();
+      return;
+    }
+
+    draftMappingIdInput.value = editorMappingIdInput.value;
+    updateEditorMappingIdStatus();
+    renderDraftPreview();
+  });
   draftMappingNameInput.addEventListener("input", renderDraftPreview);
   draftTargetSelect.addEventListener("change", renderDraftPreview);
   addSelectedActionButton.addEventListener("click", addSelectedActionToFlow);
@@ -7374,6 +9239,18 @@ function initDraftBuilder() {
     await copyText(mappingMermaidPreview.textContent ?? "", savedMappingStatus, "Mermaid 코드를 복사했어요.");
   });
   editorLoadDraftButton.addEventListener("click", () => {
+    if (editorSelection.type === "profile") {
+      const profile = JSON.parse(JSON.stringify(editorSelection.profile)) as NanikaRuntimeProfile;
+      if (editorSelection.source === "saved") {
+        profile.id = createUniqueRuntimeProfileCopyId(profile.id);
+        profile.name = `${profile.name ?? editorSelection.profile.id} 복사본`;
+      }
+      selectRuntimeProfileInEditor(profile, "preset", true, false);
+      draftMappingStatus.textContent = `${profile.id} 프로필을 편집 작업판에 불러왔어요.`;
+      draftMappingStatus.dataset.state = "ready";
+      return;
+    }
+
     if (editorSelection.type !== "mapping") {
       return;
     }
@@ -7397,6 +9274,13 @@ function initDraftBuilder() {
     editorCanvasZoom = 1;
     renderEditorCanvas();
   });
+  editorHelpToggleButton.addEventListener("click", () => {
+    setEditorHelpPanelOpen(mappingEditorHelpPanel.hidden);
+  });
+  editorHelpCloseButton.addEventListener("click", () => {
+    setEditorHelpPanelOpen(false);
+  });
+  editorPaletteToggleButton.addEventListener("click", toggleEditorPalette);
   editorCopyGraphButton.addEventListener("click", async () => {
     if (!currentEditorGraph) {
       return;
@@ -7469,7 +9353,7 @@ function renderSummary() {
   createCard("저장 / 적용 상태", "저장된 연결과 현재 preset에 실제 적용된 실행 규칙을 구분합니다.", [
       `저장됨 ${savedMappings.length}`,
       `적용됨 ${rules.length}`,
-      `기능 묶음 ${savedFeatureSets.length}`,
+      `연결 세트 ${savedFeatureSets.length}`,
       `조건 ${savedConditions.length}`,
       `저장+적용 ${savedStatus.savedAndApplied.length}`,
       `저장만 됨 ${savedStatus.savedOnly.length}`,
@@ -7529,8 +9413,8 @@ function renderConnectionMap() {
       `적용만 됨 ${savedStatus.appliedOnly.length}`,
       `중복 저장 ${savedStatus.duplicateSavedIds.length}`,
     ]),
-    createCard("기능 묶음", `${savedFeatureSets.length}개 기능 묶음이 저장되어 있습니다.`, [
-      `묶음 ${savedFeatureSets.length}`,
+    createCard("연결 세트", `${savedFeatureSets.length}개 연결 세트가 저장되어 있습니다.`, [
+      `세트 ${savedFeatureSets.length}`,
       `포함 연결 ${savedFeatureSets.reduce((count, featureSet) => count + featureSet.mappingIds.length, 0)}`,
       "runtime 자동 적용은 후속 단계",
     ]),
@@ -7663,3 +9547,4 @@ refreshOverview();
 void loadConditions();
 void loadSavedMappings();
 void loadFeatureSets();
+void loadRuntimeProfiles();

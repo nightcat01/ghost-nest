@@ -5,6 +5,7 @@ type SupabaseNanikaRow = {
   mapping_json?: unknown;
   feature_set_json?: unknown;
   condition_json?: unknown;
+  menu_json?: unknown;
 };
 
 type SupabaseNanikaAdapterOptions = {
@@ -32,6 +33,13 @@ const scopeConfig = {
     upsertRpc: "nanika_upsert_condition",
     deleteRpc: "nanika_delete_condition",
     deleteParam: "condition_id",
+  },
+  menus: {
+    view: "nanika_menu_definitions",
+    jsonColumn: "menu_json",
+    upsertRpc: "nanika_upsert_menu",
+    deleteRpc: "nanika_delete_menu",
+    deleteParam: "menu_id",
   },
 } satisfies Partial<Record<NanikaDataScope, {
   view: string;
