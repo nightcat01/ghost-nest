@@ -30,10 +30,23 @@ const menuModes = [
 ] satisfies Array<{ id: MenuMode; label: string; description: string }>;
 
 const modeList = requireElement(document.querySelector<HTMLElement>("#menuModeList"), "#menuModeList");
+const shell = requireElement(document.querySelector<HTMLElement>(".asset-menu-settings-shell"), ".asset-menu-settings-shell");
 const menuTree = requireElement(document.querySelector<HTMLElement>("#menuTree"), "#menuTree");
 const output = requireElement(document.querySelector<HTMLElement>("#menuOutput"), "#menuOutput");
 const status = requireElement(document.querySelector<HTMLElement>("#menuStatus"), "#menuStatus");
 const copyButton = requireElement(document.querySelector<HTMLButtonElement>("#copyMenuJsonButton"), "#copyMenuJsonButton");
+const summaryBar = requireElement(document.querySelector<HTMLElement>("#menuSelectionSummaryBar"), "#menuSelectionSummaryBar");
+const sourceSummary = requireElement(document.querySelector<HTMLElement>("#menuSourceSummary"), "#menuSourceSummary");
+const sourceSummaryText = requireElement(document.querySelector<HTMLElement>("#menuSourceSummaryText"), "#menuSourceSummaryText");
+const sourceContent = requireElement(document.querySelector<HTMLElement>("#menuSourceContent"), "#menuSourceContent");
+const sourceExtra = requireElement(document.querySelector<HTMLElement>("#menuSourceExtra"), "#menuSourceExtra");
+const editSourceButton = requireElement(document.querySelector<HTMLButtonElement>("#editMenuSourceButton"), "#editMenuSourceButton");
+const collapseSourceButton = requireElement(document.querySelector<HTMLButtonElement>("#collapseMenuSourceButton"), "#collapseMenuSourceButton");
+const setSummary = requireElement(document.querySelector<HTMLElement>("#menuSetSummary"), "#menuSetSummary");
+const setSummaryText = requireElement(document.querySelector<HTMLElement>("#menuSetSummaryText"), "#menuSetSummaryText");
+const setContent = requireElement(document.querySelector<HTMLElement>("#menuSetContent"), "#menuSetContent");
+const editSetButton = requireElement(document.querySelector<HTMLButtonElement>("#editMenuSetButton"), "#editMenuSetButton");
+const collapseSetButton = requireElement(document.querySelector<HTMLButtonElement>("#collapseMenuSetButton"), "#collapseMenuSetButton");
 const newMenuButton = requireElement(document.querySelector<HTMLButtonElement>("#newMenuButton"), "#newMenuButton");
 const saveMenuButton = requireElement(document.querySelector<HTMLButtonElement>("#saveMenuButton"), "#saveMenuButton");
 const deleteMenuButton = requireElement(document.querySelector<HTMLButtonElement>("#deleteMenuButton"), "#deleteMenuButton");
@@ -65,6 +78,11 @@ let currentItems: ManagementMenuItem[] = [];
 let savedMenus: NanikaMenuSet[] = [];
 let selectedPath: MenuItemPath | null = null;
 let currentItemActions: RuntimeAction[] = [];
+let sourceStepExpanded = true;
+let setStepExpanded = true;
+
+const maxMenuItems = 24;
+const maxMenuDepth = 3;
 
 const dialogueCategoryOptions = [
   { value: "onMount", label: "시작 대사" },
@@ -381,6 +399,50 @@ function getContainerAtPath(path: MenuItemPath | null) {
   return parent.children;
 }
 
+function countMenuItems(items: readonly ManagementMenuItem[]): number {
+  return items.reduce((total, item) => total + 1 + countMenuItems(item.children ?? []), 0);
+}
+
+function getMenuDepth(items: readonly ManagementMenuItem[], depth = 0): number {
+  if (items.length === 0) {
+    return depth;
+  }
+
+  return Math.max(...items.map((item) => getMenuDepth(item.children ?? [], depth + 1)));
+}
+
+function getMenuValidationMessages(menu: NanikaMenuSet) {
+  const messages: string[] = [];
+  const itemCount = countMenuItems(menu.items);
+  const menuDepth = getMenuDepth(menu.items);
+
+  if (!menu.id.trim()) {
+    messages.push("메뉴 ID를 입력하세요.");
+  }
+
+  if (menu.items.length === 0) {
+    messages.push("상위 메뉴 항목을 하나 이상 추가하세요.");
+  }
+
+  if (itemCount > maxMenuItems) {
+    messages.push(`메뉴 항목은 최대 ${maxMenuItems}개까지 권장합니다. 현재 ${itemCount}개입니다.`);
+  }
+
+  if (menuDepth > maxMenuDepth) {
+    messages.push(`메뉴 depth는 최대 ${maxMenuDepth}단계까지 허용합니다. 현재 ${menuDepth}단계입니다.`);
+  }
+
+  return messages;
+}
+
+function getMenuSummaryText() {
+  const itemCount = countMenuItems(currentItems);
+  const depth = getMenuDepth(currentItems);
+  const selected = formatPath(selectedPath);
+
+  return `항목 ${itemCount}/${maxMenuItems}개 · depth ${depth}/${maxMenuDepth} · 선택: ${selected}`;
+}
+
 function parseActionsInput() {
   const source = menuItemActionsInput.value.trim();
 
@@ -482,7 +544,30 @@ function applyMenuSet(menu: NanikaMenuSet) {
   menuDraggableInput.checked = menu.draggable ?? true;
   currentItems = cloneItems(menu.items ?? []);
   selectedPath = currentItems.length > 0 ? [0] : null;
+  sourceStepExpanded = false;
+  setStepExpanded = false;
   render();
+}
+
+function getCurrentModeLabel() {
+  return menuModes.find((mode) => mode.id === currentMode)?.label ?? "직접 입력";
+}
+
+function syncStepSummaries(menu: NanikaMenuSet) {
+  const hasItems = currentItems.length > 0;
+  const hasMenuInfo = Boolean(menu.id.trim() || menu.name?.trim());
+
+  sourceSummary.hidden = sourceStepExpanded || !hasItems;
+  sourceContent.hidden = false;
+  sourceExtra.hidden = false;
+  sourceSummaryText.textContent = `${menu.name || getCurrentModeLabel()} · 상위 항목 ${currentItems.length}개`;
+  shell.classList.toggle("asset-menu-source-collapsed", !sourceStepExpanded && hasItems);
+
+  setSummary.hidden = setStepExpanded || !hasMenuInfo;
+  setContent.hidden = false;
+  setSummaryText.textContent = `${menu.id || "ID 미지정"} · ${menu.defaultDisplay === "panel" ? "고정 패널" : "말풍선 안"} · ${menu.audience ?? "user"}`;
+  shell.classList.toggle("asset-menu-set-collapsed", !setStepExpanded && hasMenuInfo);
+  summaryBar.hidden = sourceSummary.hidden && setSummary.hidden;
 }
 
 function renderModeTabs() {
@@ -505,6 +590,8 @@ function renderModeTabs() {
       menuDescriptionInput.value = mode.description;
       menuAudienceSelect.value = mode.id === "developer" ? "developer" : mode.id === "all" ? "custom" : "user";
       selectedPath = currentItems.length > 0 ? [0] : null;
+      sourceStepExpanded = false;
+      setStepExpanded = false;
       render();
       status.textContent = `${mode.label} 템플릿을 편집 초안으로 불러왔어요.`;
       status.dataset.state = "ready";
@@ -517,29 +604,39 @@ function renderModeTabs() {
 function createMenuTreeNode(item: ManagementMenuItem, path: MenuItemPath): HTMLElement {
   const node = document.createElement("details");
   const summary = document.createElement("summary");
+  const header = document.createElement("span");
   const main = document.createElement("button");
+  const toggleLabel = document.createElement("span");
   const meta = document.createElement("span");
   const actionPreview = document.createElement("div");
+  const hasChildren = (item.children?.length ?? 0) > 0;
 
   node.className = "asset-menu-tree-node";
   node.open = true;
   node.dataset.selected = String(JSON.stringify(path) === JSON.stringify(selectedPath));
+  node.dataset.hasChildren = String(hasChildren);
+  header.className = "asset-menu-tree-header";
   main.type = "button";
   main.className = "asset-menu-tree-button";
   main.textContent = item.label;
+  main.setAttribute("aria-label", `${item.label} 항목 선택`);
   main.addEventListener("click", (event) => {
     event.preventDefault();
+    event.stopPropagation();
     selectedPath = path;
     fillItemForm(item);
     render();
   });
+  toggleLabel.className = "asset-menu-tree-toggle";
+  toggleLabel.textContent = hasChildren ? "접기/펼치기" : "하위 없음";
   meta.className = "asset-menu-tree-meta";
   meta.append(
     createBadge(item.id),
     createBadge(`액션 ${item.actions?.length ?? 0}`),
     createBadge(`하위 ${item.children?.length ?? 0}`),
   );
-  summary.append(main, meta);
+  header.append(main, toggleLabel);
+  summary.append(header, meta);
   node.append(summary);
 
   if (item.description || item.actions?.length) {
@@ -570,7 +667,7 @@ function fillItemForm(item: ManagementMenuItem | null) {
   currentItemActions = JSON.parse(JSON.stringify(item?.actions ?? [])) as RuntimeAction[];
   syncActionsTextarea();
   renderActionListEditor();
-  addChildItemButton.disabled = !item;
+  addChildItemButton.disabled = !item || (selectedPath?.length ?? 0) >= maxMenuDepth || countMenuItems(currentItems) >= maxMenuItems;
   applyItemButton.disabled = !item;
   deleteItemButton.disabled = !item;
   addMenuActionButton.disabled = !item;
@@ -633,8 +730,11 @@ function createEmptyState(text: string) {
 
 function render() {
   const selectedItem = getItemAtPath(selectedPath);
+  const menu = readCurrentMenuSet();
+  const validationMessages = getMenuValidationMessages(menu);
 
   renderModeTabs();
+  addRootItemButton.disabled = countMenuItems(currentItems) >= maxMenuItems;
   menuTree.replaceChildren(
     ...(currentItems.length > 0
       ? currentItems.map((item, index) => createMenuTreeNode(item, [index]))
@@ -642,10 +742,20 @@ function render() {
   );
   fillItemForm(selectedItem);
   renderSavedMenus();
-  output.textContent = JSON.stringify(readCurrentMenuSet(), null, 2);
+  output.textContent = JSON.stringify(menu, null, 2);
+  syncStepSummaries(menu);
+  if (validationMessages.length > 0) {
+    status.textContent = `${getMenuSummaryText()} · ${validationMessages[0]}`;
+    status.dataset.state = "warning";
+  } else {
+    status.textContent = getMenuSummaryText();
+    status.dataset.state = "ready";
+  }
 }
 
-function createNewMenu() {
+function createNewMenu(options: { collapseSetup?: boolean } = {}) {
+  const collapseSetup = options.collapseSetup ?? true;
+
   menuIdInput.value = `menu.common.${Date.now().toString(36)}`;
   menuNameInput.value = "새 메뉴";
   menuDescriptionInput.value = "";
@@ -655,10 +765,18 @@ function createNewMenu() {
   menuDraggableInput.checked = false;
   currentItems = [createEmptyMenuItem()];
   selectedPath = [0];
+  sourceStepExpanded = !collapseSetup;
+  setStepExpanded = !collapseSetup;
   render();
 }
 
 function addRootItem() {
+  if (countMenuItems(currentItems) >= maxMenuItems) {
+    status.textContent = `메뉴 항목은 최대 ${maxMenuItems}개까지 만들 수 있어요.`;
+    status.dataset.state = "warning";
+    return;
+  }
+
   currentItems.push(createEmptyMenuItem());
   selectedPath = [currentItems.length - 1];
   render();
@@ -668,6 +786,18 @@ function addChildItem() {
   const parent = getItemAtPath(selectedPath);
 
   if (!parent) {
+    return;
+  }
+
+  if ((selectedPath?.length ?? 0) >= maxMenuDepth) {
+    status.textContent = `하위 메뉴는 최대 ${maxMenuDepth}단계까지만 만들 수 있어요.`;
+    status.dataset.state = "warning";
+    return;
+  }
+
+  if (countMenuItems(currentItems) >= maxMenuItems) {
+    status.textContent = `메뉴 항목은 최대 ${maxMenuItems}개까지 만들 수 있어요.`;
+    status.dataset.state = "warning";
     return;
   }
 
@@ -750,9 +880,10 @@ async function loadSavedMenus() {
 
 async function saveMenu() {
   const menu = readCurrentMenuSet();
+  const validationMessages = getMenuValidationMessages(menu);
 
-  if (!menu.id) {
-    status.textContent = "메뉴 ID를 입력하세요.";
+  if (validationMessages.length > 0) {
+    status.textContent = validationMessages[0] ?? "메뉴 정보를 확인하세요.";
     status.dataset.state = "warning";
     return;
   }
@@ -814,7 +945,23 @@ async function copyMenuJson() {
 copyButton.addEventListener("click", () => {
   void copyMenuJson();
 });
-newMenuButton.addEventListener("click", createNewMenu);
+editSourceButton.addEventListener("click", () => {
+  sourceStepExpanded = true;
+  render();
+});
+collapseSourceButton.addEventListener("click", () => {
+  sourceStepExpanded = false;
+  render();
+});
+editSetButton.addEventListener("click", () => {
+  setStepExpanded = true;
+  render();
+});
+collapseSetButton.addEventListener("click", () => {
+  setStepExpanded = false;
+  render();
+});
+newMenuButton.addEventListener("click", () => createNewMenu({ collapseSetup: false }));
 saveMenuButton.addEventListener("click", () => {
   void saveMenu();
 });
@@ -853,6 +1000,6 @@ addMenuActionButton.addEventListener("click", () => {
   }
 });
 
-createNewMenu();
+createNewMenu({ collapseSetup: false });
 updateActionValuePlaceholder();
 void loadSavedMenus().then(render);

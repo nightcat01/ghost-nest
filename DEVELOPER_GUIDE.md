@@ -1,5 +1,18 @@
 # GhostNest Developer Guide
 
+## 먼저 볼 문서
+
+Nanika를 host 앱에 붙이거나, 개발자와 비개발 사용자의 책임 범위를 정리해야 한다면 아래 문서를 먼저 봅니다.
+
+- [Nanika Integration and Usage Guide](./docs/nanika-integration-and-usage-guide.md)
+
+핵심 기준:
+
+- Host 앱 개발자는 mount, routing, asset URL, profile 선택, host event 전달을 책임집니다.
+- 비개발 사용자는 devtools 화면에서 캐릭터, 대사, 무대 조합, 매핑, 메뉴를 설정합니다.
+- Nanika 기능 개발자는 plugin/devtools/data adapter/runtime contract를 관리합니다.
+- core/runtime은 plugin, option, adapter로 해결할 수 없을 때만 수정합니다.
+
 이 문서는 GhostNest를 서비스나 데모에 붙이는 개발자가 가장 먼저 보는 안내서다.
 
 GhostNest의 기본 목표는 코어 런타임을 직접 수정하지 않고, 외부 기능과 캐릭터 행동을 액션으로 연결하는 것이다.

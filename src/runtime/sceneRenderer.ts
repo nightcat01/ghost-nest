@@ -153,16 +153,23 @@ function getCharacterSceneLayer(layers: RuntimeSceneLayer[]) {
   return layers.find((layer) => layer.role === "character") ?? null;
 }
 
-/**
- * Applies only the scene character depth. Scene placement must not resize or move the runtime sprite.
- */
 function applyCharacterSceneSlot(element: HTMLElement, layer: RuntimeSceneLayer | null) {
   element.style.setProperty("--character-scene-depth", String(layer?.depth ?? defaultCharacterSceneDepth));
-  element.style.removeProperty("--scene-character-x");
-  element.style.removeProperty("--scene-character-y");
-  element.style.removeProperty("--scene-character-width");
-  element.style.removeProperty("--scene-character-height");
-  delete element.dataset.sceneCharacterPlacement;
+
+  if (!layer?.placement) {
+    element.style.removeProperty("--scene-character-x");
+    element.style.removeProperty("--scene-character-y");
+    element.style.removeProperty("--scene-character-width");
+    element.style.removeProperty("--scene-character-height");
+    delete element.dataset.sceneCharacterPlacement;
+    return;
+  }
+
+  element.dataset.sceneCharacterPlacement = layer.placement.unit ?? "percent";
+  element.style.setProperty("--scene-character-x", `${layer.placement.x}%`);
+  element.style.setProperty("--scene-character-y", `${layer.placement.y}%`);
+  element.style.setProperty("--scene-character-width", `${layer.placement.width}%`);
+  element.style.setProperty("--scene-character-height", `${layer.placement.height}%`);
 }
 
 /**
@@ -207,6 +214,22 @@ export function createSceneRenderer({ elements, scene, initialScene }: SceneRend
   viewport.append(backLayerRoot, frontLayerRoot);
   elements.stage.prepend(viewport);
 
+  function restoreSpriteToStage() {
+    if (elements.sprite.parentElement !== viewport || !originalSpriteParent) {
+      return;
+    }
+
+    originalSpriteParent.insertBefore(elements.sprite, originalSpriteNextSibling);
+  }
+
+  function moveSpriteIntoSceneViewport() {
+    if (elements.sprite.parentElement === viewport) {
+      return;
+    }
+
+    viewport.insertBefore(elements.sprite, frontLayerRoot);
+  }
+
   function appendSceneLayer(layer: RuntimeSceneLayer, characterDepth: number, options: { overlaySlot?: string; overlayId?: string } = {}) {
     const element = createSceneLayerElement(layer);
     const targetRoot = (layer.depth ?? 0) > characterDepth ? frontLayerRoot : backLayerRoot;
@@ -236,6 +259,13 @@ export function createSceneRenderer({ elements, scene, initialScene }: SceneRend
     elements.stage.dataset.sceneActive = selectedScene && (hasSceneLayers || Boolean(characterLayer?.placement)) ? "true" : "false";
     applySceneCanvas(elements.stage, selectedScene);
     applyCharacterSceneSlot(elements.stage, characterLayer);
+    if (characterLayer?.placement) {
+      elements.stage.dataset.characterInScene = "true";
+      moveSpriteIntoSceneViewport();
+    } else {
+      delete elements.stage.dataset.characterInScene;
+      restoreSpriteToStage();
+    }
     backLayerRoot.style.zIndex = String(characterDepth - 1);
     frontLayerRoot.style.zIndex = String(characterDepth + 1);
 
@@ -266,9 +296,7 @@ export function createSceneRenderer({ elements, scene, initialScene }: SceneRend
   function destroy() {
     overlayTimers.forEach((timerId) => window.clearTimeout(timerId));
     overlayTimers.clear();
-    if (originalSpriteParent && elements.sprite.parentElement !== originalSpriteParent) {
-      originalSpriteParent.insertBefore(elements.sprite, originalSpriteNextSibling);
-    }
+    restoreSpriteToStage();
     viewport.remove();
   }
 

@@ -3,7 +3,7 @@ import { bundledCharacters } from "./characters/index.js";
 import { createCharacterWithAssetBaseUrl, type CharacterAssetBaseUrlOptions } from "./core/assetUrls.js";
 import {
   createGhostRuntimeFromPreset,
-  createNanikaRuntimeProfileOptions,
+  createNanikaRuntimeProfileOptionsById,
   type NanikaRuntimePresetOverrides,
   type NanikaFeatureSet,
   type NanikaMapping,
@@ -203,12 +203,15 @@ const embedRuntimeControls = {
 };
 
 const embedRuntimeSizing = {
-  speechLayout: embedSpeechPreset.layout satisfies SpeechLayoutOptions,
+  speechLayout: {
+    ...embedSpeechPreset.layout,
+    overlayAnchor: "center",
+  } satisfies SpeechLayoutOptions,
   speechBalloonSize: {
     ...embedSpeechPreset.size,
-    stageWidth: "min(100%, calc(var(--runtime-area-width, 640px) - 32px))",
-    dialogueWidth: "min(100%, calc(var(--runtime-area-width, 640px) - 48px))",
-    dialogueMaxWidth: "100%",
+    stageWidth: "min(360px, calc(var(--runtime-area-width, 360px) - 32px))",
+    dialogueWidth: "min(100%, calc(var(--runtime-area-width, 460px) - 40px))",
+    dialogueMaxWidth: "430px",
   } satisfies Partial<SpeechBalloonSizeOptions>,
   characterPlacement: {
     placement: "bottom-center" as const,
@@ -436,8 +439,9 @@ async function createEmbedRuntime(pageId = currentEmbedPageId, characterId = cur
   const character = await createEmbedRuntimeCharacter(getEmbedCharacter(characterId));
   currentEmbedCharacterId = character.profile.id;
   const profile = createEmbedRuntimeProfile(pageId, character);
-  const profileResult = createNanikaRuntimeProfileOptions({
-    profile,
+  const profileResult = createNanikaRuntimeProfileOptionsById({
+    profileId: profile.id,
+    profiles: [profile],
     context: {
       pageId,
       url: window.location.pathname,
@@ -446,7 +450,7 @@ async function createEmbedRuntime(pageId = currentEmbedPageId, characterId = cur
     mappings: hostEmbedMappings,
     characterId: character.profile.id,
   });
-  const profileOverrides = profileResult.overrides ?? {};
+  const profileOverrides = profileResult.matched ? profileResult.overrides ?? {} : {};
   const embedMenuItems = withEmbedCharacterSwitcher(createDemoManagementMenuItems(character, {
     includeDeveloperTools: false,
   }), character);
@@ -477,6 +481,7 @@ async function createEmbedRuntime(pageId = currentEmbedPageId, characterId = cur
       observeAreas: "[data-embed-observe]",
     },
     ...embedOverrides,
+    stageMode: "fill",
   });
   embedWindow.__nanikaRuntimeEmbed__.registerAction("switch_embed_character", (action) => {
     const nextCharacterId = isSwitchEmbedCharacterAction(action) && typeof action.characterId === "string"
@@ -526,8 +531,9 @@ async function switchEmbedRuntimeCharacter(characterId: string) {
   const character = await createEmbedRuntimeCharacter(getEmbedCharacter(characterId));
   currentEmbedCharacterId = character.profile.id;
   const profile = createEmbedRuntimeProfile(currentEmbedPageId, character);
-  const profileResult = createNanikaRuntimeProfileOptions({
-    profile,
+  const profileResult = createNanikaRuntimeProfileOptionsById({
+    profileId: profile.id,
+    profiles: [profile],
     context: {
       pageId: currentEmbedPageId,
       url: window.location.pathname,
@@ -536,7 +542,7 @@ async function switchEmbedRuntimeCharacter(characterId: string) {
     mappings: hostEmbedMappings,
     characterId: character.profile.id,
   });
-  const initialOptions = profileResult.overrides ?? {};
+  const initialOptions = profileResult.matched ? profileResult.overrides ?? {} : {};
 
   await runtime.setCharacter(character, {
     ...(initialOptions.initialExpression ? { initialExpression: initialOptions.initialExpression } : {}),

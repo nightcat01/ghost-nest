@@ -149,6 +149,7 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
   const hadRuntimeScopeClass = elements.stage.classList.contains("ghostnest-runtime");
   elements.stage.classList.add("ghostnest-runtime");
   elements.stage.dataset.ready = "false";
+  elements.stage.dataset.stageMode = options.stageMode ?? "content";
   elements.stage.dataset.characterHoverEffect = controls.characterHoverEffect ? "on" : "off";
   if (options.hideUntilReady) {
     elements.stage.dataset.hideUntilReady = "true";
@@ -354,19 +355,6 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
     void dialoguePlayer.play(validation.script);
   }
 
-  function renderPreviewSpeech(message: DialogueMessage) {
-    const menuScrollTop = elements.balloonActionMenu?.scrollTop;
-
-    elements.speakerName.textContent = message.speaker;
-    dialoguePlayer.stop();
-    elements.speechText.textContent = message.text;
-    resetSpeechScroll({ resetMenu: false });
-    if (typeof menuScrollTop === "number" && elements.balloonActionMenu) {
-      elements.balloonActionMenu.scrollTop = menuScrollTop;
-    }
-    characterRenderer.setMouthAnimationActive(false);
-  }
-
   /**
    * 런타임 상태를 sprite dataset에 반영해 CSS 표정/포즈를 전환합니다.
    */
@@ -402,6 +390,7 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
     speechLayout,
     preferenceStorage: options.preferenceStorage,
     defaultRuntimeUiPreferences: {
+      balloonFontSize: "small",
       ...(options.balloonTheme ? { balloonTheme: options.balloonTheme } : {}),
       ...(options.characterPlacement ? { characterPlacement: options.characterPlacement } : {}),
     },
@@ -410,7 +399,6 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
     userPreferences,
     eventBus,
     renderSpeech,
-    renderPreviewSpeech,
     renderCharacterState,
     applySurface: characterRenderer.applySurface,
     setScene: sceneRenderer.setScene,

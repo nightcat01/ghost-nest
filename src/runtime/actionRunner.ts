@@ -1,9 +1,8 @@
 import type {
   BuiltinRuntimeAction,
-  DialogueEngine,
-  ManagementMenuItem,
-  ManagementMenuOptions,
   DialogueMessage,
+  DialogueEngine,
+  ManagementMenuOptions,
   CharacterStagePlacement,
   CharacterStagePlacementOptions,
   RuntimeControlOptions,
@@ -55,7 +54,6 @@ type ActionRunnerContext = {
   userPreferences: RuntimeUserPreferenceOptions;
   eventBus: RuntimeEventEmitter;
   renderSpeech: (message: DialogueMessage) => void;
-  renderPreviewSpeech: (message: DialogueMessage) => void;
   renderCharacterState: () => void;
   applySurface: (surfaceId: string, options?: { startIdleLayers?: boolean }) => void;
   setScene: (sceneId: string) => void;
@@ -113,7 +111,6 @@ export function createActionRunner(context: ActionRunnerContext) {
     userPreferences,
     eventBus,
     renderSpeech,
-    renderPreviewSpeech,
     renderCharacterState,
     applySurface,
     setScene,
@@ -148,10 +145,6 @@ export function createActionRunner(context: ActionRunnerContext) {
 
   const managementMenuOptionsReady = loadManagementMenuOptions();
   const runtimeUiPreferencesReady = loadRuntimeUiPreferences();
-  let pendingMenuPreviewItemId: string | null = null;
-  let lastPreviewedMenuItemId: string | null = null;
-  let menuPreviewTimerId: number | null = null;
-
   async function loadManagementMenuOptions() {
     if (!canReadStoredManagementMenu) {
       return;
@@ -230,6 +223,13 @@ export function createActionRunner(context: ActionRunnerContext) {
       return;
     }
 
+    if (elements.stage.dataset.stageMode === "fill") {
+      clearCharacterPositionStyles();
+      delete elements.stage.dataset.positionMode;
+      delete elements.stage.dataset.characterPlacement;
+      return;
+    }
+
     elements.stage.style.removeProperty("right");
     elements.stage.style.removeProperty("bottom");
     elements.stage.style.removeProperty("transform");
@@ -263,12 +263,18 @@ export function createActionRunner(context: ActionRunnerContext) {
       return;
     }
 
+    clearCharacterPositionStyles();
+
+    if (elements.stage.dataset.stageMode === "fill") {
+      elements.stage.dataset.positionMode = "placement";
+      elements.stage.dataset.characterPlacement = placement.placement;
+      return;
+    }
+
     const { block, inline } = resolvePlacementAxis(placement.placement);
     const offsetX = placement.offsetX ?? 24;
     const offsetY = placement.offsetY ?? 24;
     const transforms: string[] = [];
-
-    clearCharacterPositionStyles();
 
     if (inline === "left") {
       elements.stage.style.left = `${offsetX}px`;
@@ -421,33 +427,6 @@ export function createActionRunner(context: ActionRunnerContext) {
 
   function registerAction(type: string, handler: RuntimeActionHandler) {
     actionHandlers.set(type, handler);
-  }
-
-  function previewManagementMenuItem(item: ManagementMenuItem) {
-    if (!item.description) {
-      return;
-    }
-
-    if (item.id === pendingMenuPreviewItemId || item.id === lastPreviewedMenuItemId) {
-      return;
-    }
-
-    if (menuPreviewTimerId !== null) {
-      window.clearTimeout(menuPreviewTimerId);
-    }
-
-    pendingMenuPreviewItemId = item.id;
-    menuPreviewTimerId = window.setTimeout(async () => {
-      menuPreviewTimerId = null;
-
-      if (pendingMenuPreviewItemId !== item.id || !item.description) {
-        return;
-      }
-
-      pendingMenuPreviewItemId = null;
-      lastPreviewedMenuItemId = item.id;
-      renderPreviewSpeech(await dialogue.custom(item.description));
-    }, 160);
   }
 
   // Register built-in actions
@@ -857,7 +836,6 @@ export function createActionRunner(context: ActionRunnerContext) {
       action: a,
       targets: getManagementMenuTargets(elements),
       runActions: context.runActions,
-      previewItem: previewManagementMenuItem,
       display: resolveManagementMenuDisplay(a, managementMenuOptions),
     });
   });
@@ -894,12 +872,6 @@ export function createActionRunner(context: ActionRunnerContext) {
   });
 
   registerAction("close_management_menu", () => {
-    if (menuPreviewTimerId !== null) {
-      window.clearTimeout(menuPreviewTimerId);
-      menuPreviewTimerId = null;
-    }
-    pendingMenuPreviewItemId = null;
-    lastPreviewedMenuItemId = null;
     closeManagementMenu(getManagementMenuTargets(elements));
   });
 

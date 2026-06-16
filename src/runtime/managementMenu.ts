@@ -12,7 +12,6 @@ type RenderManagementMenuOptions = {
   action: OpenManagementMenuAction;
   targets: ManagementMenuTargets;
   runActions: RunActions;
-  previewItem?: ((item: OpenManagementMenuAction["items"][number]) => void) | undefined;
   currentItems?: OpenManagementMenuAction["items"];
   parentItems?: OpenManagementMenuAction["items"] | undefined;
   menuTitle?: string | undefined;
@@ -116,7 +115,6 @@ function renderMenuContent({
   action,
   targets,
   runActions,
-  previewItem,
   currentItems = action.items,
   parentItems,
   menuTitle = action.title,
@@ -157,7 +155,6 @@ function renderMenuContent({
         action,
         targets,
         runActions,
-        previewItem,
         currentItems: parentItems,
         menuTitle: action.title,
         display,
@@ -173,18 +170,12 @@ function renderMenuContent({
     button.type = "button";
     button.textContent = item.label;
     button.dataset.managementAction = item.id;
-    if (item.description) {
-      button.title = item.description;
-      button.addEventListener("pointerenter", () => previewItem?.(item));
-      button.addEventListener("focus", () => previewItem?.(item));
-    }
     button.addEventListener("click", () => {
       if (item.children) {
         renderManagementMenu({
           action,
           targets,
           runActions,
-          previewItem,
           currentItems: item.children,
           parentItems: currentItems,
           menuTitle: item.label,
@@ -212,7 +203,6 @@ export function renderManagementMenu({
   action,
   targets,
   runActions,
-  previewItem,
   currentItems = action.items,
   parentItems,
   menuTitle = action.title,
@@ -237,7 +227,6 @@ export function renderManagementMenu({
     action,
     targets,
     runActions,
-    previewItem,
     currentItems,
     parentItems,
     menuTitle,

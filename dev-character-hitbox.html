@@ -65,9 +65,20 @@
           </div>
         </section>
 
-        <section class="asset-lab-panel">
+        <section class="asset-lab-panel asset-lab-output-panel asset-workbench-panel">
+          <div class="asset-lab-output-header">
+            <h2>터치 영역 작업판</h2>
+          </div>
+          <div class="asset-preview-zoom-controls asset-workbench-zoom-controls" aria-label="작업판 확대 조절">
+            <button type="button" id="hitboxPreviewZoomOutButton">축소</button>
+            <label>
+              크기
+              <input id="hitboxPreviewSizeInput" type="range" min="320" max="1100" step="20" value="620" />
+            </label>
+            <button type="button" id="hitboxPreviewZoomInButton">확대</button>
+          </div>
           <div class="asset-lab-section asset-sticky-preview">
-            <h2>미리보기</h2>
+            <h2>영역 미리보기</h2>
             <p class="asset-lab-help">캐릭터 이미지 위에서 각 터치 영역이 어디에 놓이는지 확인합니다.</p>
             <div class="asset-hitbox-preview" id="hitboxPreview">
               <div class="asset-hitbox-stage">
@@ -75,7 +86,10 @@
                 <div class="asset-hitbox-overlay" id="hitboxOverlay" aria-hidden="true"></div>
               </div>
             </div>
-            <pre id="hitboxOutput" class="asset-json-output">{}</pre>
+            <details class="asset-debug-details">
+              <summary>저장 데이터 보기</summary>
+              <pre id="hitboxOutput" class="asset-json-output">{}</pre>
+            </details>
           </div>
         </section>
       </section>

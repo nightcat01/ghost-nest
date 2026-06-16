@@ -118,12 +118,12 @@ const typingOptions = {
  * Limits the speech balloon area so long text or large layouts do not push the character scene around.
  */
 const speechBalloonSizeOptions = {
-  stageWidth: "min(420px, calc(var(--runtime-area-width, 420px) - 48px))",
+  stageWidth: "min(360px, calc(var(--runtime-area-width, 360px) - 32px))",
   maxWidth: "100%",
-  dialogueWidth: "min(100%, calc(var(--runtime-area-width, 620px) - 48px))",
-  dialogueMaxWidth: "620px",
+  dialogueWidth: "min(100%, calc(var(--runtime-area-width, 460px) - 40px))",
+  dialogueMaxWidth: "430px",
   dialogueHeight: "min(30vh, 260px)",
-  dialogueMaxHeight: "min(32vh, calc(var(--runtime-area-height, 720px) - var(--character-sprite-height, 390px) - 72px))",
+  dialogueMaxHeight: "min(220px, max(var(--speech-dialogue-min-height, 96px), calc(var(--runtime-area-height, 720px) - var(--character-sprite-height, 390px) - 72px)))",
   actionMenuMaxHeight: "156px",
   mobileMaxHeight: "min(30vh, calc(var(--runtime-area-height, 640px) - var(--character-sprite-mobile-height, 255px) - 76px))",
   mobileActionMenuMaxHeight: "136px",

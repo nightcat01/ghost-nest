@@ -66,18 +66,18 @@ export const defaultTyping = {
 } satisfies SpeechTypingOptions;
 
 export const defaultSpeechBalloonSize = {
-  stageWidth: "min(420px, calc(var(--runtime-area-width, 420px) - 48px))",
+  stageWidth: "min(360px, calc(var(--runtime-area-width, 360px) - 32px))",
   width: "100%",
   maxWidth: "100%",
-  actionMenuMaxHeight: "min(168px, max(76px, calc(var(--floating-content-max-height, 240px) - 88px)))",
-  minHeight: "clamp(88px, calc(var(--runtime-area-height, 720px) * 0.16), 118px)",
-  maxHeight: "min(340px, max(var(--speech-balloon-min-height, 104px), var(--floating-content-max-height, calc(var(--runtime-area-height, 720px) - var(--character-sprite-height, 330px) - 96px))))",
-  dialogueWidth: "min(100%, calc(var(--runtime-area-width, 560px) - 48px))",
+  actionMenuMaxHeight: "min(128px, max(72px, calc(var(--floating-content-max-height, 220px) - 84px)))",
+  minHeight: "clamp(82px, calc(var(--runtime-area-height, 720px) * 0.14), 104px)",
+  maxHeight: "min(240px, max(var(--speech-balloon-min-height, 88px), var(--floating-content-max-height, calc(var(--runtime-area-height, 720px) - var(--character-sprite-height, 330px) - 96px))))",
+  dialogueWidth: "min(100%, calc(var(--runtime-area-width, 460px) - 40px))",
   dialogueMaxWidth: "100%",
-  dialogueHeight: "clamp(86px, calc(var(--runtime-area-height, 720px) * 0.18), 148px)",
-  dialogueMinHeight: "clamp(82px, calc(var(--runtime-area-height, 720px) * 0.14), 118px)",
-  dialogueMaxHeight: "min(280px, max(var(--speech-dialogue-min-height, 118px), calc(var(--runtime-area-height, 720px) - var(--character-sprite-height, 330px) - 72px)))",
+  dialogueHeight: "clamp(74px, calc(var(--runtime-area-height, 720px) * 0.14), 118px)",
+  dialogueMinHeight: "clamp(72px, calc(var(--runtime-area-height, 720px) * 0.12), 96px)",
+  dialogueMaxHeight: "min(220px, max(var(--speech-dialogue-min-height, 96px), calc(var(--runtime-area-height, 720px) - var(--character-sprite-height, 330px) - 72px)))",
   mobileWidth: "100%",
-  mobileMaxHeight: "min(260px, max(92px, var(--floating-content-max-height, calc(var(--runtime-area-height, 640px) - var(--character-sprite-mobile-height, 232px) - 76px))))",
-  mobileActionMenuMaxHeight: "min(150px, max(72px, calc(var(--floating-content-max-height, 220px) - 84px)))",
+  mobileMaxHeight: "min(210px, max(88px, var(--floating-content-max-height, calc(var(--runtime-area-height, 640px) - var(--character-sprite-mobile-height, 232px) - 76px))))",
+  mobileActionMenuMaxHeight: "min(120px, max(68px, calc(var(--floating-content-max-height, 190px) - 76px)))",
 } satisfies SpeechBalloonSizeOptions;

@@ -40,11 +40,29 @@ const previewImage = requireElement(document.querySelector<HTMLImageElement>("#h
 const overlay = requireElement(document.querySelector<HTMLElement>("#hitboxOverlay"), "#hitboxOverlay");
 const output = requireElement(document.querySelector<HTMLElement>("#hitboxOutput"), "#hitboxOutput");
 const status = requireElement(document.querySelector<HTMLElement>("#hitboxStatus"), "#hitboxStatus");
+const previewSizeInput = requireElement(document.querySelector<HTMLInputElement>("#hitboxPreviewSizeInput"), "#hitboxPreviewSizeInput");
+const previewZoomOutButton = requireElement(document.querySelector<HTMLButtonElement>("#hitboxPreviewZoomOutButton"), "#hitboxPreviewZoomOutButton");
+const previewZoomInButton = requireElement(document.querySelector<HTMLButtonElement>("#hitboxPreviewZoomInButton"), "#hitboxPreviewZoomInButton");
 
 let hitAreas: Record<string, HitArea> = {};
 let baseImage = "";
 let activeHitAreaId = "";
 let hitAreaDragState: HitAreaDragState | null = null;
+
+function applyPreviewSize() {
+  const size = clamp(Number(previewSizeInput.value) || 620, Number(previewSizeInput.min) || 320, Number(previewSizeInput.max) || 1100);
+
+  previewSizeInput.value = String(size);
+  previewImage.style.width = `${size}px`;
+  previewImage.style.maxWidth = "none";
+  previewImage.style.maxHeight = "none";
+  renderPreview();
+}
+
+function stepPreviewSize(delta: number) {
+  previewSizeInput.value = String((Number(previewSizeInput.value) || 620) + delta);
+  applyPreviewSize();
+}
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -426,8 +444,12 @@ addHitAreaButton.addEventListener("click", addHitArea);
 saveHitAreasButton.addEventListener("click", () => {
   void saveHitAreas();
 });
+previewSizeInput.addEventListener("input", applyPreviewSize);
+previewZoomOutButton.addEventListener("click", () => stepPreviewSize(-40));
+previewZoomInButton.addEventListener("click", () => stepPreviewSize(40));
 window.addEventListener("pointermove", handleHitAreaDragMove);
 window.addEventListener("pointerup", stopHitAreaDrag);
 window.addEventListener("pointercancel", stopHitAreaDrag);
 
+applyPreviewSize();
 void populateCharacterSelect(characterSelect).then(() => loadCharacterHitAreas());

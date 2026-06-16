@@ -1,34 +1,16 @@
 {
   "menus": [
     {
-      "id": "test",
+      "id": "menu.common.mqetj4kk",
       "items": [
         {
-          "id": "말하기",
-          "label": "말하기",
-          "description": "메뉴 설명을 입력하세요.",
-          "actions": [
-            {
-              "type": "speak_text",
-              "text": "메뉴를 선택했어요."
-            }
-          ]
-        },
-        {
-          "id": "플러그인1",
-          "label": "플러그인1",
-          "description": "메뉴 설명을 입력하세요.",
-          "actions": [
-            {
-              "type": "call_plugin",
-              "pluginId": "sample_result"
-            }
-          ]
+          "id": "menu-item-mqetj4kk",
+          "label": "새 메뉴",
+          "description": "메뉴 설명을 입력하세요."
         }
       ],
-      "name": "테스트 메뉴",
-      "description": "테스트 메뉴",
-      "audience": "custom",
+      "name": "새 메뉴",
+      "audience": "user",
       "defaultDisplay": "panel",
       "closeOnSelect": false,
       "draggable": false

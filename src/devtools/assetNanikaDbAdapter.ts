@@ -22,6 +22,20 @@ type DbConnectionTestResponse = DevApiResponse & {
   message?: string;
 };
 
+type DbSetupApplyResponse = DevApiResponse & {
+  provider?: string;
+  sqlPath?: string;
+  applied?: boolean;
+  summary?: {
+    createTableCount: number;
+    createViewCount: number;
+    insertCount: number;
+    updateConflictCount: number;
+    deleteCount: number;
+  };
+  message?: string;
+};
+
 type DbConnectionForm = {
   provider: string;
   url: string;
@@ -36,6 +50,7 @@ const schemaInput = requireElement(document.querySelector<HTMLInputElement>("#db
 const connectionTestButton = requireElement(document.querySelector<HTMLButtonElement>("#testDbConnectionButton"), "#testDbConnectionButton");
 const testButton = requireElement(document.querySelector<HTMLButtonElement>("#testDbAdapterButton"), "#testDbAdapterButton");
 const clearButton = requireElement(document.querySelector<HTMLButtonElement>("#clearDbAdapterButton"), "#clearDbAdapterButton");
+const applySetupButton = requireElement(document.querySelector<HTMLButtonElement>("#applyDbSetupButton"), "#applyDbSetupButton");
 const status = requireElement(document.querySelector<HTMLElement>("#dbAdapterStatus"), "#dbAdapterStatus");
 const results = requireElement(document.querySelector<HTMLElement>("#dbAdapterResults"), "#dbAdapterResults");
 
@@ -102,6 +117,7 @@ function readDbConnectionForm(): DbConnectionForm | null {
 function setTestButtonsDisabled(disabled: boolean) {
   connectionTestButton.disabled = disabled;
   testButton.disabled = disabled;
+  applySetupButton.disabled = disabled;
 }
 
 async function testDbConnection() {
@@ -188,6 +204,75 @@ async function testDbAdapter() {
   }
 }
 
+async function applyDbInitialSetup() {
+  const form = readDbConnectionForm();
+
+  if (!form) {
+    return;
+  }
+
+  const firstConfirmed = window.confirm("나니카 DB 초기 세팅 SQL을 실행하시겠습니까?");
+
+  if (!firstConfirmed) {
+    status.textContent = "DB 초기 세팅 적용을 취소했어요.";
+    return;
+  }
+
+  const resetConfirmed = window.confirm(
+    "이미 있던 나니카 DB 데이터가 초기 seed 기준으로 덮어써질 수 있습니다. 계속 실행할까요?",
+  );
+
+  if (!resetConfirmed) {
+    status.textContent = "DB 초기 세팅 적용을 취소했어요.";
+    return;
+  }
+
+  setTestButtonsDisabled(true);
+  status.textContent = "나니카 DB 초기 세팅 SQL 적용을 요청하는 중이에요.";
+
+  try {
+    const response = await fetch(createDevtoolsApiPath("/api/devtools/apply-nanika-db-setup"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...form,
+        confirmApply: true,
+        confirmReset: true,
+      }),
+    });
+    const result = await readApiJson<DbSetupApplyResponse>(response);
+
+    if (!response.ok || !result.ok) {
+      throw new Error(result.message ?? result.error ?? "db_setup_apply_failed");
+    }
+
+    renderResults([{
+      scope: "초기 세팅",
+      view: result.sqlPath ?? "docs/nanika-postgres/apply-current-generated.sql",
+      ok: true,
+      count: 1,
+      sample: {
+        provider: result.provider ?? form.provider,
+        applied: result.applied === true,
+        message: result.message ?? "initial setup applied",
+        summary: result.summary,
+      },
+    }]);
+    status.textContent = result.message ?? "나니카 DB 초기 세팅을 적용했어요.";
+  } catch (error) {
+    renderResults([{
+      scope: "초기 세팅",
+      view: "docs/nanika-postgres/apply-current-generated.sql",
+      ok: false,
+      count: 0,
+      error: error instanceof Error ? error.message : "DB 초기 세팅 적용에 실패했어요.",
+    }]);
+    status.textContent = error instanceof Error ? error.message : "DB 초기 세팅 적용에 실패했어요.";
+  } finally {
+    setTestButtonsDisabled(false);
+  }
+}
+
 clearButton.addEventListener("click", () => {
   urlInput.value = "";
   keyInput.value = "";
@@ -202,6 +287,10 @@ connectionTestButton.addEventListener("click", () => {
 
 testButton.addEventListener("click", () => {
   void testDbAdapter();
+});
+
+applySetupButton.addEventListener("click", () => {
+  void applyDbInitialSetup();
 });
 
 renderEmptyState("연결 정보를 입력하고 테스트를 실행하세요.");

@@ -116,10 +116,21 @@ function createSurfaceOption(id: string, surface: CharacterSurface): CharacterRe
 }
 
 function createSceneOption(id: string, scene: RuntimeScene): CharacterResourceCatalogOption {
+  const backgroundCount = scene.layers.filter((layer) => layer.role === "background").length;
+  const propCount = scene.layers.filter((layer) => layer.role === "prop").length;
+  const effectCount = scene.layers.filter((layer) => layer.role === "effect" || layer.role === "foreground").length;
+  const parts = [
+    `저장 키: ${id}`,
+    `무대 요소 ${scene.layers.length}개`,
+    backgroundCount > 0 ? `배경 ${backgroundCount}개` : undefined,
+    propCount > 0 ? `소품 ${propCount}개` : undefined,
+    effectCount > 0 ? `FX/전경 ${effectCount}개` : undefined,
+  ].filter(Boolean);
+
   return {
     id,
-    label: id,
-    description: `저장 키: ${id} / 무대 요소 ${scene.layers.length}개`,
+    label: `${id} 무대 조합`,
+    description: `${parts.join(" / ")} / scene 또는 scene_overlay 액션에서 사용`,
   };
 }
 

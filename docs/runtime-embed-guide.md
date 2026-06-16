@@ -284,6 +284,29 @@ createGhostRuntimeFromPreset(preset, {
 });
 ```
 
+## Stage Composition Contract
+
+GhostNest stores stage compositions under the runtime `scene` data shape, but user-facing tools should call them `무대 조합`.
+
+A stage composition is not a single image. It is a bounded visual coordinate space containing background, character-depth reference, props, foreground, and effect layers. Runtime should render the stage in the same coordinate space instead of letting individual images resize the character or push layout.
+
+Use these conventions:
+
+| Usage | Runtime action | Meaning |
+| --- | --- | --- |
+| Base stage | `scene` | Replace the active stage composition. Use this for page defaults or major scene changes. |
+| Temporary layer | `scene_overlay` | Add or remove a limited overlay on top of the active stage. Use this for weather, foreground, or temporary effects. |
+
+Recommended first limits:
+
+- one active base stage
+- up to two simultaneous overlays
+- WebP for production assets where possible
+- PNG/WebP with alpha for props and foreground parts
+- large opaque desk/background images should use low depth unless intentionally covering the character
+
+Deleting or unlinking a stage mapping does not delete the character asset. Delete the actual stage composition from the character settings tool or the host data adapter.
+
 `charactersRootUrl` is the path immediately before the character id. GhostNest will resolve character-owned assets below `/:characterId/assets/...`.
 
 Bundled demo character data may store source-style asset paths such as `./src/characters/rine/assets/base/...`, `src/characters/rine/assets/base/...`, or `/src/characters/rine/assets/base/...`. Host apps do not need to care which source-prefix style was saved. Set the character root and common root once, and GhostNest rewrites those known source prefixes before booting the runtime.
@@ -406,35 +429,12 @@ A runtime profile answers:
 ```ts
 import {
   createGhostRuntimeFromPreset,
-  createNanikaRuntimeProfileOptions,
+  createNanikaRuntimeProfileOptionsById,
 } from "ghost-nest";
 
-const profile = {
-  id: "demo.home.rine",
-  match: { pageId: "home", urlPattern: "*" },
-  initial: { scene: "desk-room" },
-  controls: {
-    commandHoverDescription: false,
-    areaHoverDescription: false,
-    randomPrompt: false,
-    managementMenu: false,
-    persistence: false,
-  },
-  preferenceStorage: {
-    runtimeUi: "preset",
-    managementMenu: "disabled",
-  },
-  featureSetIds: ["demo.home"],
-  characterProfiles: [
-    {
-      characterId: "rine",
-      initial: { surface: "0" },
-    },
-  ],
-};
-
-const result = createNanikaRuntimeProfileOptions({
-  profile,
+const result = createNanikaRuntimeProfileOptionsById({
+  profileId: "demo.home.rine",
+  profiles,
   context: { pageId: "home", url: location.pathname },
   featureSets,
   mappings,
@@ -447,6 +447,8 @@ const runtime = createGhostRuntimeFromPreset(preset, {
   ...result.overrides,
 });
 ```
+
+`profiles`, `featureSets`, and `mappings` can come from local files, generated JSON, or a DB-backed host API. GhostNest only needs the resolved JSON arrays.
 
 Use runtime profile conditions for page-level decisions. Use runtime rule conditions only after a profile has already been selected.
 

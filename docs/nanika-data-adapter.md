@@ -169,6 +169,15 @@ Host env / server code
 
 For local verification, GhostNest includes `dev-nanika-db-adapter.html`. The page sends the entered Supabase REST URL and API key to the local dev server for a one-time view access test. It does not save the credentials. Use it only in a local or access-restricted developer environment.
 
+The same page also includes a guarded **DB initial setup** action. It requires two browser confirmations and the local dev server route `/api/devtools/apply-nanika-db-setup`. GhostNest does not execute raw SQL from the browser. To let the button apply `docs/nanika-postgres/apply-current-generated.sql`, provide a server-side executor:
+
+```txt
+GHOSTNEST_DB_SETUP_APPLY_URL=https://your-admin-api.example.com/internal/nanika/apply-sql
+GHOSTNEST_DB_SETUP_APPLY_TOKEN=server-only-token
+```
+
+The executor receives `{ provider, projectUrl, schema, sql, summary, source }` and should run the SQL with host-owned DB credentials. If no executor is configured, the button fails closed and instructs the developer to run `docs/nanika-postgres/apply-current-generated.sql` manually in a DB admin tool.
+
 ## PostgreSQL/Supabase Sample
 
 GhostNest includes a Postgres-oriented sample under `docs/nanika-postgres`.
@@ -192,9 +201,10 @@ select mapping_json from public.nanika_mapping_definitions;
 select feature_set_json from public.nanika_feature_set_definitions;
 select condition_json from public.nanika_condition_definitions;
 select menu_json from public.nanika_menu_definitions;
+select profile_json from public.nanika_runtime_profile_definitions;
 ```
 
-Those JSON values should match what `/api/nanika/data/mappings`, `/api/nanika/data/featureSets`, `/api/nanika/data/conditions`, and `/api/nanika/data/menus` return in file mode.
+Those JSON values should match what `/api/nanika/data/mappings`, `/api/nanika/data/featureSets`, `/api/nanika/data/conditions`, `/api/nanika/data/menus`, and `/api/nanika/data/runtimeProfiles` return in file mode.
 
 For a copy-paste start, use `docs/nanika-postgres/apply-current-generated.sql`. For host API wiring, adapt `docs/nanika-postgres/data-api-adapter.example.ts` and keep it server-side.
 
@@ -207,6 +217,7 @@ generated/nanika-mappings.json
 generated/nanika-feature-sets.json
 generated/nanika-conditions.json
 generated/nanika-menus.json
+generated/nanika-runtime-profiles.json
 ```
 
 In DB mode, those files should not be treated as the source of truth. The same scopes should be stored through `NanikaDataAdapter`:
@@ -216,6 +227,7 @@ mappings     -> DB rows/view JSON
 featureSets  -> DB rows/view JSON
 conditions   -> DB rows/view JSON
 menus        -> DB rows/view JSON
+runtimeProfiles -> DB rows/view JSON
 ```
 
 Local generated files are still useful as seed material, export snapshots, or a local-only devtools fallback. Production hosts such as Vercel should route writes to DB/API storage instead of trying to mutate package or repository files.

@@ -41,6 +41,8 @@ Supabase SQL editor에서는 `\i`를 사용할 수 없으니 파일 내용을 �
 
 현재 로컬 `generated` 기준으로 바로 시작하려면 `apply-current-generated.sql` 하나를 Supabase SQL editor에 붙여넣어도 됩니다.
 
+`dev-nanika-db-adapter.html`의 **DB 초기 세팅 적용** 버튼은 같은 SQL을 사용합니다. 브라우저에서 raw SQL을 직접 실행하지 않으므로, 버튼으로 실제 적용하려면 로컬 dev server에 `GHOSTNEST_DB_SETUP_APPLY_URL`로 host-owned 관리자 SQL 실행 endpoint를 연결하세요. 연결하지 않은 경우 버튼은 안전하게 실패하고 이 SQL 파일을 수동 실행하라는 안내를 보여줍니다.
+
 ## Runtime Read Queries
 
 호스트 앱에서는 보통 아래 데이터를 읽으면 됩니다.

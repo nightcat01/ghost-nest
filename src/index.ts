@@ -19,11 +19,13 @@ export {
   createGhostRuntimeFromPreset,
   createGhostRuntimeOptionsFromPreset,
   createNanikaRuntimeProfileOptions,
+  createNanikaRuntimeProfileOptionsById,
   createRuntimeRuleFromMapping,
   createRuntimeRulesFromFeatureSets,
   createRuntimeRulesFromMappings,
   defaultNanikaCommonKeys,
   defineNanikaRuntimePreset,
+  findNanikaRuntimeProfileById,
   matchesNanikaProfileMatch,
 } from "./plugins/nanikaMapping/index.js";
 export {
@@ -56,6 +58,8 @@ export type {
   NanikaProfileMatch,
   NanikaProfileRuntimeOptions,
   NanikaRuntimeProfile,
+  NanikaRuntimeProfileByIdOptionsInput,
+  NanikaRuntimeProfileByIdOptionsResult,
   NanikaRuntimeProfileOptionsInput,
   NanikaRuntimeProfileOptionsResult,
   NanikaRuntimePreset,

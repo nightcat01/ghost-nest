@@ -10,7 +10,7 @@ export const menuSettingsExtension = {
   description: "Developer extension page for inspecting and composing Nanika management menu presets.",
   route: "./dev-menu-settings.html",
   capabilities: [
-    "management-menu-preview",
+    "management-menu-compose",
     "user-developer-menu-split",
     "menu-json-export",
   ],

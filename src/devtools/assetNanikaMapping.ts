@@ -160,7 +160,7 @@ type FeatureCompatibility = {
 };
 
 type DetailSource = "대상" | "이벤트" | "실행 영역" | "액션";
-type MappingView = "overview" | "create" | "saved" | "feature-sets" | "catalog";
+type MappingView = "overview" | "profiles" | "create" | "saved" | "feature-sets" | "catalog";
 type CatalogView = "summary" | "flow" | "material" | "list" | "graph";
 
 type EditorSelection =
@@ -235,6 +235,7 @@ type PaletteItem = {
   id: string;
   kind: CanvasNodeKind;
   resourceKind?: NanikaResourceKind;
+  conditionScope?: "runtime" | "character";
   templateId?: string;
   subcategory?: string;
   title: string;
@@ -824,6 +825,7 @@ function createRuntimeConditionPaletteItems(): PaletteItem[] {
   return getRuntimeProfilesForDisplay().map((profile) => ({
     id: `runtime-condition:${profile.id}`,
     kind: "condition",
+    conditionScope: "runtime",
     title: getRuntimeProfileConditionTitle(profile),
     description: `${getRuntimeProfileMatchReadableLabel(profile)} 조건에서 이 런타임 프로필을 사용합니다.`,
     meta: [
@@ -842,6 +844,7 @@ function createCharacterConditionPaletteItems(): PaletteItem[] {
   return getRuntimeProfilesForDisplay().map((profile) => ({
     id: `character-condition:${profile.id}`,
     kind: "condition",
+    conditionScope: "character",
     title: `${getRuntimeProfileCharacterId(profile)}: ${getRuntimeProfileConditionTitle(profile)}`,
     description: `${getRuntimeProfileCharacterId(profile)} 캐릭터가 ${getRuntimeProfileMatchReadableLabel(profile)} 조건에서 쓸 시작 상태와 연결 세트입니다.`,
     meta: [
@@ -879,6 +882,7 @@ function createSavedConditionPaletteItems(): PaletteItem[] {
     return {
       id: `saved-condition:${condition.id}`,
       kind: "condition",
+      conditionScope: condition.scope,
       title: condition.name ?? condition.id,
       description: condition.description || getReadableConditionExpression(condition),
       meta: [
@@ -1809,7 +1813,7 @@ function setEditorMode(view: MappingView, options: { resetDraft?: boolean } = {}
     editorPanel.dataset.mode = view;
   }
 
-  const workspaceOnlyView = view === "create" || view === "saved";
+  const workspaceOnlyView = view === "profiles" || view === "create" || view === "saved";
   viewSections.forEach((section) => {
     section.hidden = workspaceOnlyView || section.dataset.view !== view;
   });
@@ -1825,6 +1829,12 @@ function setEditorMode(view: MappingView, options: { resetDraft?: boolean } = {}
       resetDraftBuilder();
     }
     selectEditorDraft();
+  } else if (view === "profiles") {
+    selectedPaletteCategory = "profiles";
+    emptyEditorTitle = "프로필 불러오기";
+    emptyEditorDescription = "오른쪽 카드 덱에서 런타임 프로필을 고르면 작업판에 캐릭터, 조건, 연결 세트 흐름이 펼쳐집니다. 프로필 ID 하나로 런타임을 시작하는 단위입니다.";
+    emptyEditorMeta = ["런타임 실행 단위", "프로필 선택"];
+    setEditorSelection({ type: "empty" });
   } else if (view === "saved") {
     selectedPaletteCategory = "saved";
     emptyEditorTitle = "저장 연결";
@@ -1867,7 +1877,7 @@ function setActiveView(view: MappingView) {
     }
     setEditorMode("overview");
   } else {
-    renderEditorCanvas();
+    syncCatalogEditorState();
   }
 }
 
@@ -5728,6 +5738,9 @@ function renderEditorPalette() {
     if (item.subcategory) {
       card.dataset.subcategory = item.subcategory;
     }
+    if (item.conditionScope) {
+      card.dataset.conditionScope = item.conditionScope;
+    }
 
     const title = document.createElement("strong");
     title.textContent = item.title;
@@ -6069,6 +6082,27 @@ function selectRuntimeProfileInEditor(
   readonly = false,
 ) {
   setEditorSelection({ type: "profile", profile, source }, reveal, readonly);
+}
+
+function refreshEditorSelectionGraphAfterDataLoad() {
+  const selection = editorSelection;
+
+  if (selection.type === "profile") {
+    const latestProfile = findRuntimeProfileById(selection.profile.id) ?? selection.profile;
+    selectRuntimeProfileInEditor(
+      latestProfile,
+      savedRuntimeProfiles.some((profile) => profile.id === latestProfile.id) ? "saved" : selection.source,
+      false,
+      editorReadOnly,
+    );
+    return;
+  }
+
+  if (selection.type === "feature-set") {
+    const latestFeatureSet = savedFeatureSets.find((featureSet) => featureSet.id === selection.featureSet.id)
+      ?? selection.featureSet;
+    selectFeatureSetInEditor(latestFeatureSet, false, editorReadOnly);
+  }
 }
 
 function selectCatalogInEditor(title: string, description: string, meta: string[] = [], reveal = true) {
@@ -6730,18 +6764,18 @@ function getFeatureSetStatusText(featureSet: NanikaFeatureSet) {
   const compatibility = checkFeatureSetCompatibility(featureSet);
 
   if (featureSet.mode !== "character-template") {
-    return "캐릭터 전용 세트";
+    return "호환 상태: 캐릭터 전용 세트";
   }
 
   if (compatibility.status === "ready") {
-    return "현재 캐릭터에 적용 가능";
+    return "호환 상태: 현재 캐릭터에 적용 가능";
   }
 
   if (compatibility.status === "partial") {
-    return `일부 사용 불가: ${compatibility.missing.length}개 누락`;
+    return `호환 상태: 일부 사용 불가, ${compatibility.missing.length}개 누락`;
   }
 
-  return "현재 캐릭터에 사용 불가";
+  return "호환 상태: 현재 캐릭터에 사용 불가";
 }
 
 function createGraphNodeElement(node: GraphNode) {
@@ -8426,6 +8460,7 @@ async function loadSavedMappings() {
     saveCanvasStatesToStorage();
     renderSavedMappings(result.path);
     renderFeatureSets();
+    refreshEditorSelectionGraphAfterDataLoad();
     refreshOverview();
   } catch (error) {
     savedMappings = [];
@@ -8491,6 +8526,7 @@ async function loadFeatureSets() {
     saveCanvasStatesToStorage();
     renderFeatureSets(result.path);
     renderRuntimeProfileOverview();
+    refreshEditorSelectionGraphAfterDataLoad();
     refreshOverview();
   } catch (error) {
     savedFeatureSets = [];
@@ -9200,7 +9236,7 @@ function initDraftBuilder() {
   initMappingGraphControls();
   initTargetOptions();
   renderDraftStartTemplates();
-  setEditorPaletteCollapsed(localStorage.getItem(editorPaletteCollapsedStorageKey) !== "false");
+  setEditorPaletteCollapsed(localStorage.getItem(editorPaletteCollapsedStorageKey) === "true");
   draftMappingIdInput.addEventListener("input", () => {
     syncEditorMappingIdInput();
     renderDraftPreview();

@@ -115,6 +115,20 @@ export type NanikaRuntimeProfileOptionsResult = {
   warnings: string[];
 };
 
+export type NanikaRuntimeProfileByIdOptionsInput = Omit<NanikaRuntimeProfileOptionsInput, "profile"> & {
+  profileId: string;
+  profiles: readonly NanikaRuntimeProfile[];
+};
+
+export type NanikaRuntimeProfileByIdOptionsResult =
+  | NanikaRuntimeProfileOptionsResult
+  | {
+      matched: false;
+      profile?: undefined;
+      missingProfileId: string;
+      warnings: string[];
+    };
+
 function toArray<T>(value: T | T[] | undefined): T[] {
   if (value === undefined) {
     return [];
@@ -365,6 +379,40 @@ export function createNanikaRuntimeProfileOptions({
     overrides: createOverridesFromProfile(profile, characterProfile, rules, context),
     warnings,
   };
+}
+
+export function findNanikaRuntimeProfileById(
+  profiles: readonly NanikaRuntimeProfile[],
+  profileId: string,
+) {
+  return profiles.find((profile) => profile.id === profileId);
+}
+
+export function createNanikaRuntimeProfileOptionsById({
+  profileId,
+  profiles,
+  context = {},
+  featureSets = [],
+  mappings = [],
+  characterId,
+}: NanikaRuntimeProfileByIdOptionsInput): NanikaRuntimeProfileByIdOptionsResult {
+  const profile = findNanikaRuntimeProfileById(profiles, profileId);
+
+  if (!profile) {
+    return {
+      matched: false,
+      missingProfileId: profileId,
+      warnings: [`Missing runtime profile: ${profileId}`],
+    };
+  }
+
+  return createNanikaRuntimeProfileOptions({
+    profile,
+    context,
+    featureSets,
+    mappings,
+    ...(characterId ? { characterId } : {}),
+  });
 }
 
 const legacyNanikaCommonKeys = [

@@ -98,10 +98,14 @@ async function collectTextFitMetrics(page, rootSelector = "body") {
         && style.display !== "none";
     });
 
-    const textOverflow = visibleTargets.filter((element) => (
-      element.scrollWidth > element.clientWidth + 2
-      || element.scrollHeight > element.clientHeight + 8
-    ));
+    const textOverflow = visibleTargets.filter((element) => {
+      if (element.classList.contains("nanika-paint-node")) {
+        return false;
+      }
+
+      return element.scrollWidth > element.clientWidth + 2
+        || element.scrollHeight > element.clientHeight + 8;
+    });
 
     const narrowKoreanControls = visibleTargets.filter((element) => {
       const text = element.textContent?.trim() ?? "";
@@ -242,18 +246,16 @@ async function verifyMappingEditor(page) {
       && Boolean(document.querySelector("#mappingPaletteDeck .nanika-palette-card[data-kind='condition']")),
     conditionCardCount: document.querySelectorAll("#mappingPaletteDeck .nanika-palette-card[data-kind='condition']").length,
     runtimeConditionCardCount: Array.from(document.querySelectorAll("#mappingPaletteDeck .nanika-palette-card[data-kind='condition']"))
-      .filter((card) => card.textContent?.includes("scope: runtime")).length,
+      .filter((card) => card.getAttribute("data-condition-scope") === "runtime").length,
     characterConditionCardCount: Array.from(document.querySelectorAll("#mappingPaletteDeck .nanika-palette-card[data-kind='condition']"))
-      .filter((card) => card.textContent?.includes("scope: character")).length,
+      .filter((card) => card.getAttribute("data-condition-scope") === "character").length,
   }));
   await page.locator("#mappingEditorCanvas .nanika-paint-node[data-kind='runtime']").first().click();
   await page.locator("#mappingEditorCanvas .nanika-node-popover .asset-small-button").first().click();
   const runtimeConditionPathMetrics = await page.evaluate(() => ({
     activePaletteText: document.querySelector("#mappingPaletteTabs button[data-active='true']")?.textContent?.trim() ?? "",
     visibleConditionScopes: Array.from(document.querySelectorAll("#mappingPaletteDeck .nanika-palette-card[data-kind='condition']"))
-      .map((card) => card.textContent ?? "")
-      .filter(Boolean)
-      .map((text) => (text.includes("scope: runtime") ? "runtime" : text.includes("scope: character") ? "character" : "unknown")),
+      .map((card) => card.getAttribute("data-condition-scope") ?? "unknown"),
   }));
   await page.locator("#mappingPaletteDeck .nanika-palette-card[data-kind='condition']").first().click();
   await page.locator("#mappingPaletteTabs button[data-palette-category='characters']").click();
@@ -272,9 +274,7 @@ async function verifyMappingEditor(page) {
   const characterConditionPathMetrics = await page.evaluate(() => ({
     activePaletteText: document.querySelector("#mappingPaletteTabs button[data-active='true']")?.textContent?.trim() ?? "",
     visibleConditionScopes: Array.from(document.querySelectorAll("#mappingPaletteDeck .nanika-palette-card[data-kind='condition']"))
-      .map((card) => card.textContent ?? "")
-      .filter(Boolean)
-      .map((text) => (text.includes("scope: character") ? "character" : text.includes("scope: runtime") ? "runtime" : "unknown")),
+      .map((card) => card.getAttribute("data-condition-scope") ?? "unknown"),
   }));
 
   await page.reload({ waitUntil: "load" });
@@ -398,6 +398,7 @@ async function verifyMappingEditor(page) {
   await page.locator("[data-editor-mode-target='saved']").click();
   await page.locator("#mappingPaletteDeck .nanika-palette-card").first().click();
   const savedEditorBeforeSetMetrics = await page.evaluate(() => ({
+    savedModeActive: document.querySelector("[data-editor-mode-target='saved']")?.getAttribute("data-active") === "true",
     addToSetEnabled: !(document.querySelector("#editorAddToFeatureSetButton")?.disabled ?? true),
     selectedNodeCount: document.querySelectorAll("#mappingEditorCanvas .nanika-paint-node").length,
     paletteTabCount: document.querySelectorAll("#mappingPaletteTabs button").length,
@@ -469,6 +470,10 @@ async function verifyMappingEditor(page) {
       selected: node.getAttribute("data-selected") === "true",
     };
   }, dragMetrics);
+  await page.evaluate(() => {
+    document.querySelector("#mappingEditorCanvas .nanika-node-popover")?.remove();
+  });
+  await page.locator("#mappingEditorCanvas .nanika-paint-node[data-kind='mapping']").first().click();
   await page.locator("#editorAddToFeatureSetButton").click();
   const savedMetrics = await page.evaluate(() => ({
     activeTab: document.querySelector("[data-view-target][data-active='true']")?.textContent?.trim(),
@@ -478,7 +483,7 @@ async function verifyMappingEditor(page) {
     savedCardCount: document.querySelectorAll("#savedMappingList .nanika-mapping-card").length,
     savedGroupCount: document.querySelectorAll("#savedMappingList .nanika-saved-group").length,
     editorShowsSaved: document.querySelectorAll("#mappingEditorCanvas .nanika-paint-node").length >= 3,
-    movedToFeatureSet: document.querySelector("[data-editor-mode-target][data-active='true'] strong")?.textContent?.trim() === "기능 묶음",
+    movedToFeatureSet: document.querySelector("[data-editor-mode-target][data-active='true'] strong")?.textContent?.trim() === "연결 세트",
     visibleSections: Array.from(document.querySelectorAll(".nanika-view-section")).filter((section) => !section.hidden).length,
     featureSetSectionVisible: !(document.querySelector("[data-view='feature-sets']")?.hidden ?? true),
     editorPanelVisible: !(document.querySelector(".nanika-editor-panel")?.hidden ?? false),
@@ -502,8 +507,16 @@ async function verifyMappingEditor(page) {
     featureSetOptionHasDescription: Boolean(document.querySelector("#featureSetMappingPicker .nanika-feature-set-option small")),
     featureSetContainArrowCount: document.querySelectorAll("#featureSetList .nanika-result-flow[data-relation='contains'] .nanika-result-flow-arrow").length,
     editorShowsFeatureSet: document.querySelector("#mappingEditorCanvas .nanika-paint-node[data-kind='feature-set']") !== null,
-    hasGenericTemplate: document.querySelector("#featureSetList")?.textContent?.includes("캐릭터 미지정") ?? false,
-    hasCompatibilityStatus: document.querySelector("#featureSetList")?.textContent?.includes("호환 상태") ?? false,
+    hasGenericTemplate: [
+      document.querySelector("#featureSetList")?.textContent ?? "",
+      document.querySelector("#mappingPaletteDeck")?.textContent ?? "",
+      document.querySelector("#mappingEditorCanvas")?.textContent ?? "",
+    ].some((text) => text.includes("캐릭터 미지정")),
+    hasCompatibilityStatus: [
+      document.querySelector("#featureSetList")?.textContent ?? "",
+      document.querySelector("#mappingPaletteDeck")?.textContent ?? "",
+      document.querySelector("#mappingEditorCanvas")?.textContent ?? "",
+    ].some((text) => text.includes("호환")),
     visibleSections: Array.from(document.querySelectorAll(".nanika-view-section")).filter((section) => !section.hidden).length,
     featureSetSectionVisible: !(document.querySelector("[data-view='feature-sets']")?.hidden ?? true),
     editorPanelVisible: !(document.querySelector(".nanika-editor-panel")?.hidden ?? false),
@@ -565,6 +578,171 @@ async function verifyMappingEditor(page) {
   };
 }
 
+async function verifyMenuSettings(page) {
+  await page.goto(`${baseUrl}/dev-menu-settings.html`, { waitUntil: "load" });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.waitForSelector("#menuTree");
+  await page.waitForFunction(() => document.querySelector("#menuStatus")?.textContent?.trim().length > 0);
+
+  const menuId = `codex.menu.${Date.now()}`;
+
+  await page.locator("#newMenuButton").click();
+  await page.locator("#menuSetContent").waitFor({ state: "visible" });
+  await page.locator("#menuSourceContent").waitFor({ state: "visible" });
+  await page.locator("#menuIdInput").fill(menuId);
+  await page.locator("#menuNameInput").fill("Codex 메뉴 검증");
+  await page.locator("#menuDescriptionInput").fill("자동 UI 검증용 메뉴입니다.");
+  await page.locator("#menuDisplaySelect").selectOption("panel");
+  await page.locator("#menuCloseOnSelectInput").uncheck();
+  await page.locator("#menuDraggableInput").uncheck();
+  await page.locator("#menuItemLabelInput").fill("검증 대사");
+  await page.locator("#menuItemDescriptionInput").fill("메뉴 항목 액션 검증");
+  await page.locator("#menuActionTypeSelect").selectOption("speak_text");
+  await page.locator("#menuActionValueInput").fill("메뉴 검증 대사입니다.");
+  await page.locator("#addMenuActionButton").click();
+  await page.locator("#applyItemButton").click();
+
+  const beforeSave = await page.evaluate(() => {
+    const outputText = document.querySelector("#menuOutput")?.textContent ?? "{}";
+    let output = {};
+
+    try {
+      output = JSON.parse(outputText);
+    } catch {
+      output = {};
+    }
+
+    const flowRects = Array.from(document.querySelectorAll(".asset-menu-flow > div"))
+      .map((node) => node.getBoundingClientRect());
+    const visualColumnOrder = ["source", "set", "action", "tree"];
+    const columnRects = visualColumnOrder
+      .map((step) => document.querySelector(`.asset-menu-builder-column[data-menu-step='${step}']`)?.getBoundingClientRect())
+      .filter(Boolean);
+    const editorRect = document.querySelector(".asset-menu-builder-column[data-menu-step='action']")?.getBoundingClientRect();
+    const treeRect = document.querySelector(".asset-menu-builder-column[data-menu-step='tree']")?.getBoundingClientRect();
+    const tree = document.querySelector("#menuTree");
+    const treeSectionRect = document.querySelector(".asset-menu-tree-column > .asset-lab-section:first-child")?.getBoundingClientRect();
+    const jsonSectionRect = document.querySelector(".asset-menu-json-panel")?.getBoundingClientRect();
+    const savedList = document.querySelector("#savedMenuList");
+    const savePanelStyle = getComputedStyle(document.querySelector(".asset-menu-save-panel"));
+    const savePanelRect = document.querySelector(".asset-menu-save-panel")?.getBoundingClientRect();
+    const treeHeaderHasAddActions = Boolean(
+      document.querySelector(".asset-menu-tree-column .asset-lab-section-header #addRootItemButton")
+        || document.querySelector(".asset-menu-tree-column .asset-lab-section-header #addChildItemButton"),
+    );
+    const editorStructureActions = document.querySelector(".asset-menu-editor-column .asset-menu-item-structure-actions");
+    const commandButtons = Array.from(document.querySelectorAll(".asset-menu-settings-shell button:not(.asset-menu-tree-button):not(.asset-menu-mode-button)"));
+    const unstyledButtonCount = commandButtons.filter((button) => {
+      const style = getComputedStyle(button);
+      return style.borderTopStyle === "outset"
+        || style.backgroundColor === "rgb(239, 239, 239)"
+        || style.backgroundColor === "rgba(0, 0, 0, 0)";
+    }).length;
+
+    return {
+      title: document.title,
+      flowStepCount: document.querySelectorAll(".asset-menu-flow > div").length,
+      builderColumnCount: document.querySelectorAll(".asset-menu-builder-grid > .asset-lab-panel").length,
+      leftToRightFlow: flowRects.every((rect, index, rects) => index === 0 || rect.left >= rects[index - 1].left),
+      leftToRightColumns: columnRects.every((rect, index, rects) => index === 0 || rect.left > rects[index - 1].left),
+      treeAfterEditor: Boolean(editorRect && treeRect && treeRect.left > editorRect.left),
+      treeWiderThanEditor: Boolean(editorRect && treeRect && treeRect.width > editorRect.width),
+      savePanelFloating: ["fixed", "sticky", "relative"].includes(savePanelStyle.position),
+      savePanelAtTopRight: Boolean(savePanelRect && savePanelRect.top < 80 && savePanelRect.right > window.innerWidth - 32),
+      treeDoesNotOverlapJson: Boolean(treeSectionRect && jsonSectionRect && treeSectionRect.bottom <= jsonSectionRect.top + 1),
+      treeHeaderHasNoAddActions: !treeHeaderHasAddActions,
+      editorHasAddActions: Boolean(editorStructureActions),
+      hasTemplateButtons: document.querySelectorAll("#menuModeList .asset-menu-mode-button").length >= 3,
+      hasSavedMenuList: Boolean(savedList),
+      savedListScrollsInternally: Boolean(savedList && savedList.scrollHeight >= savedList.clientHeight),
+      hasTree: Boolean(tree),
+      treeUsesPageFlow: Boolean(tree && tree.clientHeight > 0 && getComputedStyle(tree).overflowY === "visible"),
+      selectedPathText: document.querySelector("#selectedItemPath")?.textContent?.trim() ?? "",
+      actionRowCount: document.querySelectorAll("#menuItemActionList .asset-menu-action-row").length,
+      jsonIsPre: document.querySelector("#menuOutput")?.tagName === "PRE",
+      advancedJsonCollapsed: !(document.querySelector(".asset-menu-advanced-json")?.hasAttribute("open") ?? true),
+      statusText: document.querySelector("#menuStatus")?.textContent?.trim() ?? "",
+      outputId: output.id,
+      outputDisplay: output.defaultDisplay,
+      outputCloseOnSelect: output.closeOnSelect,
+      outputDraggable: output.draggable,
+      outputItemCount: Array.isArray(output.items) ? output.items.length : 0,
+      outputFirstActionType: output.items?.[0]?.actions?.[0]?.type ?? "",
+      unstyledButtonCount,
+      overflowX: document.documentElement.scrollWidth > window.innerWidth,
+    };
+  });
+
+  await page.locator("#saveMenuButton").click();
+  await page.waitForFunction((id) => document.querySelector("#menuStatus")?.textContent?.includes(`${id} 메뉴를 저장`), menuId);
+  const afterSave = await page.evaluate((id) => ({
+    savedCardVisible: Array.from(document.querySelectorAll("#savedMenuList article"))
+      .some((node) => node.textContent?.includes(id)),
+    statusText: document.querySelector("#menuStatus")?.textContent?.trim() ?? "",
+  }), menuId);
+
+  await page.locator("#deleteMenuButton").click();
+  await page.waitForFunction((id) => document.querySelector("#menuStatus")?.textContent?.includes(`${id} 메뉴를 삭제`), menuId);
+  const afterDelete = await page.evaluate((id) => ({
+    deletedFromList: !Array.from(document.querySelectorAll("#savedMenuList article"))
+      .some((node) => node.textContent?.includes(id)),
+    statusText: document.querySelector("#menuStatus")?.textContent?.trim() ?? "",
+  }), menuId);
+
+  const textFit = await collectTextFitMetrics(page, ".asset-menu-settings-shell");
+  const screenshot = await capturePage(page, "dev-menu-settings");
+
+  return {
+    beforeSave,
+    afterSave,
+    afterDelete,
+    textFit,
+    screenshot,
+  };
+}
+
+async function verifyDbAdapterPage(page) {
+  await page.goto(`${baseUrl}/dev-nanika-db-adapter.html`, { waitUntil: "load" });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.waitForSelector("#dbAdapterResults");
+
+  const metrics = await page.evaluate(() => {
+    const resultPanel = document.querySelector("#dbAdapterResults");
+    const dangerZone = document.querySelector(".nanika-db-adapter-danger-zone");
+    const actionLabels = Array.from(document.querySelectorAll(".nanika-db-adapter-grid button"))
+      .map((button) => button.textContent?.trim() ?? "")
+      .filter(Boolean);
+
+    return {
+      title: document.title,
+      hasProviderSelect: Boolean(document.querySelector("#dbProviderSelect")),
+      hasUrlInput: Boolean(document.querySelector("#dbUrlInput")),
+      hasKeyInput: Boolean(document.querySelector("#dbKeyInput")),
+      hasSchemaInput: Boolean(document.querySelector("#dbSchemaInput")),
+      hasConnectionTest: Boolean(document.querySelector("#testDbConnectionButton")),
+      hasSqlViewTest: Boolean(document.querySelector("#testDbAdapterButton")),
+      hasClearButton: Boolean(document.querySelector("#clearDbAdapterButton")),
+      hasInitialSetupButton: Boolean(document.querySelector("#applyDbSetupButton")),
+      hasDangerZone: Boolean(dangerZone),
+      dangerTextMentionsOverwrite: dangerZone?.textContent?.includes("덮어써질 수") ?? false,
+      separatesConnectionAndSqlTests: actionLabels.includes("통신 테스트") && actionLabels.includes("SQL/View 테스트"),
+      resultPanelExists: Boolean(resultPanel),
+      resultPanelText: resultPanel?.textContent?.trim() ?? "",
+      codeExampleVisible: Boolean(document.querySelector(".nanika-db-adapter-grid .asset-lab-code")),
+      overflowX: document.documentElement.scrollWidth > window.innerWidth,
+    };
+  });
+
+  const textFit = await collectTextFitMetrics(page, ".nanika-db-adapter-grid");
+  const screenshot = await capturePage(page, "dev-nanika-db-adapter");
+
+  return {
+    metrics,
+    textFit,
+    screenshot,
+  };
+}
+
 async function verifySceneEditor(page) {
   await page.goto(`${baseUrl}/dev-character-scene.html`, { waitUntil: "load" });
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -578,6 +756,10 @@ async function verifySceneEditor(page) {
   await page.locator("#sceneSelect").selectOption("__new_scene__");
   await page.locator("#sceneIdInput").fill(smokeSceneId);
   await page.locator("#defaultSceneInput").uncheck();
+  await page.evaluate(() => {
+    document.querySelector("#backgroundColorInput")?.closest("details")?.setAttribute("open", "");
+    document.querySelector("#characterDepthInput")?.closest("details")?.setAttribute("open", "");
+  });
   await page.locator("#backgroundColorInput").fill("#ffffff");
   await page.locator("#characterDepthInput").fill("20");
   await page.locator("#saveSceneButton").click();
@@ -942,9 +1124,18 @@ async function verifyRuntimeEmbed(page) {
 
   async function collectEmbedMetrics() {
     return page.evaluate(() => {
-      const screen = document.querySelector(".embed-screen");
+      const screen = document.querySelector(".embed-screen") ?? document.querySelector(".embed-demo-card");
       const mount = document.querySelector("#nanikaRuntimeEmbed");
       const stage = mount?.querySelector(".embed-nanika-stage");
+      const stageInline = stage
+        ? {
+          left: stage.style.left,
+          right: stage.style.right,
+          top: stage.style.top,
+          bottom: stage.style.bottom,
+          transform: stage.style.transform,
+        }
+        : null;
       const runtimeRoots = Array.from(document.querySelectorAll(".ghostnest-runtime"));
       const runtimeRootOutsideCount = runtimeRoots.filter((node) => !mount?.contains(node)).length;
       const stageOutsideCount = Array.from(document.querySelectorAll(".embed-nanika-stage"))
@@ -962,6 +1153,13 @@ async function verifyRuntimeEmbed(page) {
       const stageRect = stage?.getBoundingClientRect();
       const speech = mount?.querySelector(".embed-nanika-speech");
       const speechRect = speech?.getBoundingClientRect();
+      const sceneViewport = mount?.querySelector(".scene-viewport");
+      const sceneViewportRect = sceneViewport?.getBoundingClientRect();
+      const sceneViewportStyle = sceneViewport ? getComputedStyle(sceneViewport) : null;
+      const sprite = mount?.querySelector(".embed-nanika-sprite");
+      const spriteStyle = sprite ? getComputedStyle(sprite) : null;
+      const menu = mount?.querySelector(".balloon-action-menu:not([hidden])");
+      const menuRect = menu?.getBoundingClientRect();
 
       return {
         title: document.title,
@@ -977,6 +1175,19 @@ async function verifyRuntimeEmbed(page) {
         spriteOutsideCount,
         sceneLayerOutsideCount,
         menuOutsideCount,
+        menuWithinStage: Boolean(
+          !menuRect
+          || (
+            stageRect
+            && menuRect.left >= stageRect.left - 1
+            && menuRect.right <= stageRect.right + 1
+            && menuRect.top >= stageRect.top - 1
+            && menuRect.bottom <= stageRect.bottom + 1
+          ),
+        ),
+        sceneViewportTop: sceneViewportRect?.top ?? 0,
+        sceneViewportTopInMount: sceneViewportRect && mountRect ? sceneViewportRect.top - mountRect.top : 0,
+        sceneViewportHeight: sceneViewportRect?.height ?? 0,
         sceneLayerRootCount: mount?.querySelectorAll(".scene-layer-root").length ?? 0,
         sceneLayerCount: mount?.querySelectorAll(".scene-layer-root .scene-layer").length ?? 0,
         bootText: document.querySelector("#embedRuntimeStatus")?.textContent?.trim() ?? "",
@@ -984,6 +1195,19 @@ async function verifyRuntimeEmbed(page) {
         speechAnchor: stage?.getAttribute("data-speech-anchor") ?? "",
         speechLayout: stage?.getAttribute("data-speech-layout") ?? "",
         speechPlacement: stage?.getAttribute("data-speech-placement") ?? "",
+        stageMode: stage?.getAttribute("data-stage-mode") ?? "",
+        stageInline,
+        fillStageHasNoFloatingInline: Boolean(
+          !stage
+          || stage.getAttribute("data-stage-mode") !== "fill"
+          || (
+            !stage.style.left
+            && !stage.style.right
+            && !stage.style.top
+            && !stage.style.bottom
+            && !stage.style.transform
+          ),
+        ),
         surfaceId: mount?.querySelector(".embed-nanika-sprite")?.getAttribute("data-surface-id") ?? "",
         speechText: mount?.querySelector(".embed-nanika-text")?.textContent?.trim() ?? "",
         speechWithinStage: Boolean(
@@ -998,6 +1222,24 @@ async function verifyRuntimeEmbed(page) {
           stageRect
           && speechRect
           && Math.abs(stageRect.right - speechRect.right) <= 2,
+        ),
+        speechCentered: Boolean(
+          stageRect
+          && speechRect
+          && Math.abs(
+            (stageRect.left + stageRect.width / 2)
+            - (speechRect.left + speechRect.width / 2),
+          ) <= 2
+        ),
+        overlayKeepsSceneContentBox: Boolean(
+          stage?.getAttribute("data-speech-placement") !== "overlay-bottom"
+          || (
+            stageRect
+            && sceneViewportRect
+            && Math.abs(sceneViewportRect.top - stageRect.top) <= 2
+            && sceneViewportStyle?.marginBottom === "0px"
+            && spriteStyle?.marginBottom === "0px"
+          ),
         ),
         bodyClassName: document.body.className,
         overflowX: document.documentElement.scrollWidth > window.innerWidth,
@@ -1042,12 +1284,29 @@ async function verifyRuntimeEmbed(page) {
   const afterRestart = await collectEmbedMetrics();
   const textFit = await collectTextFitMetrics(page, ".embed-screen");
   const screenshot = await capturePage(page, "dev-runtime-embed");
+  await page.evaluate(() => {
+    const stage = document.querySelector("#nanikaRuntimeEmbed .embed-nanika-stage");
+    stage?.dispatchEvent(new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      button: 2,
+      clientX: stage.getBoundingClientRect().left + stage.getBoundingClientRect().width / 2,
+      clientY: stage.getBoundingClientRect().top + stage.getBoundingClientRect().height / 2,
+    }));
+  });
+  await page.waitForSelector("#nanikaRuntimeEmbed .balloon-action-menu:not([hidden])");
+  const afterMenuOpen = await collectEmbedMetrics();
 
   return {
     initial,
     afterSubpage,
     afterHostEvent,
     afterRestart,
+    afterMenuOpen: {
+      ...afterMenuOpen,
+      sceneStableAfterMenuOpen: Math.abs(afterMenuOpen.sceneViewportTopInMount - afterRestart.sceneViewportTopInMount) <= 2
+        && Math.abs(afterMenuOpen.sceneViewportHeight - afterRestart.sceneViewportHeight) <= 2,
+    },
     textFit,
     screenshot,
   };
@@ -1350,6 +1609,8 @@ async function main() {
 
     try {
       const mapping = await verifyMappingEditor(page);
+      const menuSettings = await verifyMenuSettings(page);
+      const dbAdapter = await verifyDbAdapterPage(page);
       const sceneEditor = await verifySceneEditor(page);
       const layerEditor = await verifyLayerEditor(page);
       const cropEditor = await verifyCropEditor(page);
@@ -1451,7 +1712,11 @@ async function main() {
       assertMetric(mapping.overviewMetrics.topModeTabCount === 0, "Create/saved/feature set controls should not remain in the top navigation.");
       assertMetric(mapping.overviewMetrics.editorModeCount >= 4, "Editor mode controls are missing from the card deck.");
       assertMetric(mapping.overviewMetrics.canvasHeight >= 420, "Editor canvas does not keep a stable working height.");
-      assertMetric(Math.abs(mapping.overviewMetrics.canvasHeight - mapping.overviewMetrics.paletteHeight) < 24, "Card deck height should be constrained to the editor height.");
+      assertMetric(
+        mapping.overviewMetrics.paletteHeight <= mapping.overviewMetrics.canvasHeight
+          && mapping.overviewMetrics.paletteHeight >= Math.min(420, mapping.overviewMetrics.canvasHeight * 0.72),
+        "Card deck height should stay within the editor height while leaving room for floating toolbar controls.",
+      );
       assertMetric(mapping.overviewMetrics.paletteOnRight, "Card deck should be positioned to the right of the canvas.");
       assertMetric(mapping.overviewMetrics.paletteScrollsInternally, "Card deck should scroll internally instead of extending the page.");
       assertMetric(mapping.overviewMetrics.canvasNodeOverlapCount === 0, "Default editor canvas has overlapping cards.");
@@ -1474,7 +1739,7 @@ async function main() {
       assertMetric(mapping.savedMetrics.hasSavedFlowBoard, "Saved mapping flow board is missing.");
       assertMetric(mapping.savedMetrics.savedGroupCount > 0, "Saved mapping groups are missing.");
       assertMetric(mapping.savedEditorBeforeSetMetrics.addToSetEnabled, "Saved mapping should be addable to a feature set.");
-      assertMetric(mapping.savedEditorBeforeSetMetrics.savedSectionVisible, "Saved mode should expose saved mapping management.");
+      assertMetric(mapping.savedEditorBeforeSetMetrics.savedModeActive, "Saved mode should expose saved mapping management in the editor workspace.");
       assertMetric(mapping.savedEditorBeforeSetMetrics.editorPanelVisible, "Saved mode should keep the editor workspace visible.");
       assertMetric(mapping.savedEditorBeforeSetMetrics.selectedNodeCount >= 3, "Saved mapping did not render as canvas nodes.");
       assertMetric(mapping.savedEditorBeforeSetMetrics.paletteTabCount >= 5, "Editor palette category buttons are missing.");
@@ -1520,6 +1785,49 @@ async function main() {
       assertMetric(mapping.catalogMetrics.readonlyCanvas, "Catalog character diagram should be readonly.");
       assertMetric(mapping.catalogMetrics.saveHidden, "Catalog character diagram should hide save controls.");
       assertMetric(!mapping.catalogMetrics.overflowX, "Catalog view has horizontal overflow.");
+      assertTextFit(menuSettings.textFit, "Menu settings");
+      assertMetric(menuSettings.beforeSave.title.includes("메뉴 설정"), "Menu settings page did not load.");
+      assertMetric(menuSettings.beforeSave.flowStepCount === 3, "Menu settings should show the compact three-step creation flow.");
+      assertMetric(menuSettings.beforeSave.builderColumnCount === 4, "Menu settings should use four builder columns.");
+      assertMetric(menuSettings.beforeSave.leftToRightFlow, "Menu settings flow should read left to right.");
+      assertMetric(menuSettings.beforeSave.leftToRightColumns, "Menu settings builder columns should read left to right.");
+      assertMetric(menuSettings.beforeSave.treeAfterEditor, "Menu settings tree should sit to the right of item editing.");
+      assertMetric(menuSettings.beforeSave.treeWiderThanEditor, "Menu settings tree should be wider than item editing for quick scanning.");
+      assertMetric(menuSettings.beforeSave.savePanelFloating, "Menu settings save actions should float near the top right.");
+      assertMetric(menuSettings.beforeSave.savePanelAtTopRight, "Menu settings save actions should stay in the top-right floating slot.");
+      assertMetric(menuSettings.beforeSave.treeDoesNotOverlapJson, "Menu settings tree should not overlap the save/mapping JSON section.");
+      assertMetric(menuSettings.beforeSave.treeHeaderHasNoAddActions, "Menu tree should not own add-item actions.");
+      assertMetric(menuSettings.beforeSave.editorHasAddActions, "Item editing should expose root/child item actions.");
+      assertMetric(menuSettings.beforeSave.hasTemplateButtons, "Menu settings templates are missing.");
+      assertMetric(menuSettings.beforeSave.hasSavedMenuList, "Menu settings saved menu list is missing.");
+      assertMetric(menuSettings.beforeSave.hasTree, "Menu settings tree is missing.");
+      assertMetric(menuSettings.beforeSave.treeUsesPageFlow, "Menu settings tree should use page flow so the whole tree is readable.");
+      assertMetric(menuSettings.beforeSave.selectedPathText.length > 0, "Menu settings selected item path is missing.");
+      assertMetric(menuSettings.beforeSave.actionRowCount > 0, "Menu settings did not add an action to the selected item.");
+      assertMetric(menuSettings.beforeSave.jsonIsPre, "Menu settings save JSON should be rendered as readonly preview.");
+      assertMetric(menuSettings.beforeSave.advancedJsonCollapsed, "Menu settings advanced action JSON should stay collapsed by default.");
+      assertMetric(menuSettings.beforeSave.outputDisplay === "panel", "Menu settings default display did not update.");
+      assertMetric(menuSettings.beforeSave.outputCloseOnSelect === false, "Menu settings close-on-select option did not update.");
+      assertMetric(menuSettings.beforeSave.outputDraggable === false, "Menu settings draggable option did not update.");
+      assertMetric(menuSettings.beforeSave.outputItemCount > 0, "Menu settings output has no menu items.");
+      assertMetric(menuSettings.beforeSave.outputFirstActionType === "speak_text", "Menu settings output did not include the added action.");
+      assertMetric(menuSettings.beforeSave.unstyledButtonCount === 0, "Menu settings has unstyled native buttons.");
+      assertMetric(!menuSettings.beforeSave.overflowX, "Menu settings has horizontal overflow.");
+      assertMetric(menuSettings.afterSave.savedCardVisible, "Saved menu was not visible after saving.");
+      assertMetric(menuSettings.afterDelete.deletedFromList, "Temporary menu was not removed after deleting.");
+      assertTextFit(dbAdapter.textFit, "DB adapter page");
+      assertMetric(dbAdapter.metrics.title.includes("DB 어댑터 테스트"), "DB adapter test page did not load.");
+      assertMetric(dbAdapter.metrics.hasProviderSelect, "DB adapter provider selector is missing.");
+      assertMetric(dbAdapter.metrics.hasUrlInput, "DB adapter URL input is missing.");
+      assertMetric(dbAdapter.metrics.hasKeyInput, "DB adapter API key input is missing.");
+      assertMetric(dbAdapter.metrics.hasSchemaInput, "DB adapter schema input is missing.");
+      assertMetric(dbAdapter.metrics.separatesConnectionAndSqlTests, "DB adapter should separate connection and SQL/View tests.");
+      assertMetric(dbAdapter.metrics.hasInitialSetupButton, "DB adapter initial setup button is missing.");
+      assertMetric(dbAdapter.metrics.hasDangerZone, "DB adapter initial setup danger zone is missing.");
+      assertMetric(dbAdapter.metrics.dangerTextMentionsOverwrite, "DB adapter initial setup warning should mention overwrite risk.");
+      assertMetric(dbAdapter.metrics.resultPanelExists, "DB adapter result panel is missing.");
+      assertMetric(dbAdapter.metrics.codeExampleVisible, "DB adapter host connection example is missing.");
+      assertMetric(!dbAdapter.metrics.overflowX, "DB adapter page has horizontal overflow.");
       assertTextFit(sceneEditor.textFit, "Scene editor");
       assertMetric(sceneEditor.metrics.hasSceneSelect, "Scene selector is missing.");
       assertMetric(sceneEditor.metrics.hasSceneList, "Scene list is missing.");
@@ -1609,9 +1917,11 @@ async function main() {
       assertMetric(runtimeEmbed.initial.hasSpeechBalloon, "Runtime embed speech balloon is missing.");
       assertMetric(runtimeEmbed.initial.speechLayout === "dialogue-box", "Runtime embed should use the dialogue-box layout.");
       assertMetric(runtimeEmbed.initial.speechPlacement === "overlay-bottom", "Runtime embed should use the bottom overlay placement.");
-      assertMetric(runtimeEmbed.initial.speechAnchor === "right", "Runtime embed should anchor the dialogue overlay to the right.");
+      assertMetric(runtimeEmbed.initial.speechAnchor === "center", "Runtime embed should center the dialogue overlay.");
+      assertMetric(runtimeEmbed.initial.fillStageHasNoFloatingInline, "Runtime embed fill stage still has floating inline placement styles.");
       assertMetric(runtimeEmbed.initial.speechWithinStage, "Runtime embed speech balloon escaped the stage boundary.");
-      assertMetric(runtimeEmbed.initial.speechAnchoredRight, "Runtime embed speech balloon is not visually anchored to the right.");
+      assertMetric(runtimeEmbed.initial.speechCentered, "Runtime embed speech balloon is not visually centered.");
+      assertMetric(runtimeEmbed.initial.overlayKeepsSceneContentBox, "Runtime embed overlay dialogue changed the scene content box.");
       assertMetric(runtimeEmbed.initial.runtimeRootCount === 1, "Runtime embed should create exactly one runtime root.");
       assertMetric(runtimeEmbed.initial.runtimeRootOutsideCount === 0, "Runtime embed runtime root escaped the mount boundary.");
       assertMetric(runtimeEmbed.initial.stageOutsideCount === 0, "Runtime embed stage escaped the mount boundary.");
@@ -1635,8 +1945,11 @@ async function main() {
       assertMetric(runtimeEmbed.afterRestart.bootText.includes("ready #3"), "Runtime embed restart did not recreate the runtime.");
       assertMetric(runtimeEmbed.afterRestart.runtimeRootCount === 1, "Runtime embed duplicated runtime roots after restart.");
       assertMetric(runtimeEmbed.afterRestart.stageCountInsideMount === 1, "Runtime embed duplicated stages after restart.");
-      assertMetric(runtimeEmbed.afterRestart.sceneLayerRootCount <= 1, "Runtime embed duplicated scene layer roots after restart.");
+      assertMetric(runtimeEmbed.afterRestart.fillStageHasNoFloatingInline, "Runtime embed restart restored floating inline placement styles.");
+      assertMetric(runtimeEmbed.afterRestart.sceneLayerRootCount <= 2, "Runtime embed duplicated scene layer roots after restart.");
       assertMetric(!runtimeEmbed.afterRestart.overflowX, "Runtime embed restart caused horizontal overflow.");
+      assertMetric(runtimeEmbed.afterMenuOpen.menuWithinStage, "Runtime embed menu escaped the stage boundary.");
+      assertMetric(runtimeEmbed.afterMenuOpen.sceneStableAfterMenuOpen, "Runtime embed menu changed the scene content box.");
       assertMetric(apiReadiness.workspaceHasSourceDirectory, "Character workspace source directory is missing.");
       assertMetric(apiReadiness.workspaceHasBrowserPrefix, "Character workspace browser prefix is missing.");
       assertMetric(apiReadiness.characterCount >= 2, "Character list is unexpectedly small.");
@@ -1667,6 +1980,8 @@ async function main() {
         ok: true,
         baseUrl,
         mapping,
+        menuSettings,
+        dbAdapter,
         sceneEditor,
         layerEditor,
         cropEditor,

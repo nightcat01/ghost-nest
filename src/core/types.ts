@@ -673,6 +673,8 @@ export type SpeechBalloonSizeOptions = {
   mobileActionMenuMaxHeight: string;
 };
 
+export type RuntimeStageMode = "content" | "fill";
+
 export type StorageAdapter = {
   get: (key: string) => unknown | Promise<unknown>;
   set: (key: string, value: unknown) => void | Promise<void>;
@@ -739,6 +741,7 @@ export type GhostRuntimeOptions = {
   features?: Partial<RuntimeFeatureOptions>;
   typing?: Partial<SpeechTypingOptions>;
   balloonTheme?: string;
+  stageMode?: RuntimeStageMode;
   speechLayout?: SpeechLayoutOptions;
   speechBalloonSize?: Partial<SpeechBalloonSizeOptions>;
   spriteSize?: Partial<CharacterSpriteSizeOptions>;

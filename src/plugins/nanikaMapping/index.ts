@@ -31,7 +31,9 @@ export {
 } from "./preset.js";
 export {
   createNanikaRuntimeProfileOptions,
+  createNanikaRuntimeProfileOptionsById,
   defaultNanikaCommonKeys,
+  findNanikaRuntimeProfileById,
   matchesNanikaProfileMatch,
 } from "./profile.js";
 export {
@@ -80,6 +82,8 @@ export type {
   NanikaProfileInitialState,
   NanikaProfileMatch,
   NanikaProfileRuntimeOptions,
+  NanikaRuntimeProfileByIdOptionsInput,
+  NanikaRuntimeProfileByIdOptionsResult,
   NanikaRuntimeProfile,
   NanikaRuntimeProfileOptionsInput,
   NanikaRuntimeProfileOptionsResult,

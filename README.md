@@ -1,5 +1,18 @@
 # GhostNest
 
+## Nanika 사용/연동 기준
+
+개발자가 어디까지 만지고, host 앱과 비개발 사용자가 무엇을 설정해야 하는지는 아래 문서를 먼저 기준으로 삼습니다.
+
+- [Nanika Integration and Usage Guide](./docs/nanika-integration-and-usage-guide.md)
+
+요약:
+
+- Host 앱 개발자는 mount, routing, asset URL, profile 선택, host event 전달, 접근 제한을 책임집니다.
+- Nanika 기능 개발자는 plugin, devtools, runtime contract, data adapter, character/mapping/menu 도구를 관리합니다.
+- 비개발 사용자는 캐릭터 설정, 무대 조합, 대사, 매핑, 메뉴 설정 화면을 통해 재료를 만들고 연결합니다.
+- core/runtime은 일반 기능 추가 과정에서 직접 수정하지 않는 것을 기본 원칙으로 둡니다.
+
 웹 기반 AI 캐릭터 런타임을 실험하기 위한 TypeScript MVP입니다.
 
 GhostNest는 API, DB, AI, UI 같은 외부 기능을 액션에 매핑하고, 그 결과를 캐릭터 대사, 표정, 메뉴, 애니메이션으로 표현하는 나니카형 웹 런타임을 목표로 합니다.

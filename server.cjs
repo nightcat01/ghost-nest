@@ -1436,6 +1436,151 @@ async function handleTestNanikaDbAdapter(request, response) {
   return true;
 }
 
+function getNanikaDbSetupSqlPath() {
+  return path.join(root, "docs", "nanika-postgres", "apply-current-generated.sql");
+}
+
+function summarizeNanikaDbSetupSql(sql) {
+  const matches = (pattern) => sql.match(pattern)?.length ?? 0;
+
+  return {
+    createTableCount: matches(/\bcreate\s+table\b/gi),
+    createViewCount: matches(/\bcreate\s+(?:or\s+replace\s+)?view\b/gi),
+    insertCount: matches(/\binsert\s+into\b/gi),
+    updateConflictCount: matches(/\bon\s+conflict\b/gi),
+    deleteCount: matches(/\bdelete\s+from\b/gi),
+  };
+}
+
+async function applyNanikaDbSetupWithHostExecutor({ provider, url, schema, sql, summary }) {
+  const applyUrl = String(process.env.GHOSTNEST_DB_SETUP_APPLY_URL ?? "").trim();
+
+  if (!applyUrl) {
+    throw new Error("db_setup_apply_executor_not_configured");
+  }
+
+  const parsedApplyUrl = new URL(applyUrl);
+
+  if (parsedApplyUrl.protocol !== "https:" && parsedApplyUrl.hostname !== "127.0.0.1" && parsedApplyUrl.hostname !== "localhost") {
+    throw new Error("db_setup_apply_executor_must_be_https_or_localhost");
+  }
+
+  const token = String(process.env.GHOSTNEST_DB_SETUP_APPLY_TOKEN ?? "").trim();
+  const executorResponse = await fetch(parsedApplyUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({
+      provider,
+      projectUrl: url,
+      schema,
+      sql,
+      summary,
+      source: "ghost-nest-devtools",
+    }),
+  });
+  const rawBody = await executorResponse.text();
+
+  if (!executorResponse.ok) {
+    throw new Error(rawBody || `db_setup_apply_executor_failed:${executorResponse.status}`);
+  }
+
+  return rawBody ? JSON.parse(rawBody) : {};
+}
+
+async function handleApplyNanikaDbSetup(request, response) {
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "method_not_allowed" });
+    return true;
+  }
+
+  try {
+    const body = await readRequestJson(request);
+    const provider = String(body.provider ?? "supabase");
+
+    if (provider !== "supabase") {
+      sendJson(response, 400, {
+        ok: false,
+        error: "unsupported_db_provider",
+        message: "Only Supabase setup is supported by this devtools setup helper.",
+      });
+      return true;
+    }
+
+    if (body.confirmApply !== true || body.confirmReset !== true) {
+      sendJson(response, 400, {
+        ok: false,
+        error: "db_setup_apply_confirmation_required",
+        message: "DB setup requires both confirmation flags.",
+      });
+      return true;
+    }
+
+    const schema = String(body.schema ?? "public").trim() || "public";
+    const sqlPath = getNanikaDbSetupSqlPath();
+    const sql = fs.readFileSync(sqlPath, "utf8");
+    const summary = summarizeNanikaDbSetupSql(sql);
+
+    const connectionResult = await testSupabaseConnection({
+      url: body.url,
+      apiKey: body.apiKey,
+      schema,
+    });
+
+    if (!connectionResult.ok) {
+      sendJson(response, 502, {
+        ok: false,
+        provider,
+        endpoint: connectionResult.endpoint,
+        status: connectionResult.status,
+        error: connectionResult.error,
+        message: "Nanika DB connection test failed before setup apply.",
+      });
+      return true;
+    }
+
+    const executorResult = await applyNanikaDbSetupWithHostExecutor({
+      provider,
+      url: normalizeSupabaseProjectUrl(body.url),
+      schema,
+      sql,
+      summary,
+    });
+
+    sendJson(response, 200, {
+      ok: true,
+      provider,
+      applied: true,
+      sqlPath: path.relative(root, sqlPath).replaceAll(path.sep, "/"),
+      summary,
+      executorResult,
+      message: "Nanika DB initial setup SQL was sent to the configured host executor.",
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "nanika_db_setup_apply_failed";
+    const statusCode = [
+      "invalid_supabase_url",
+      "missing_supabase_api_key",
+      "unsupported_db_provider",
+      "db_setup_apply_confirmation_required",
+    ].includes(message) ? 400
+      : message === "db_setup_apply_executor_not_configured" ? 501
+        : 500;
+
+    sendJson(response, statusCode, {
+      ok: false,
+      error: message,
+      message: message === "db_setup_apply_executor_not_configured"
+        ? "Set GHOSTNEST_DB_SETUP_APPLY_URL on the dev server to apply the setup SQL, or run docs/nanika-postgres/apply-current-generated.sql manually in your DB admin tool."
+        : "Nanika DB initial setup failed.",
+    });
+  }
+
+  return true;
+}
+
 function readRequestJson(request) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -4803,6 +4948,10 @@ async function handleApiRequest(request, response) {
 
   if (pathname === "/api/devtools/test-nanika-db-adapter") {
     return handleTestNanikaDbAdapter(request, response);
+  }
+
+  if (pathname === "/api/devtools/apply-nanika-db-setup") {
+    return handleApplyNanikaDbSetup(request, response);
   }
 
   if (pathname === "/api/devtools/generate-layer-part") {
