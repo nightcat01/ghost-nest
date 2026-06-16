@@ -9,6 +9,20 @@
 
 create extension if not exists pgcrypto;
 
+-- Reset Nanika-owned tables before recreating the schema.
+-- This deletes Nanika DB data. Image binaries in storage/CDN/public folders are not touched.
+drop table if exists public.nanika_runtime_preferences cascade;
+drop table if exists public.nanika_runtime_profile_characters cascade;
+drop table if exists public.nanika_runtime_profiles cascade;
+drop table if exists public.nanika_menus cascade;
+drop table if exists public.nanika_conditions cascade;
+drop table if exists public.nanika_feature_sets cascade;
+drop table if exists public.nanika_mappings cascade;
+drop table if exists public.nanika_character_slot_bindings cascade;
+drop table if exists public.nanika_character_assets cascade;
+drop table if exists public.nanika_common_keys cascade;
+drop table if exists public.nanika_characters cascade;
+
 create table if not exists public.nanika_characters (
   id text primary key,
   display_name text not null,
@@ -731,6 +745,170 @@ begin
   where id = menu_id;
 
   return menu_id;
+end;
+$$;
+
+create or replace function public.nanika_upsert_runtime_profile(runtime_profile jsonb)
+returns jsonb
+language plpgsql
+as $$
+declare
+  runtime_profile_id text := runtime_profile->>'id';
+  result jsonb;
+begin
+  if runtime_profile_id is null or runtime_profile_id = '' then
+    raise exception 'invalid_nanika_runtime_profile_id';
+  end if;
+
+  if jsonb_typeof(coalesce(runtime_profile->'featureSetIds', '[]'::jsonb)) <> 'array' then
+    raise exception 'invalid_nanika_runtime_profile_feature_sets';
+  end if;
+
+  if jsonb_typeof(coalesce(runtime_profile->'mappingIds', '[]'::jsonb)) <> 'array' then
+    raise exception 'invalid_nanika_runtime_profile_mappings';
+  end if;
+
+  if jsonb_typeof(coalesce(runtime_profile->'characterProfiles', '[]'::jsonb)) <> 'array' then
+    raise exception 'invalid_nanika_runtime_profile_characters';
+  end if;
+
+  insert into public.nanika_runtime_profiles (
+    id,
+    name,
+    description,
+    match_json,
+    initial_json,
+    controls_json,
+    user_preferences_json,
+    preference_storage_json,
+    speech_layout_json,
+    speech_balloon_size_json,
+    sprite_size_json,
+    balloon_theme,
+    include_default_rules,
+    feature_set_ids,
+    mapping_ids
+  )
+  values (
+    runtime_profile_id,
+    nullif(runtime_profile->>'name', ''),
+    nullif(runtime_profile->>'description', ''),
+    runtime_profile->'match',
+    runtime_profile->'initial',
+    runtime_profile->'controls',
+    runtime_profile->'userPreferences',
+    runtime_profile->'preferenceStorage',
+    runtime_profile->'speechLayout',
+    runtime_profile->'speechBalloonSize',
+    runtime_profile->'spriteSize',
+    nullif(runtime_profile->>'balloonTheme', ''),
+    case
+      when runtime_profile ? 'includeDefaultRules' then (runtime_profile->>'includeDefaultRules')::boolean
+      else null
+    end,
+    coalesce(
+      array(
+        select jsonb_array_elements_text(coalesce(runtime_profile->'featureSetIds', '[]'::jsonb))
+      ),
+      array[]::text[]
+    ),
+    coalesce(
+      array(
+        select jsonb_array_elements_text(coalesce(runtime_profile->'mappingIds', '[]'::jsonb))
+      ),
+      array[]::text[]
+    )
+  )
+  on conflict (id) do update set
+    name = excluded.name,
+    description = excluded.description,
+    match_json = excluded.match_json,
+    initial_json = excluded.initial_json,
+    controls_json = excluded.controls_json,
+    user_preferences_json = excluded.user_preferences_json,
+    preference_storage_json = excluded.preference_storage_json,
+    speech_layout_json = excluded.speech_layout_json,
+    speech_balloon_size_json = excluded.speech_balloon_size_json,
+    sprite_size_json = excluded.sprite_size_json,
+    balloon_theme = excluded.balloon_theme,
+    include_default_rules = excluded.include_default_rules,
+    feature_set_ids = excluded.feature_set_ids,
+    mapping_ids = excluded.mapping_ids,
+    enabled = true;
+
+  delete from public.nanika_runtime_profile_characters
+  where nanika_runtime_profile_characters.profile_id = runtime_profile_id;
+
+  insert into public.nanika_runtime_profile_characters (
+    profile_id,
+    character_id,
+    sort_order,
+    match_json,
+    initial_json,
+    controls_json,
+    user_preferences_json,
+    preference_storage_json,
+    speech_layout_json,
+    speech_balloon_size_json,
+    sprite_size_json,
+    balloon_theme,
+    include_default_rules,
+    feature_set_ids,
+    mapping_ids,
+    slot_bindings_json
+  )
+  select
+    runtime_profile_id,
+    character_profile.value->>'characterId',
+    character_profile.ordinality::integer - 1,
+    character_profile.value->'match',
+    character_profile.value->'initial',
+    character_profile.value->'controls',
+    character_profile.value->'userPreferences',
+    character_profile.value->'preferenceStorage',
+    character_profile.value->'speechLayout',
+    character_profile.value->'speechBalloonSize',
+    character_profile.value->'spriteSize',
+    nullif(character_profile.value->>'balloonTheme', ''),
+    case
+      when character_profile.value ? 'includeDefaultRules' then (character_profile.value->>'includeDefaultRules')::boolean
+      else null
+    end,
+    coalesce(
+      array(
+        select jsonb_array_elements_text(coalesce(character_profile.value->'featureSetIds', '[]'::jsonb))
+      ),
+      array[]::text[]
+    ),
+    coalesce(
+      array(
+        select jsonb_array_elements_text(coalesce(character_profile.value->'mappingIds', '[]'::jsonb))
+      ),
+      array[]::text[]
+    ),
+    character_profile.value->'slotBindings'
+  from jsonb_array_elements(coalesce(runtime_profile->'characterProfiles', '[]'::jsonb)) with ordinality as character_profile(value, ordinality)
+  where character_profile.value->>'characterId' is not null
+    and character_profile.value->>'characterId' <> '';
+
+  select profile_json
+  into result
+  from public.nanika_runtime_profile_definitions
+  where id = runtime_profile_id;
+
+  return result;
+end;
+$$;
+
+create or replace function public.nanika_delete_runtime_profile(profile_id text)
+returns text
+language plpgsql
+as $$
+begin
+  delete from public.nanika_runtime_profiles
+  where id = profile_id;
+
+  return profile_id;
 end;
 $$;
 

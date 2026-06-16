@@ -4,6 +4,20 @@
 
 create extension if not exists pgcrypto;
 
+-- Reset Nanika-owned tables before recreating the schema.
+-- This deletes Nanika DB data. Image binaries in storage/CDN/public folders are not touched.
+drop table if exists public.nanika_runtime_preferences cascade;
+drop table if exists public.nanika_runtime_profile_characters cascade;
+drop table if exists public.nanika_runtime_profiles cascade;
+drop table if exists public.nanika_menus cascade;
+drop table if exists public.nanika_conditions cascade;
+drop table if exists public.nanika_feature_sets cascade;
+drop table if exists public.nanika_mappings cascade;
+drop table if exists public.nanika_character_slot_bindings cascade;
+drop table if exists public.nanika_character_assets cascade;
+drop table if exists public.nanika_common_keys cascade;
+drop table if exists public.nanika_characters cascade;
+
 create table if not exists public.nanika_characters (
   id text primary key,
   display_name text not null,

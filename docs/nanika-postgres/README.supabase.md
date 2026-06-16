@@ -16,6 +16,10 @@
 | `apply-current-generated.sql` | All-in-one SQL for schema, helper functions, current generated seed, and RLS |
 | `data-api-adapter.example.ts` | Supabase-backed `NanikaDataAdapter` example |
 
+## Reset Warning
+
+`schema.sql` and `apply-current-generated.sql` reset Nanika-owned tables with `drop table ... cascade` before recreating them. Use them for initial setup or deliberate reset only. They do not delete image binaries in Supabase Storage, CDN, or host `public` folders.
+
 ## Apply Order
 
 Supabase SQL editor 또는 migration에서 아래 순서로 실행합니다.
@@ -140,6 +144,8 @@ const profile = profileRows?.profile_json;
 `conditions`는 devtools의 조건 카드 목록으로 다시 넘길 때 사용합니다. 런타임 rule에 이미 포함된 `mapping.conditions`와는 별개로, 저장 가능한 조건 재료 목록입니다.
 
 `menus`는 메뉴 설정 플러그인의 저장 결과입니다. 런타임에서 메뉴를 열 때는 mapping action의 `menuId`로 이 목록을 조회해 `open_management_menu.items`를 채우거나, 호스트 앱이 메뉴 UI 플러그인에 같은 데이터를 직접 전달할 수 있습니다.
+
+`runtimeProfiles` scope uses `public.nanika_runtime_profile_definitions` for reads and the optional `nanika_upsert_runtime_profile` / `nanika_delete_runtime_profile` RPC helpers for writes. Apply `data-api-functions.sql` again if an older database only has mapping, feature set, condition, and menu RPCs.
 
 ```ts
 const result = createNanikaRuntimeProfileOptions({

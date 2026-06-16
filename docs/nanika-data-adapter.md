@@ -185,7 +185,7 @@ GhostNest includes a Postgres-oriented sample under `docs/nanika-postgres`.
 | File | Purpose |
 | --- | --- |
 | `schema.sql` | Tables, indexes, triggers, and JSON views for Nanika metadata |
-| `data-api-functions.sql` | Optional RPC helpers for saving and deleting mappings, feature sets, conditions, and menus |
+| `data-api-functions.sql` | Optional RPC helpers for saving and deleting mappings, feature sets, conditions, menus, and runtime profiles |
 | `seed-demo-rine.sql` | Minimal host app/Rine demo data |
 | `seed-current-generated.sql` | Seed generated from the current local `generated/nanika-mappings.json` and `generated/nanika-feature-sets.json` files |
 | `policies.supabase.sql` | Optional Supabase RLS example |

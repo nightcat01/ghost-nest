@@ -6,6 +6,7 @@ type SupabaseNanikaRow = {
   feature_set_json?: unknown;
   condition_json?: unknown;
   menu_json?: unknown;
+  profile_json?: unknown;
 };
 
 type SupabaseNanikaAdapterOptions = {
@@ -17,6 +18,7 @@ const scopeConfig = {
     view: "nanika_mapping_definitions",
     jsonColumn: "mapping_json",
     upsertRpc: "nanika_upsert_mapping",
+    upsertParam: "mapping",
     deleteRpc: "nanika_delete_mapping",
     deleteParam: "mapping_id",
   },
@@ -24,6 +26,7 @@ const scopeConfig = {
     view: "nanika_feature_set_definitions",
     jsonColumn: "feature_set_json",
     upsertRpc: "nanika_upsert_feature_set",
+    upsertParam: "feature_set",
     deleteRpc: "nanika_delete_feature_set",
     deleteParam: "feature_set_id",
   },
@@ -31,6 +34,7 @@ const scopeConfig = {
     view: "nanika_condition_definitions",
     jsonColumn: "condition_json",
     upsertRpc: "nanika_upsert_condition",
+    upsertParam: "condition",
     deleteRpc: "nanika_delete_condition",
     deleteParam: "condition_id",
   },
@@ -38,13 +42,23 @@ const scopeConfig = {
     view: "nanika_menu_definitions",
     jsonColumn: "menu_json",
     upsertRpc: "nanika_upsert_menu",
+    upsertParam: "menu",
     deleteRpc: "nanika_delete_menu",
     deleteParam: "menu_id",
+  },
+  runtimeProfiles: {
+    view: "nanika_runtime_profile_definitions",
+    jsonColumn: "profile_json",
+    upsertRpc: "nanika_upsert_runtime_profile",
+    upsertParam: "runtime_profile",
+    deleteRpc: "nanika_delete_runtime_profile",
+    deleteParam: "profile_id",
   },
 } satisfies Partial<Record<NanikaDataScope, {
   view: string;
   jsonColumn: keyof SupabaseNanikaRow;
   upsertRpc: string;
+  upsertParam: string;
   deleteRpc: string;
   deleteParam: string;
 }>>;
@@ -91,7 +105,7 @@ export function createSupabaseNanikaDataAdapter({
     async saveItem(scope, _id, value) {
       const config = getScopeConfig(scope);
       const { error } = await supabase.rpc(config.upsertRpc, {
-        [scope === "featureSets" ? "feature_set" : scope.slice(0, -1)]: value,
+        [config.upsertParam]: value,
       });
 
       if (error) throw error;
