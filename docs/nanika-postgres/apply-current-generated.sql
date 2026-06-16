@@ -923,6 +923,35 @@ $$;
 
 begin;
 
+insert into public.nanika_characters (
+  id,
+  display_name,
+  description,
+  asset_base_url,
+  profile_json,
+  character_json
+)
+values (
+  'rine',
+  'Rine',
+  'Demo guide character used by GhostNest generated mapping examples.',
+  '/assets/nanika/rine',
+  '{
+    "id": "rine",
+    "name": "Rine",
+    "defaultExpression": "neutral"
+  }'::jsonb,
+  '{
+    "note": "Host apps may store the full CharacterDefinition here, or load it from a package and use this row as operational metadata."
+  }'::jsonb
+)
+on conflict (id) do update set
+  display_name = excluded.display_name,
+  description = excluded.description,
+  asset_base_url = excluded.asset_base_url,
+  profile_json = excluded.profile_json,
+  character_json = excluded.character_json;
+
 insert into public.nanika_mappings (
   id,
   name,
