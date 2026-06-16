@@ -5742,7 +5742,7 @@ body.runtime-embed-page {
   display: grid;
   place-items: center;
   min-height: 420px;
-  overflow: hidden;
+  overflow: auto;
   border: 1px solid rgba(61, 127, 122, 0.22);
   border-radius: 8px;
   background:
@@ -5760,16 +5760,17 @@ body.runtime-embed-page {
   position: relative;
   display: inline-grid;
   place-items: center;
-  max-width: 100%;
-  max-height: min(70vh, 760px);
+  width: var(--asset-hitbox-preview-width, 620px);
+  max-width: none;
+  max-height: none;
 }
 
 .asset-hitbox-preview img {
   display: block;
-  width: auto;
+  width: 100%;
   height: auto;
-  max-width: min(100%, 760px);
-  max-height: min(68vh, 720px);
+  max-width: none;
+  max-height: none;
   object-fit: contain;
 }
 

@@ -36,6 +36,7 @@ const characterSelect = requireElement(document.querySelector<HTMLSelectElement>
 const hitAreaList = requireElement(document.querySelector<HTMLElement>("#hitAreaList"), "#hitAreaList");
 const addHitAreaButton = requireElement(document.querySelector<HTMLButtonElement>("#addHitAreaButton"), "#addHitAreaButton");
 const saveHitAreasButton = requireElement(document.querySelector<HTMLButtonElement>("#saveHitAreasButton"), "#saveHitAreasButton");
+const previewStage = requireElement(document.querySelector<HTMLElement>(".asset-hitbox-stage"), ".asset-hitbox-stage");
 const previewImage = requireElement(document.querySelector<HTMLImageElement>("#hitboxPreviewImage"), "#hitboxPreviewImage");
 const overlay = requireElement(document.querySelector<HTMLElement>("#hitboxOverlay"), "#hitboxOverlay");
 const output = requireElement(document.querySelector<HTMLElement>("#hitboxOutput"), "#hitboxOutput");
@@ -53,7 +54,8 @@ function applyPreviewSize() {
   const size = clamp(Number(previewSizeInput.value) || 620, Number(previewSizeInput.min) || 320, Number(previewSizeInput.max) || 1100);
 
   previewSizeInput.value = String(size);
-  previewImage.style.width = `${size}px`;
+  previewStage.style.setProperty("--asset-hitbox-preview-width", `${size}px`);
+  previewImage.style.width = "100%";
   previewImage.style.maxWidth = "none";
   previewImage.style.maxHeight = "none";
   renderPreview();
