@@ -11,9 +11,9 @@
 | `schema.sql` | Postgres table, index, trigger, runtime JSON view |
 | `data-api-functions.sql` | Optional RPC helper functions for `/api/nanika/data/:scope` |
 | `seed-demo-rine.sql` | host app + Rine minimal demo data |
-| `seed-current-generated.sql` | Current `generated/nanika-*.json` mapping and feature set seed |
+| `seed-current-generated.sql` | Current `generated/nanika-*.json` mapping, feature set, runtime profile, condition, and menu seed |
 | `policies.supabase.sql` | Optional Supabase RLS policies |
-| `apply-current-generated.sql` | All-in-one SQL for schema, helper functions, current generated seed, and RLS |
+| `apply-current-generated.sql` | All-in-one SQL for schema, helper functions, Rine demo seed, current generated seed, and RLS |
 | `data-api-adapter.example.ts` | Supabase-backed `NanikaDataAdapter` example |
 
 ## Reset Warning
@@ -44,6 +44,14 @@ Supabase SQL editor 또는 migration에서 아래 순서로 실행합니다.
 Supabase SQL editor에서는 `\i`를 사용할 수 없으니 파일 내용을 순서대로 붙여넣어 실행하세요.
 
 현재 로컬 `generated` 기준으로 바로 시작하려면 `apply-current-generated.sql` 하나를 Supabase SQL editor에 붙여넣어도 됩니다.
+
+`seed-current-generated.sql`과 `apply-current-generated.sql`은 `generated/nanika-mappings.json`, `generated/nanika-feature-sets.json`, `generated/nanika-runtime-profiles.json`, `generated/nanika-menus.json`, 그리고 존재할 경우 `generated/nanika-conditions.json`을 기준으로 생성됩니다. 로컬 generated 파일을 수정한 뒤 SQL을 다시 만들려면 다음 명령을 실행하세요.
+
+```bash
+npm run db:generate-seed
+```
+
+`apply-current-generated.sql`은 Rine 기본 common key, asset metadata, slot binding 예시도 함께 넣기 위해 `seed-demo-rine.sql`을 먼저 포함한 뒤 현재 generated seed를 적용합니다.
 
 `dev-nanika-db-adapter.html`의 **DB 초기 세팅 적용** 버튼은 같은 SQL을 사용합니다. 브라우저에서 raw SQL을 직접 실행하지 않으므로, 버튼으로 실제 적용하려면 로컬 dev server에 `GHOSTNEST_DB_SETUP_APPLY_URL`로 host-owned 관리자 SQL 실행 endpoint를 연결하세요. 연결하지 않은 경우 버튼은 안전하게 실패하고 이 SQL 파일을 수동 실행하라는 안내를 보여줍니다.
 

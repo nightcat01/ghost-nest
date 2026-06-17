@@ -16,7 +16,7 @@ function getSceneLayerFit(layer: RuntimeSceneLayer) {
   }
 
   if (layer.role === "background") {
-    return "cover";
+    return "fill";
   }
 
   return layer.placement ? "fill" : "contain";
@@ -252,6 +252,7 @@ export function createSceneRenderer({ elements, scene, initialScene }: SceneRend
     const characterLayer = getCharacterSceneLayer(selectedScene?.layers ?? []);
     const characterDepth = characterLayer?.depth ?? defaultCharacterSceneDepth;
     const hasSceneLayers = Boolean(selectedScene?.layers?.some((layer) => layer.role !== "character" && isRenderableSceneLayer(layer)));
+    const shouldKeepSpriteInViewport = Boolean(characterLayer?.placement) || elements.stage.dataset.stageMode === "fill";
 
     backLayerRoot.replaceChildren();
     frontLayerRoot.replaceChildren();
@@ -259,12 +260,17 @@ export function createSceneRenderer({ elements, scene, initialScene }: SceneRend
     elements.stage.dataset.sceneActive = selectedScene && (hasSceneLayers || Boolean(characterLayer?.placement)) ? "true" : "false";
     applySceneCanvas(elements.stage, selectedScene);
     applyCharacterSceneSlot(elements.stage, characterLayer);
-    if (characterLayer?.placement) {
+    if (shouldKeepSpriteInViewport) {
+      elements.stage.dataset.characterInViewport = "true";
       elements.stage.dataset.characterInScene = "true";
       moveSpriteIntoSceneViewport();
     } else {
+      delete elements.stage.dataset.characterInViewport;
       delete elements.stage.dataset.characterInScene;
       restoreSpriteToStage();
+    }
+    if (!characterLayer?.placement) {
+      delete elements.stage.dataset.characterInScene;
     }
     backLayerRoot.style.zIndex = String(characterDepth - 1);
     frontLayerRoot.style.zIndex = String(characterDepth + 1);

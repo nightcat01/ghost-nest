@@ -120,6 +120,7 @@ let propLayers: EditableSceneLayer[] = [];
 let effectLayers: EditableSceneLayer[] = [];
 let sceneDragState: SceneDragState | null = null;
 let scenePreviewSize = 760;
+let scenePreviewAspectRatio = 1;
 
 const sceneDepthDefaults = {
   background: 0,
@@ -129,10 +130,10 @@ const sceneDepthDefaults = {
 } as const;
 
 const defaultCharacterPreviewPlacement = {
-  x: 31,
-  y: 8,
-  width: 38,
-  height: 86,
+  x: 19,
+  y: 0,
+  width: 62,
+  height: 100,
   unit: "percent",
 } as const;
 
@@ -150,6 +151,14 @@ function setScenePreviewSize(size: number) {
   scenePreviewSize = clampPreviewSize(size);
   scenePreviewSizeInput.value = String(scenePreviewSize);
   preview.style.setProperty("--asset-scene-preview-width", `${scenePreviewSize}px`);
+}
+
+function setScenePreviewAspectRatio(width: number, height: number) {
+  const safeWidth = Number.isFinite(width) && width > 0 ? width : scenePreviewSize;
+  const safeHeight = Number.isFinite(height) && height > 0 ? height : scenePreviewSize;
+
+  scenePreviewAspectRatio = safeWidth / safeHeight;
+  preview.style.setProperty("--asset-scene-preview-aspect-ratio", `${safeWidth} / ${safeHeight}`);
 }
 
 /**
@@ -485,7 +494,7 @@ function createSceneSnippet() {
   const backgroundColor = backgroundColorInput.value.trim();
   const previewRect = preview.getBoundingClientRect();
   const canvasWidth = Math.max(1, Math.round(previewRect.width || scenePreviewSize));
-  const canvasHeight = Math.max(1, Math.round(previewRect.height || preview.clientHeight || scenePreviewSize));
+  const canvasHeight = Math.max(1, Math.round(previewRect.height || preview.clientHeight || canvasWidth / scenePreviewAspectRatio));
 
   if (backgroundImage || backgroundColor) {
     layers.push({
@@ -494,7 +503,7 @@ function createSceneSnippet() {
       depth: readNumber(backgroundDepthInput, sceneDepthDefaults.background),
       ...(backgroundImage ? { image: backgroundImage } : {}),
       ...(backgroundColor ? { color: backgroundColor } : {}),
-      fit: "cover",
+      fit: "fill",
       objectPosition: "center",
       overflow: "hidden",
     });
@@ -845,6 +854,7 @@ function applySceneSelection() {
     backgroundColorInput.value = "";
     backgroundDepthInput.value = String(sceneDepthDefaults.background);
     characterDepthInput.value = String(sceneDepthDefaults.character);
+    setScenePreviewAspectRatio(scenePreviewSize, scenePreviewSize);
     propLayers = [];
     effectLayers = [];
     renderEditableLayerLists();
@@ -858,6 +868,7 @@ function applySceneSelection() {
   const scene = existingScenes[sceneSelect.value];
   const backgroundLayer = findLayer(scene, "background");
   const characterLayer = findLayer(scene, "character");
+  const canvas = scene?.canvas;
 
   sceneIdInput.value = scene?.id ?? sceneSelect.value;
   defaultSceneInput.checked = existingDefaultScene === sceneSelect.value;
@@ -865,6 +876,7 @@ function applySceneSelection() {
   backgroundColorInput.value = backgroundLayer?.color ?? "";
   backgroundDepthInput.value = String(backgroundLayer?.depth ?? sceneDepthDefaults.background);
   characterDepthInput.value = String(characterLayer?.depth ?? sceneDepthDefaults.character);
+  setScenePreviewAspectRatio(canvas?.width ?? scenePreviewSize, canvas?.height ?? scenePreviewSize);
   propLayers = readEditableLayers(scene, "prop");
   effectLayers = readEditableLayers(scene, "effect");
   renderEditableLayerLists();

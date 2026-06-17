@@ -27,6 +27,7 @@ import type {
 const runtimeRootSelector = "#nanikaRuntimeEmbed";
 const embedSpeechPreset = runtimeSpeechPresets.hostEmbed;
 const runtimeStatus = document.querySelector<HTMLElement>("#embedRuntimeStatus");
+const embedSpeechToggle = document.querySelector<HTMLButtonElement>("#embedSpeechToggle");
 let runtimeBootCount = 0;
 let embedCharacters: CharacterDefinition[] = [nanikaPreset.character, ...bundledCharacters];
 let embedCharactersReady: Promise<CharacterDefinition[]> | null = null;
@@ -34,6 +35,7 @@ let hasLoadedEmbedCharacterCatalog = false;
 let embedAssetBaseUrlOptionsReady: Promise<CharacterAssetBaseUrlOptions | null> | null = null;
 let currentEmbedPageId = "home";
 let currentEmbedCharacterId = nanikaPreset.character.profile.id;
+let isEmbedSpeechHidden = false;
 
 type EmbedRuntimeProfile = NanikaRuntimeProfile & {
   bootEvent: RuntimeEventName;
@@ -432,6 +434,19 @@ type RuntimeEmbedWindow = Window & {
 
 const embedWindow = window as RuntimeEmbedWindow;
 
+function applyEmbedSpeechVisibility() {
+  const stage = document.querySelector<HTMLElement>("#nanikaRuntimeEmbed .embed-nanika-stage");
+
+  if (stage) {
+    stage.dataset.speechHidden = String(isEmbedSpeechHidden);
+  }
+
+  if (embedSpeechToggle) {
+    embedSpeechToggle.textContent = isEmbedSpeechHidden ? "대사창 보이기" : "대사창 숨기기";
+    embedSpeechToggle.setAttribute("aria-pressed", String(isEmbedSpeechHidden));
+  }
+}
+
 async function createEmbedRuntime(pageId = currentEmbedPageId, characterId = currentEmbedCharacterId) {
   embedWindow.__nanikaRuntimeEmbed__?.destroy();
   runtimeBootCount += 1;
@@ -515,6 +530,7 @@ async function createEmbedRuntime(pageId = currentEmbedPageId, characterId = cur
   );
 
   embedWindow.__nanikaRuntimeEmbed__.emit(profile.bootEvent);
+  applyEmbedSpeechVisibility();
   if (runtimeStatus) {
     runtimeStatus.textContent = `${character.profile.name} ready #${runtimeBootCount}`;
   }
@@ -586,6 +602,11 @@ document.querySelectorAll<HTMLElement>("[data-embed-event]").forEach((element) =
 
 document.querySelector<HTMLButtonElement>("#embedRuntimeRestart")?.addEventListener("click", () => {
   void createEmbedRuntime();
+});
+
+embedSpeechToggle?.addEventListener("click", () => {
+  isEmbedSpeechHidden = !isEmbedSpeechHidden;
+  applyEmbedSpeechVisibility();
 });
 
 void createEmbedRuntime();

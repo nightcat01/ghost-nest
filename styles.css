@@ -931,18 +931,6 @@ body.runtime-embed-page {
   height: auto;
 }
 
-.ghostnest-runtime.character-stage[data-stage-mode="fill"][data-scene-canvas="authored"][data-speech-layout="dialogue-box"]:not([data-speech-placement="overlay-bottom"]) .scene-viewport {
-  width: auto;
-  max-width: 100%;
-  height: 100%;
-}
-
-.ghostnest-runtime.character-stage[data-stage-mode="fill"][data-speech-layout="dialogue-box"]:not([data-speech-placement="overlay-bottom"]) .character-sprite {
-  width: min(var(--character-sprite-width, 220px), 100%);
-  height: min(var(--character-sprite-height, 330px), 100%);
-  overflow: hidden;
-}
-
 .ghostnest-runtime .scene-layer-root {
   position: absolute;
   inset: 0;
@@ -1136,12 +1124,29 @@ body.runtime-embed-page {
   margin-bottom: 0;
 }
 
-.ghostnest-runtime.character-stage[data-stage-mode="fill"][data-scene-canvas="authored"][data-speech-layout="dialogue-box"][data-speech-placement="overlay-bottom"] .scene-viewport {
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  max-height: 100%;
+.ghostnest-runtime.character-stage[data-stage-mode="fill"][data-scene-canvas="authored"] .scene-viewport {
+  width: var(--scene-viewport-width, auto);
+  max-width: none;
+  height: var(--scene-viewport-height, 100%);
+  max-height: none;
   align-self: center;
+  justify-self: center;
+}
+
+.ghostnest-runtime.character-stage[data-speech-hidden="true"] {
+  grid-template-areas: "sprite" !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+}
+
+.ghostnest-runtime.character-stage[data-speech-hidden="true"][data-speech-layout="dialogue-box"][data-speech-placement="overlay-bottom"] .scene-viewport,
+.ghostnest-runtime.character-stage[data-speech-hidden="true"][data-speech-layout="dialogue-box"][data-speech-placement="overlay-bottom"] .character-sprite,
+.ghostnest-runtime.character-stage[data-speech-hidden="true"] .scene-viewport,
+.ghostnest-runtime.character-stage[data-speech-hidden="true"] .character-sprite {
+  grid-area: sprite !important;
+}
+
+.ghostnest-runtime.character-stage[data-speech-hidden="true"] .speech-balloon {
+  display: none !important;
 }
 
 .ghostnest-runtime.character-stage[data-speech-layout="dialogue-box"][data-speech-placement="overlay-bottom"] .character-sprite {
@@ -1156,17 +1161,6 @@ body.runtime-embed-page {
   margin-bottom: 0;
 }
 
-.ghostnest-runtime.character-stage[data-stage-mode="fill"][data-speech-layout="dialogue-box"][data-speech-placement="overlay-bottom"][data-scene-character-placement="percent"] .character-sprite {
-  position: absolute;
-  left: var(--scene-character-x);
-  top: var(--scene-character-y);
-  width: var(--scene-character-width);
-  height: var(--scene-character-height);
-  max-width: none;
-  max-height: none;
-  transform-origin: center bottom;
-}
-
 .ghostnest-runtime.character-stage[data-speech-layout="dialogue-box"][data-speech-placement="overlay-bottom"] .speech-balloon {
   grid-area: stack;
   align-self: end;
@@ -1179,9 +1173,10 @@ body.runtime-embed-page {
 .ghostnest-runtime.character-stage[data-stage-mode="fill"][data-speech-layout="dialogue-box"][data-speech-placement="overlay-bottom"] .speech-balloon {
   position: absolute;
   right: auto;
-  bottom: 8px;
+  bottom: 0;
   left: 50%;
   transform: translateX(-50%);
+  margin: 0;
   max-height: min(var(--speech-dialogue-max-height, 132px), calc(100% - 24px));
   box-shadow: none;
 }
@@ -1750,7 +1745,33 @@ body.runtime-embed-page {
     filter 180ms ease;
 }
 
-.ghostnest-runtime.character-stage[data-character-in-scene="true"][data-scene-character-placement="percent"] .scene-viewport > .character-sprite {
+.ghostnest-runtime.character-stage[data-character-in-scene="true"][data-scene-character-placement="percent"]:not([data-stage-mode="fill"]) .scene-viewport > .character-sprite {
+  position: absolute;
+  left: var(--scene-character-x);
+  top: var(--scene-character-y);
+  width: var(--scene-character-width);
+  height: var(--scene-character-height);
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  align-self: auto;
+  justify-self: auto;
+}
+
+.ghostnest-runtime.character-stage[data-stage-mode="fill"] .scene-viewport > .character-sprite {
+  position: absolute;
+  bottom: 0;
+  left: var(--character-fit-x, 0);
+  width: var(--character-fit-width, 100%);
+  height: var(--character-fit-height, 100%);
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  align-self: auto;
+  justify-self: auto;
+}
+
+.ghostnest-runtime.character-stage[data-stage-mode="fill"][data-character-in-scene="true"][data-scene-character-placement="percent"] .scene-viewport > .character-sprite {
   position: absolute;
   left: var(--scene-character-x);
   top: var(--scene-character-y);
@@ -6444,22 +6465,12 @@ body.runtime-embed-page {
 }
 
 .asset-workbench-panel .asset-lab-output-header {
-  position: sticky;
-  top: 0;
-  z-index: 4;
   padding-bottom: 8px;
   border-bottom: 1px solid rgba(50, 119, 108, 0.12);
-  background: color-mix(in srgb, var(--panel) 84%, transparent);
-  backdrop-filter: blur(8px);
 }
 
 .asset-workbench-panel > .asset-preview-zoom-controls {
-  position: sticky;
-  top: 48px;
-  z-index: 3;
   padding: 8px 0;
-  background: color-mix(in srgb, var(--panel) 82%, transparent);
-  backdrop-filter: blur(8px);
 }
 
 .asset-workbench-guide {
@@ -6720,8 +6731,9 @@ body.runtime-embed-page {
 .asset-scene-preview {
   position: relative;
   width: min(100%, var(--asset-scene-preview-width, 760px));
-  max-height: min(76vh, 760px);
-  min-height: 520px;
+  aspect-ratio: var(--asset-scene-preview-aspect-ratio, 1 / 1);
+  max-height: none;
+  min-height: 0;
   margin-inline: auto;
   overflow: hidden;
   border: 1px solid rgba(38, 35, 31, 0.12);
@@ -6740,8 +6752,7 @@ body.runtime-embed-page {
   background-size: 20px 20px;
 }
 
-.asset-workbench-panel .asset-composite-preview,
-.asset-workbench-panel .asset-scene-preview {
+.asset-workbench-panel .asset-composite-preview {
   min-height: clamp(460px, 62vh, 760px);
 }
 
@@ -6795,13 +6806,17 @@ body.runtime-embed-page {
 }
 
 .asset-scene-character-slot.asset-scene-character-preview {
+  overflow: hidden;
   border: 0;
   border-radius: 0;
   background: transparent;
 }
 
 .asset-scene-character-preview img {
+  width: 100%;
+  height: 100%;
   object-fit: contain;
+  object-position: bottom center;
 }
 
 .asset-scene-stack-warnings {

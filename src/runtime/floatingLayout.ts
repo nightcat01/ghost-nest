@@ -8,6 +8,7 @@ const topMargin = 16;
 const defaultStageGap = 12;
 const minContentHeight = 96;
 const minPanelContentHeight = 48;
+const overlayViewportSelector = ":scope > .scene-viewport";
 
 function getObservedElements(elements: RuntimeElements) {
   return [
@@ -48,6 +49,111 @@ function refreshRuntimeAreaVariables(elements: RuntimeElements) {
 
   elements.stage.style.setProperty("--runtime-area-width", `${Math.max(0, Math.floor(layoutBounds.width))}px`);
   elements.stage.style.setProperty("--runtime-area-height", `${Math.max(0, Math.floor(layoutBounds.height))}px`);
+}
+
+function readPixelCustomProperty(styles: CSSStyleDeclaration, name: string) {
+  const value = styles.getPropertyValue(name).trim();
+
+  if (!value.endsWith("px")) {
+    return null;
+  }
+
+  const parsedValue = Number.parseFloat(value);
+
+  return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : null;
+}
+
+function clearAuthoredOverlayViewportSize(elements: RuntimeElements) {
+  const viewport = elements.stage.querySelector<HTMLElement>(overlayViewportSelector);
+
+  viewport?.style.removeProperty("--scene-viewport-width");
+  viewport?.style.removeProperty("--scene-viewport-height");
+}
+
+function clearViewportCharacterFitSize(elements: RuntimeElements) {
+  elements.sprite.style.removeProperty("--character-fit-width");
+  elements.sprite.style.removeProperty("--character-fit-height");
+  elements.sprite.style.removeProperty("--character-fit-x");
+}
+
+function refreshAuthoredOverlayViewportSize(elements: RuntimeElements) {
+  const { stage } = elements;
+
+  if (
+    stage.dataset.stageMode !== "fill"
+    || stage.dataset.sceneCanvas !== "authored"
+  ) {
+    clearAuthoredOverlayViewportSize(elements);
+    return;
+  }
+
+  const viewport = stage.querySelector<HTMLElement>(overlayViewportSelector);
+
+  if (!viewport) {
+    return;
+  }
+
+  const stageStyles = window.getComputedStyle(stage);
+  const canvasWidth = readPixelCustomProperty(stageStyles, "--scene-canvas-width");
+  const canvasHeight = readPixelCustomProperty(stageStyles, "--scene-canvas-height");
+  const stageRect = stage.getBoundingClientRect();
+
+  if (!canvasWidth || !canvasHeight || stageRect.width <= 0 || stageRect.height <= 0) {
+    clearAuthoredOverlayViewportSize(elements);
+    return;
+  }
+
+  const canvasAspectRatio = canvasWidth / canvasHeight;
+  const stageAspectRatio = stageRect.width / stageRect.height;
+  const viewportWidth = stageAspectRatio > canvasAspectRatio
+    ? stageRect.height * canvasAspectRatio
+    : stageRect.width;
+  const viewportHeight = stageAspectRatio > canvasAspectRatio
+    ? stageRect.height
+    : stageRect.width / canvasAspectRatio;
+
+  viewport.style.setProperty("--scene-viewport-width", `${Math.ceil(viewportWidth)}px`);
+  viewport.style.setProperty("--scene-viewport-height", `${Math.ceil(viewportHeight)}px`);
+}
+
+function refreshViewportCharacterFitSize(elements: RuntimeElements) {
+  const viewport = elements.stage.querySelector<HTMLElement>(overlayViewportSelector);
+
+  if (
+    !viewport
+    || elements.stage.dataset.stageMode !== "fill"
+    || elements.sprite.parentElement !== viewport
+    || (
+      elements.stage.dataset.characterInScene === "true"
+      && elements.stage.dataset.sceneCharacterPlacement === "percent"
+    )
+  ) {
+    clearViewportCharacterFitSize(elements);
+    return;
+  }
+
+  const naturalWidth = elements.spriteImage.naturalWidth;
+  const naturalHeight = elements.spriteImage.naturalHeight;
+  const viewportRect = viewport.getBoundingClientRect();
+
+  if (naturalWidth <= 0 || naturalHeight <= 0 || viewportRect.width <= 0 || viewportRect.height <= 0) {
+    clearViewportCharacterFitSize(elements);
+    return;
+  }
+
+  const imageRatio = naturalWidth / naturalHeight;
+  const viewportRatio = viewportRect.width / viewportRect.height;
+  const fitWidth = viewportRatio > imageRatio
+    ? viewportRect.height * imageRatio
+    : viewportRect.width;
+  const fitHeight = viewportRatio > imageRatio
+    ? viewportRect.height
+    : viewportRect.width / imageRatio;
+  const fitX = (viewportRect.width - fitWidth) / 2;
+
+  elements.sprite.style.setProperty("--character-fit-width", `${Math.ceil(fitWidth)}px`);
+  elements.sprite.style.setProperty("--character-fit-height", `${Math.ceil(fitHeight)}px`);
+  elements.sprite.style.setProperty("--character-fit-x", `${Math.floor(fitX)}px`);
 }
 
 function getBottomAnchoredAvailableHeight(elements: RuntimeElements) {
@@ -91,6 +197,8 @@ export function initFloatingLayout({ elements }: FloatingLayoutOptions) {
   function refresh() {
     animationFrameId = null;
     refreshRuntimeAreaVariables(elements);
+    refreshAuthoredOverlayViewportSize(elements);
+    refreshViewportCharacterFitSize(elements);
 
     const rawAvailableHeight = elements.stage.dataset.positionMode === "custom"
       ? getCustomAvailableHeight(elements)
@@ -131,6 +239,7 @@ export function initFloatingLayout({ elements }: FloatingLayoutOptions) {
     resizeObserver?.observe(elements.root);
   }
   window.addEventListener("resize", scheduleRefresh);
+  elements.spriteImage.addEventListener("load", scheduleRefresh);
   scheduleRefresh();
 
   return () => {
@@ -141,9 +250,12 @@ export function initFloatingLayout({ elements }: FloatingLayoutOptions) {
     mutationObserver.disconnect();
     resizeObserver?.disconnect();
     window.removeEventListener("resize", scheduleRefresh);
+    elements.spriteImage.removeEventListener("load", scheduleRefresh);
     elements.stage.style.removeProperty("--floating-content-max-height");
     elements.stage.style.removeProperty("--runtime-area-width");
     elements.stage.style.removeProperty("--runtime-area-height");
+    clearAuthoredOverlayViewportSize(elements);
+    clearViewportCharacterFitSize(elements);
     delete elements.stage.dataset.floatingLayout;
   };
 }
