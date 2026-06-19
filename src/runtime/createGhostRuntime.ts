@@ -106,6 +106,16 @@ function createCharacterDialogueEngine(character: CharacterDefinition, dialogueE
 /**
  * 캐릭터 데이터, 플러그인, DOM selector를 받아 웹 캐릭터 런타임을 생성합니다.
  */
+function omitUndefinedProperties<T extends Record<string, unknown>>(value: T | undefined): Partial<T> {
+  if (!value) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entryValue]) => entryValue !== undefined),
+  ) as Partial<T>;
+}
+
 export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
   const timing = {
     ...defaultTiming,
@@ -114,8 +124,8 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
   const controls = {
     ...defaultControls,
     ...defaultFeatures,
-    ...options.features,
-    ...options.controls,
+    ...omitUndefinedProperties(options.features),
+    ...omitUndefinedProperties(options.controls),
   };
   const userPreferences = {
     ...defaultUserPreferences,

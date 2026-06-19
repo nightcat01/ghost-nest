@@ -197,6 +197,7 @@ function applySceneCanvas(element: HTMLElement, scene: RuntimeScene | null) {
  */
 export function createSceneRenderer({ elements, scene, initialScene }: SceneRendererOptions) {
   const viewport = document.createElement("div");
+  const stageBackgroundRoot = document.createElement("div");
   const backLayerRoot = document.createElement("div");
   const frontLayerRoot = document.createElement("div");
   const originalSpriteParent = elements.sprite.parentElement;
@@ -207,12 +208,14 @@ export function createSceneRenderer({ elements, scene, initialScene }: SceneRend
   const overlayTimers = new Map<string, number>();
 
   viewport.className = "scene-viewport";
+  stageBackgroundRoot.className = "scene-layer-root scene-stage-background-root";
   backLayerRoot.className = "scene-layer-root scene-layer-root-back";
   frontLayerRoot.className = "scene-layer-root scene-layer-root-front";
+  stageBackgroundRoot.setAttribute("aria-hidden", "true");
   backLayerRoot.setAttribute("aria-hidden", "true");
   frontLayerRoot.setAttribute("aria-hidden", "true");
   viewport.append(backLayerRoot, frontLayerRoot);
-  elements.stage.prepend(viewport);
+  elements.stage.prepend(stageBackgroundRoot, viewport);
 
   function restoreSpriteToStage() {
     if (elements.sprite.parentElement !== viewport || !originalSpriteParent) {
@@ -232,7 +235,9 @@ export function createSceneRenderer({ elements, scene, initialScene }: SceneRend
 
   function appendSceneLayer(layer: RuntimeSceneLayer, characterDepth: number, options: { overlaySlot?: string; overlayId?: string } = {}) {
     const element = createSceneLayerElement(layer);
-    const targetRoot = (layer.depth ?? 0) > characterDepth ? frontLayerRoot : backLayerRoot;
+    const targetRoot = layer.role === "background"
+      ? stageBackgroundRoot
+      : (layer.depth ?? 0) > characterDepth ? frontLayerRoot : backLayerRoot;
 
     if (options.overlaySlot) {
       element.dataset.sceneOverlaySlot = options.overlaySlot;
@@ -254,6 +259,7 @@ export function createSceneRenderer({ elements, scene, initialScene }: SceneRend
     const hasSceneLayers = Boolean(selectedScene?.layers?.some((layer) => layer.role !== "character" && isRenderableSceneLayer(layer)));
     const shouldKeepSpriteInViewport = Boolean(characterLayer?.placement) || elements.stage.dataset.stageMode === "fill";
 
+    stageBackgroundRoot.replaceChildren();
     backLayerRoot.replaceChildren();
     frontLayerRoot.replaceChildren();
     elements.stage.dataset.sceneId = selectedScene?.id ?? "";
@@ -303,6 +309,7 @@ export function createSceneRenderer({ elements, scene, initialScene }: SceneRend
     overlayTimers.forEach((timerId) => window.clearTimeout(timerId));
     overlayTimers.clear();
     restoreSpriteToStage();
+    stageBackgroundRoot.remove();
     viewport.remove();
   }
 

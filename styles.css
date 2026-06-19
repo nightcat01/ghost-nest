@@ -938,6 +938,15 @@ body.runtime-embed-page {
   overflow: hidden;
 }
 
+.ghostnest-runtime .scene-stage-background-root {
+  grid-area: sprite;
+  z-index: 0;
+}
+
+.ghostnest-runtime.character-stage[data-speech-layout="dialogue-box"][data-speech-placement="overlay-bottom"] .scene-stage-background-root {
+  grid-area: stack;
+}
+
 .ghostnest-runtime .scene-layer {
   position: absolute;
   inset: 0;
@@ -1133,12 +1142,19 @@ body.runtime-embed-page {
   justify-self: center;
 }
 
+.ghostnest-runtime.character-stage[data-stage-mode="fill"][data-scene-canvas="authored"][data-speech-layout="dialogue-box"][data-speech-placement="overlay-bottom"] .scene-viewport {
+  width: var(--scene-viewport-width, auto);
+  height: var(--scene-viewport-height, 100%);
+}
+
 .ghostnest-runtime.character-stage[data-speech-hidden="true"] {
   grid-template-areas: "sprite" !important;
   grid-template-rows: minmax(0, 1fr) !important;
 }
 
 .ghostnest-runtime.character-stage[data-speech-hidden="true"][data-speech-layout="dialogue-box"][data-speech-placement="overlay-bottom"] .scene-viewport,
+.ghostnest-runtime.character-stage[data-speech-hidden="true"][data-speech-layout="dialogue-box"][data-speech-placement="overlay-bottom"] .scene-stage-background-root,
+.ghostnest-runtime.character-stage[data-speech-hidden="true"] .scene-stage-background-root,
 .ghostnest-runtime.character-stage[data-speech-hidden="true"][data-speech-layout="dialogue-box"][data-speech-placement="overlay-bottom"] .character-sprite,
 .ghostnest-runtime.character-stage[data-speech-hidden="true"] .scene-viewport,
 .ghostnest-runtime.character-stage[data-speech-hidden="true"] .character-sprite {
@@ -1782,6 +1798,19 @@ body.runtime-embed-page {
   margin: 0;
   align-self: auto;
   justify-self: auto;
+}
+
+.ghostnest-runtime.character-stage[data-character-in-scene="true"][data-scene-character-placement="percent"] .scene-viewport > .character-sprite {
+  overflow: hidden;
+}
+
+.ghostnest-runtime.character-stage[data-character-in-scene="true"][data-scene-character-placement="percent"] .scene-viewport > .character-sprite > .character-sprite-layer[data-layer-id="base"] {
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: auto;
+  max-height: none;
+  object-fit: fill;
+  object-position: top center;
 }
 
 .ghostnest-runtime:not([data-character-hover-effect="off"]) .character-sprite:hover,

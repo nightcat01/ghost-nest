@@ -202,6 +202,7 @@ const embedRuntimeControls = {
   areaHoverDescription: false,
   randomPrompt: false,
   persistence: false,
+  floatingLayout: true,
 };
 
 const embedRuntimeSizing = {

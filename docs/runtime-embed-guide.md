@@ -32,6 +32,8 @@ Use this roadmap when embedding Nanika into a host site such as host app.
 
 Host apps should treat the Nanika mount as a layout boundary. The host owns the outside box; Nanika owns character, speech, menu, and scene layout inside `.ghostnest-runtime`.
 
+For runtime layout invariants, see `docs/nanika-runtime-layout-contract.md`. In particular, character sprite, character parts, and stage composition layers are one visual group inside `scene-viewport`. Host CSS may size the mount, but it must not make the character and stage composition use different coordinate systems.
+
 Safe host responsibilities:
 
 - Size and position the host wrapper, for example `.embed-nanika-root` or `.new-nanika-stage-root`.

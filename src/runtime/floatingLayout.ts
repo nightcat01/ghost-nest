@@ -97,20 +97,32 @@ function refreshAuthoredOverlayViewportSize(elements: RuntimeElements) {
   const canvasWidth = readPixelCustomProperty(stageStyles, "--scene-canvas-width");
   const canvasHeight = readPixelCustomProperty(stageStyles, "--scene-canvas-height");
   const stageRect = stage.getBoundingClientRect();
+  const speechRect = elements.speechBalloon?.getBoundingClientRect();
+  const speechHeight = speechRect?.height ?? 0;
+  const speechConsumesSpace = Boolean(stage.dataset.speechHidden !== "true"
+    && stage.dataset.speechPlacement !== "overlay-bottom"
+    && elements.speechBalloon
+    && !elements.speechBalloon.hidden
+    && window.getComputedStyle(elements.speechBalloon).display !== "none"
+    && speechHeight > 0);
+  const availableWidth = stageRect.width;
+  const availableHeight = speechConsumesSpace
+    ? Math.max(0, stageRect.height - speechHeight - getStageGap(elements))
+    : stageRect.height;
 
-  if (!canvasWidth || !canvasHeight || stageRect.width <= 0 || stageRect.height <= 0) {
+  if (!canvasWidth || !canvasHeight || availableWidth <= 0 || availableHeight <= 0) {
     clearAuthoredOverlayViewportSize(elements);
     return;
   }
 
   const canvasAspectRatio = canvasWidth / canvasHeight;
-  const stageAspectRatio = stageRect.width / stageRect.height;
-  const viewportWidth = stageAspectRatio > canvasAspectRatio
-    ? stageRect.height * canvasAspectRatio
-    : stageRect.width;
-  const viewportHeight = stageAspectRatio > canvasAspectRatio
-    ? stageRect.height
-    : stageRect.width / canvasAspectRatio;
+  const availableAspectRatio = availableWidth / availableHeight;
+  const viewportWidth = availableAspectRatio > canvasAspectRatio
+    ? availableWidth
+    : availableHeight * canvasAspectRatio;
+  const viewportHeight = availableAspectRatio > canvasAspectRatio
+    ? availableWidth / canvasAspectRatio
+    : availableHeight;
 
   viewport.style.setProperty("--scene-viewport-width", `${Math.ceil(viewportWidth)}px`);
   viewport.style.setProperty("--scene-viewport-height", `${Math.ceil(viewportHeight)}px`);
