@@ -68,12 +68,15 @@ function clearAuthoredOverlayViewportSize(elements: RuntimeElements) {
 
   viewport?.style.removeProperty("--scene-viewport-width");
   viewport?.style.removeProperty("--scene-viewport-height");
+  viewport?.style.removeProperty("--scene-viewport-offset-y");
 }
 
 function clearViewportCharacterFitSize(elements: RuntimeElements) {
   elements.sprite.style.removeProperty("--character-fit-width");
   elements.sprite.style.removeProperty("--character-fit-height");
   elements.sprite.style.removeProperty("--character-fit-x");
+  elements.sprite.style.removeProperty("--character-fit-y");
+  elements.sprite.style.removeProperty("--character-fit-bottom");
 }
 
 function refreshAuthoredOverlayViewportSize(elements: RuntimeElements) {
@@ -118,14 +121,22 @@ function refreshAuthoredOverlayViewportSize(elements: RuntimeElements) {
   const canvasAspectRatio = canvasWidth / canvasHeight;
   const availableAspectRatio = availableWidth / availableHeight;
   const viewportWidth = availableAspectRatio > canvasAspectRatio
-    ? availableWidth
-    : availableHeight * canvasAspectRatio;
+    ? availableHeight * canvasAspectRatio
+    : availableWidth;
   const viewportHeight = availableAspectRatio > canvasAspectRatio
-    ? availableWidth / canvasAspectRatio
-    : availableHeight;
+    ? availableHeight
+    : availableWidth / canvasAspectRatio;
+  const remainingHeight = Math.max(0, availableHeight - viewportHeight);
+  const viewportAnchor = stage.dataset.sceneViewportAnchor;
+  const viewportOffsetY = viewportAnchor === "top"
+    ? 0
+    : viewportAnchor === "bottom"
+      ? remainingHeight
+      : remainingHeight / 2;
 
   viewport.style.setProperty("--scene-viewport-width", `${Math.ceil(viewportWidth)}px`);
   viewport.style.setProperty("--scene-viewport-height", `${Math.ceil(viewportHeight)}px`);
+  viewport.style.setProperty("--scene-viewport-offset-y", `${Math.floor(viewportOffsetY)}px`);
 }
 
 function refreshViewportCharacterFitSize(elements: RuntimeElements) {
@@ -162,10 +173,19 @@ function refreshViewportCharacterFitSize(elements: RuntimeElements) {
     ? viewportRect.height
     : viewportRect.width / imageRatio;
   const fitX = (viewportRect.width - fitWidth) / 2;
+  const remainingHeight = Math.max(0, viewportRect.height - fitHeight);
+  const viewportAnchor = elements.stage.dataset.sceneViewportAnchor;
+  const fitY = viewportAnchor === "top"
+    ? 0
+    : viewportAnchor === "center"
+      ? remainingHeight / 2
+      : remainingHeight;
 
   elements.sprite.style.setProperty("--character-fit-width", `${Math.ceil(fitWidth)}px`);
   elements.sprite.style.setProperty("--character-fit-height", `${Math.ceil(fitHeight)}px`);
   elements.sprite.style.setProperty("--character-fit-x", `${Math.floor(fitX)}px`);
+  elements.sprite.style.setProperty("--character-fit-y", `${Math.floor(fitY)}px`);
+  elements.sprite.style.setProperty("--character-fit-bottom", "auto");
 }
 
 function getBottomAnchoredAvailableHeight(elements: RuntimeElements) {

@@ -28,6 +28,10 @@ const runtimeRootSelector = "#nanikaRuntimeEmbed";
 const embedSpeechPreset = runtimeSpeechPresets.hostEmbed;
 const runtimeStatus = document.querySelector<HTMLElement>("#embedRuntimeStatus");
 const embedSpeechToggle = document.querySelector<HTMLButtonElement>("#embedSpeechToggle");
+const embedMount = document.querySelector<HTMLElement>(runtimeRootSelector);
+const embedDemoContent = document.querySelector<HTMLElement>(".embed-demo-content");
+const embedSizeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-embed-size]"));
+const embedAnchorButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-embed-anchor]"));
 let runtimeBootCount = 0;
 let embedCharacters: CharacterDefinition[] = [nanikaPreset.character, ...bundledCharacters];
 let embedCharactersReady: Promise<CharacterDefinition[]> | null = null;
@@ -36,6 +40,10 @@ let embedAssetBaseUrlOptionsReady: Promise<CharacterAssetBaseUrlOptions | null> 
 let currentEmbedPageId = "home";
 let currentEmbedCharacterId = nanikaPreset.character.profile.id;
 let isEmbedSpeechHidden = false;
+let currentEmbedSceneViewportAnchor: EmbedSceneViewportAnchor = "center";
+
+type EmbedMountSize = "standard" | "wide" | "tall";
+type EmbedSceneViewportAnchor = "center" | "top" | "bottom";
 
 type EmbedRuntimeProfile = NanikaRuntimeProfile & {
   bootEvent: RuntimeEventName;
@@ -498,6 +506,9 @@ async function createEmbedRuntime(pageId = currentEmbedPageId, characterId = cur
     },
     ...embedOverrides,
     stageMode: "fill",
+    sceneLayout: {
+      viewportAnchor: currentEmbedSceneViewportAnchor,
+    },
   });
   embedWindow.__nanikaRuntimeEmbed__.registerAction("switch_embed_character", (action) => {
     const nextCharacterId = isSwitchEmbedCharacterAction(action) && typeof action.characterId === "string"
@@ -577,6 +588,33 @@ function emitEmbedEvent(eventName: RuntimeEventName, payload?: Record<string, un
   embedWindow.__nanikaRuntimeEmbed__?.emit(eventName, payload);
 }
 
+function setEmbedMountSize(size: EmbedMountSize) {
+  embedMount?.setAttribute("data-embed-size", size);
+  embedDemoContent?.setAttribute("data-embed-size", size);
+  embedSizeButtons.forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.embedSize === size));
+  });
+  window.dispatchEvent(new Event("resize"));
+}
+
+function setEmbedSceneViewportAnchor(anchor: EmbedSceneViewportAnchor) {
+  currentEmbedSceneViewportAnchor = anchor;
+  embedAnchorButtons.forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.embedAnchor === anchor));
+  });
+}
+
+function applyEmbedSceneViewportAnchor(anchor: EmbedSceneViewportAnchor) {
+  setEmbedSceneViewportAnchor(anchor);
+  const stage = embedMount?.querySelector<HTMLElement>(".ghostnest-runtime");
+
+  if (stage) {
+    stage.dataset.sceneViewportAnchor = anchor;
+  }
+
+  window.dispatchEvent(new Event("resize"));
+}
+
 document.querySelectorAll<HTMLElement>("[data-embed-event]").forEach((element) => {
   element.addEventListener("click", () => {
     const pageId = element.dataset.embedPage;
@@ -608,6 +646,26 @@ document.querySelector<HTMLButtonElement>("#embedRuntimeRestart")?.addEventListe
 embedSpeechToggle?.addEventListener("click", () => {
   isEmbedSpeechHidden = !isEmbedSpeechHidden;
   applyEmbedSpeechVisibility();
+});
+
+embedSizeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const size = button.dataset.embedSize;
+
+    if (size === "standard" || size === "wide" || size === "tall") {
+      setEmbedMountSize(size);
+    }
+  });
+});
+
+embedAnchorButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const anchor = button.dataset.embedAnchor;
+
+    if (anchor === "center" || anchor === "top" || anchor === "bottom") {
+      applyEmbedSceneViewportAnchor(anchor);
+    }
+  });
 });
 
 void createEmbedRuntime();

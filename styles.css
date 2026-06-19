@@ -669,6 +669,40 @@ body.runtime-embed-page {
   background: rgba(63, 127, 122, 0.12);
 }
 
+.embed-size-controls,
+.embed-anchor-controls {
+  margin: 18px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.embed-size-controls span,
+.embed-anchor-controls span {
+  flex: 0 0 100%;
+  color: #71695f;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.embed-size-controls button,
+.embed-anchor-controls button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(63, 127, 122, 0.28);
+  border-radius: 8px;
+  color: #235f5a;
+  background: rgba(63, 127, 122, 0.08);
+  cursor: pointer;
+}
+
+.embed-size-controls button[aria-pressed="true"],
+.embed-anchor-controls button[aria-pressed="true"] {
+  color: #fff;
+  background: #3f7f7a;
+}
+
 .embed-nanika-mount {
   height: auto;
   min-height: 520px;
@@ -677,6 +711,26 @@ body.runtime-embed-page {
   background:
     radial-gradient(circle at 50% 42%, rgba(63, 127, 122, 0.16), transparent 38%),
     linear-gradient(180deg, rgba(255, 250, 242, 0.96), rgba(246, 243, 238, 0.96));
+}
+
+.embed-demo-content[data-embed-size="wide"] {
+  grid-template-columns: minmax(220px, 0.55fr) minmax(560px, 1.45fr);
+}
+
+.embed-demo-content[data-embed-size="tall"] {
+  grid-template-columns: minmax(260px, 1fr) minmax(320px, 0.62fr);
+}
+
+.embed-nanika-mount[data-embed-size="wide"] {
+  min-height: 360px;
+  aspect-ratio: 16 / 9;
+}
+
+.embed-nanika-mount[data-embed-size="tall"] {
+  width: min(100%, 430px);
+  min-height: 640px;
+  justify-self: center;
+  aspect-ratio: 9 / 16;
 }
 
 .embed-nanika-mount .embed-nanika-stage.ghostnest-runtime.character-stage {
@@ -1138,7 +1192,8 @@ body.runtime-embed-page {
   max-width: none;
   height: var(--scene-viewport-height, 100%);
   max-height: none;
-  align-self: center;
+  margin-top: var(--scene-viewport-offset-y, 0px);
+  align-self: start;
   justify-self: center;
 }
 
@@ -1776,7 +1831,8 @@ body.runtime-embed-page {
 
 .ghostnest-runtime.character-stage[data-stage-mode="fill"] .scene-viewport > .character-sprite {
   position: absolute;
-  bottom: 0;
+  top: var(--character-fit-y, auto);
+  bottom: var(--character-fit-bottom, 0);
   left: var(--character-fit-x, 0);
   width: var(--character-fit-width, 100%);
   height: var(--character-fit-height, 100%);
@@ -1805,12 +1861,12 @@ body.runtime-embed-page {
 }
 
 .ghostnest-runtime.character-stage[data-character-in-scene="true"][data-scene-character-placement="percent"] .scene-viewport > .character-sprite > .character-sprite-layer[data-layer-id="base"] {
-  inset: 0 auto auto 0;
+  inset: 0;
   width: 100%;
-  height: auto;
+  height: 100%;
   max-height: none;
-  object-fit: fill;
-  object-position: top center;
+  object-fit: contain;
+  object-position: bottom center;
 }
 
 .ghostnest-runtime:not([data-character-hover-effect="off"]) .character-sprite:hover,

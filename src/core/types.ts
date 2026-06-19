@@ -716,6 +716,12 @@ export type RuntimePreferenceStorageOptions = {
   managementMenu?: RuntimePreferenceStorageMode;
 };
 
+export type SceneViewportAnchor = "center" | "top" | "bottom";
+
+export type RuntimeSceneLayoutOptions = {
+  viewportAnchor?: SceneViewportAnchor;
+};
+
 export type DialogueEngine = {
   line: (category: DialogueCategory) => DialogueMessage | Promise<DialogueMessage>;
   custom: (text: string) => DialogueMessage | Promise<DialogueMessage>;
@@ -731,6 +737,7 @@ export type GhostRuntimeOptions = {
   initialSurface?: string;
   initialScene?: string;
   scene?: RuntimeSceneOptions;
+  sceneLayout?: RuntimeSceneLayoutOptions;
   devtools?: RuntimeDevtoolsOptions;
   managementMenu?: ManagementMenuOptions;
   navigation?: RuntimeNavigationOptions;

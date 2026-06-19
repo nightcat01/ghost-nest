@@ -160,6 +160,7 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
   elements.stage.classList.add("ghostnest-runtime");
   elements.stage.dataset.ready = "false";
   elements.stage.dataset.stageMode = options.stageMode ?? "content";
+  elements.stage.dataset.sceneViewportAnchor = options.sceneLayout?.viewportAnchor ?? "center";
   elements.stage.dataset.characterHoverEffect = controls.characterHoverEffect ? "on" : "off";
   if (options.hideUntilReady) {
     elements.stage.dataset.hideUntilReady = "true";

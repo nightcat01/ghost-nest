@@ -253,6 +253,16 @@ scene viewport는 저장된 canvas 비율을 기준으로 mount 내부에서 계
 5. character slot과 scene layers를 같은 viewport 기준으로 배치
 6. speech를 별도 규칙으로 배치
 
+### Scene Viewport Anchor
+
+`sceneLayout.viewportAnchor`는 saved scene canvas 비율 때문에 mount 내부에 남는 세로 공간이 생길 때 scene viewport를 어디에 둘지 정한다.
+
+- `center`: 기본값. 자유롭게 떠 있는 캐릭터나 일반 데모에 적합하다.
+- `bottom`: 책상, 바닥, 하단 소품처럼 기준선이 있는 scene에 적합하다.
+- `top`: 헤더나 상단 장식 기준 scene이 필요할 때만 사용한다.
+
+이 값은 캐릭터 데이터가 아니라 런타임 실행 환경의 결정이다. 같은 캐릭터와 같은 무대 조합이라도 host 페이지의 임베드 비율에 따라 자연스러운 anchor가 달라질 수 있다.
+
 ## 검증 기준
 
 런타임 배치 관련 수정은 최소한 다음 조합을 확인한다.

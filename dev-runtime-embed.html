@@ -37,13 +37,25 @@
                 페이지 맥락 변경
               </button>
             </div>
+            <div class="embed-size-controls" aria-label="임베드 영역 비율 선택">
+              <span>임베드 영역</span>
+              <button type="button" data-embed-size="standard" aria-pressed="true">기본</button>
+              <button type="button" data-embed-size="wide" aria-pressed="false">가로형</button>
+              <button type="button" data-embed-size="tall" aria-pressed="false">세로형</button>
+            </div>
+            <div class="embed-anchor-controls" aria-label="무대 위치 기준 선택">
+              <span>무대 위치 기준</span>
+              <button type="button" data-embed-anchor="center" aria-pressed="true">중앙</button>
+              <button type="button" data-embed-anchor="top" aria-pressed="false">상단</button>
+              <button type="button" data-embed-anchor="bottom" aria-pressed="false">하단</button>
+            </div>
             <div class="embed-runtime-check" aria-live="polite">
               <span>런타임</span>
               <strong id="embedRuntimeStatus">시작 중</strong>
             </div>
           </article>
 
-          <section class="embed-nanika-mount embed-nanika-mount" id="nanikaRuntimeEmbed">
+          <section class="embed-nanika-mount embed-nanika-mount" id="nanikaRuntimeEmbed" data-embed-size="standard">
             <div class="embed-nanika-stage character-stage" aria-label="임베드된 나니카 런타임">
               <div class="embed-nanika-speech speech-balloon" role="status" aria-live="polite">
                 <span class="embed-nanika-speaker">나니카</span>
@@ -70,6 +82,10 @@
           <div>
             <strong>페이지 맥락</strong>
             <span>프로필이나 매핑으로 페이지별 동작을 바꿀 수 있습니다.</span>
+          </div>
+          <div>
+            <strong>세로형 배치</strong>
+            <span>세로로 긴 영역에서는 캐릭터가 떠 보일 수 있어요. 화면 성격에 따라 개발자가 중앙 또는 하단 기준 배치를 선택해야 합니다.</span>
           </div>
         </section>
       </section>

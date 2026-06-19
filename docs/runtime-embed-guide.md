@@ -230,6 +230,10 @@ import {
 
 createGhostRuntimeFromPreset(nanikaPreset, {
   root: "#nanikaRuntimeEmbed",
+  stageMode: "fill",
+  sceneLayout: {
+    viewportAnchor: "center",
+  },
   assetBaseUrl: {
     charactersRootUrl: "/assets/nanika/characters",
     commonAssetBaseUrl: "/assets/nanika/common",
@@ -382,6 +386,7 @@ Good candidates:
 - `initialSurface` for the starting character pose/state.
 - `initialExpression` for simple image-based characters.
 - `speechLayout` and `speechBalloonSize` for page-specific speech placement.
+- `sceneLayout.viewportAnchor` for page-specific scene anchoring inside the embed mount. Use `center` for free-floating character scenes, `bottom` for desk or floor based scenes, and `top` only when the scene is intentionally header-anchored.
 - `characterPlacement` for 9-area character placement inside the mount.
 - `hideUntilReady` when the host should not show empty runtime DOM before Nanika is ready.
 - `controls.persistence: false` when the host page must ignore developer-tool localStorage settings.
@@ -787,6 +792,7 @@ Before shipping an embedded Nanika page, verify these cases in an actual browser
 
 - A short viewport around `360 x 740` keeps the speech balloon, character, main cards, and bottom navigation readable.
 - A taller viewport around `448 x 900` does not leave the character floating too far away from the speech balloon.
+- Tall embed areas can make a scene feel vertically floating even when the layout is technically correct. The host developer should choose a page-appropriate scene anchor or preset, such as centered character display for free-floating characters and lower anchoring for desk or floor based scenes.
 - Recreating the runtime in the same root updates the status once and does not duplicate character layers.
 - Host buttons can emit app events without becoming part of Nanika's internal command menu.
 - Theme variables are applied from the mount area and do not require global CSS changes.

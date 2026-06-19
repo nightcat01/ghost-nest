@@ -265,18 +265,6 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
     const spriteRatio = spriteWidth / spriteHeight;
     const imageRatio = naturalWidth / naturalHeight;
 
-    if (
-      elements.stage.dataset.characterInScene === "true"
-      && elements.stage.dataset.sceneCharacterPlacement === "percent"
-    ) {
-      return {
-        x: 0,
-        y: 0,
-        width: spriteWidth,
-        height: spriteWidth / imageRatio,
-      };
-    }
-
     if (spriteRatio > imageRatio) {
       const height = spriteHeight;
       const width = height * imageRatio;
