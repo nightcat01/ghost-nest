@@ -6891,6 +6891,7 @@ body.runtime-embed-page {
 }
 
 .asset-scene-character-slot.asset-scene-character-preview {
+  position: absolute;
   overflow: hidden;
   border: 0;
   border-radius: 0;
@@ -6898,8 +6899,13 @@ body.runtime-embed-page {
 }
 
 .asset-scene-character-preview img {
+  position: absolute;
+  inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
+  max-width: none;
+  max-height: none;
   object-fit: contain;
   object-position: bottom center;
 }
