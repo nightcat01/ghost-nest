@@ -106,6 +106,72 @@ function createCharacterDialogueEngine(character: CharacterDefinition, dialogueE
 /**
  * 캐릭터 데이터, 플러그인, DOM selector를 받아 웹 캐릭터 런타임을 생성합니다.
  */
+function parseCssPixelValue(value: string | null | undefined, fallback: number) {
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = Number.parseFloat(value);
+
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function resolveBalloonActionMenuRowStep(menuElement: HTMLElement) {
+  const style = getComputedStyle(menuElement);
+  const firstButton = menuElement.querySelector<HTMLButtonElement>("button");
+  const buttonHeight = firstButton?.getBoundingClientRect().height
+    ?? parseCssPixelValue(style.getPropertyValue("--balloon-action-button-height"), 42);
+  const rowGap = parseCssPixelValue(style.rowGap, 0);
+
+  return Math.max(1, buttonHeight + rowGap);
+}
+
+function initBalloonActionMenuWheelScroll(menuElement: HTMLElement | null) {
+  if (!menuElement) {
+    return () => {};
+  }
+
+  let accumulatedDelta = 0;
+
+  const handleWheel = (event: WheelEvent) => {
+    if (menuElement.hidden || menuElement.scrollHeight <= menuElement.clientHeight + 1) {
+      return;
+    }
+
+    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const rowStep = resolveBalloonActionMenuRowStep(menuElement);
+    const threshold = Math.max(12, rowStep * 0.5);
+    accumulatedDelta += event.deltaY;
+
+    if (Math.abs(accumulatedDelta) < threshold) {
+      return;
+    }
+
+    const direction = accumulatedDelta > 0 ? 1 : -1;
+    accumulatedDelta = 0;
+
+    const currentRow = Math.round(menuElement.scrollTop / rowStep);
+    const maxScrollTop = menuElement.scrollHeight - menuElement.clientHeight;
+    const nextScrollTop = Math.min(maxScrollTop, Math.max(0, (currentRow + direction) * rowStep));
+
+    menuElement.scrollTo({
+      top: nextScrollTop,
+      behavior: "auto",
+    });
+  };
+
+  menuElement.addEventListener("wheel", handleWheel, { passive: false });
+
+  return () => {
+    menuElement.removeEventListener("wheel", handleWheel);
+  };
+}
+
 function omitUndefinedProperties<T extends Record<string, unknown>>(value: T | undefined): Partial<T> {
   if (!value) {
     return {};
@@ -187,6 +253,7 @@ export function createGhostRuntime(options: GhostRuntimeOptions): GhostRuntime {
   const state = createRuntimeState();
   state.expression = options.initialExpression ?? currentCharacter.profile.defaultExpression ?? state.expression;
   const cleanupCallbacks: Array<() => void> = [];
+  cleanupCallbacks.push(initBalloonActionMenuWheelScroll(elements.balloonActionMenu));
   const actionTimers = new Map<string, number>();
   const ruleCooldowns = new Map<string, number>();
   const runtimeScene = createRuntimeSceneOptions(currentCharacter, options.scene);
