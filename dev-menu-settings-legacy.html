@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GhostNest 메뉴 설정</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="asset-lab-shell asset-menu-settings-shell">
+      <header class="asset-lab-header">
+        <div>
+          <p class="eyebrow">Nanika Menu Material Plugin</p>
+          <h1>메뉴 설정</h1>
+          <p class="asset-lab-help">
+            메뉴는 런타임에서 불러올 재료입니다. 여기서는 메뉴 묶음과 항목, 실행 기능만 만들고 실제 사용처는 매핑에서 연결합니다.
+          </p>
+        </div>
+        <a class="asset-lab-back" href="./dev-assets.html">플러그인 목록</a>
+      </header>
+
+      <nav class="asset-plugin-nav" aria-label="Menu settings plugin navigation">
+        <a href="./dev-assets.html">개발 플러그인</a>
+        <span aria-hidden="true">/</span>
+        <strong>메뉴 설정</strong>
+      </nav>
+
+      <section class="asset-lab-section asset-menu-save-panel">
+        <div class="asset-lab-section-header">
+          <div>
+            <h2>저장</h2>
+            <p class="asset-lab-help">저장 후 매핑에서 이 메뉴 ID를 선택해 사용할 수 있습니다.</p>
+          </div>
+        </div>
+        <div class="asset-lab-actions asset-menu-save-actions">
+          <button type="button" id="newMenuButton">새 메뉴</button>
+          <button type="button" id="saveMenuButton">메뉴 저장</button>
+          <button type="button" class="asset-danger-button" id="deleteMenuButton">메뉴 삭제</button>
+        </div>
+        <p class="asset-lab-status" id="menuStatus" role="status">메뉴 설정을 불러오는 중입니다.</p>
+      </section>
+
+      <section class="asset-menu-flow" aria-label="메뉴 제작 순서">
+        <div>
+          <strong>1. 메뉴 고르기</strong>
+          <span>템플릿이나 저장 메뉴를 불러와 시작합니다.</span>
+        </div>
+        <div>
+          <strong>2. 기본 정보</strong>
+          <span>메뉴 이름과 표시 방식을 정합니다.</span>
+        </div>
+        <div>
+          <strong>3. 항목 편집</strong>
+          <span>항목을 추가하고 눌렀을 때 실행할 기능을 붙입니다.</span>
+        </div>
+        <div>
+          <strong>4. 트리 확인</strong>
+          <span>사용자에게 보일 메뉴 구조를 확인하고 저장합니다.</span>
+        </div>
+      </section>
+
+      <section class="asset-menu-selection-summary-bar" id="menuSelectionSummaryBar" aria-label="선택된 메뉴 설정" hidden>
+        <div class="asset-menu-step-summary" id="menuSourceSummary" hidden>
+          <div>
+            <strong>선택한 시작 재료</strong>
+            <span id="menuSourceSummaryText">아직 선택되지 않았어요.</span>
+          </div>
+          <button type="button" id="editMenuSourceButton">다시 고르기</button>
+        </div>
+        <div class="asset-menu-step-summary" id="menuSetSummary" hidden>
+          <div>
+            <strong>메뉴 기본 정보</strong>
+            <span id="menuSetSummaryText">메뉴 이름과 표시 방식을 정하세요.</span>
+          </div>
+          <button type="button" id="editMenuSetButton">수정</button>
+        </div>
+      </section>
+
+      <section class="asset-menu-builder-grid" aria-label="메뉴 설정">
+        <section class="asset-lab-panel asset-menu-builder-column" data-menu-step="source">
+          <div class="asset-lab-section asset-menu-collapsible-step" data-menu-collapsible-step="source">
+            <div class="asset-menu-step-content" id="menuSourceContent">
+            <div class="asset-lab-section-header">
+              <div>
+                <h2>시작 재료</h2>
+                <p class="asset-lab-help">메뉴는 캐릭터와 분리된 공통 재료입니다. 캐릭터, 이벤트, 조건과의 연결은 매핑 설정에서 처리합니다.</p>
+              </div>
+              <div class="asset-lab-actions">
+                <button type="button" id="collapseMenuSourceButton">접기</button>
+              </div>
+            </div>
+            <div class="asset-menu-mode-list" id="menuModeList" role="tablist" aria-label="메뉴 종류"></div>
+            </div>
+          </div>
+
+          <div class="asset-lab-section asset-menu-source-extra" id="menuSourceExtra">
+            <h2>저장된 메뉴</h2>
+            <p class="asset-lab-help">기존 메뉴를 불러와 수정하거나 복제해서 새 메뉴로 저장합니다.</p>
+            <div class="asset-menu-saved-list" id="savedMenuList"></div>
+          </div>
+        </section>
+
+        <section class="asset-lab-panel asset-menu-builder-column" data-menu-step="set">
+          <div class="asset-lab-section asset-menu-collapsible-step" data-menu-collapsible-step="set">
+            <div class="asset-menu-step-content" id="menuSetContent">
+            <div class="asset-lab-section-header">
+              <div>
+                <h2>메뉴 정보</h2>
+                <p class="asset-lab-help">저장될 메뉴 묶음의 이름과 기본 표시 방식을 정합니다.</p>
+              </div>
+              <div class="asset-lab-actions">
+                <button type="button" id="collapseMenuSetButton">접기</button>
+              </div>
+            </div>
+            <div class="asset-menu-set-form">
+              <label>
+                메뉴 ID
+                <input id="menuIdInput" type="text" placeholder="menu.home.main" />
+              </label>
+              <label>
+                이름
+                <input id="menuNameInput" type="text" placeholder="홈 메뉴" />
+              </label>
+              <label>
+                메뉴 그룹
+                <select id="menuAudienceSelect">
+                  <option value="user">사용자 메뉴</option>
+                  <option value="developer">개발자 메뉴</option>
+                  <option value="custom">커스텀 메뉴</option>
+                </select>
+              </label>
+              <label>
+                기본 표시 위치
+                <select id="menuDisplaySelect">
+                  <option value="balloon">말풍선 안</option>
+                  <option value="panel">고정 패널</option>
+                </select>
+              </label>
+              <div class="asset-menu-toggle-row">
+                <label class="asset-lab-checkbox asset-inline-checkbox">
+                  <input id="menuCloseOnSelectInput" type="checkbox" checked />
+                  <span>항목 선택 후 메뉴 닫기</span>
+                </label>
+                <label class="asset-lab-checkbox asset-inline-checkbox">
+                  <input id="menuDraggableInput" type="checkbox" checked />
+                  <span>패널 드래그 허용</span>
+                </label>
+              </div>
+              <label>
+                설명
+                <input id="menuDescriptionInput" type="text" placeholder="메뉴 사용처와 목적을 짧게 적습니다." />
+              </label>
+            </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="asset-lab-panel asset-menu-builder-column asset-menu-tree-column" data-menu-step="tree">
+          <div class="asset-lab-section">
+            <div class="asset-lab-section-header">
+              <div>
+                <h2>항목 트리</h2>
+                <p class="asset-lab-help">사용자에게 실제로 보일 메뉴 구조입니다. 항목을 선택하면 오른쪽에서 이름과 기능을 수정합니다.</p>
+              </div>
+            </div>
+            <div class="asset-menu-tree" id="menuTree" aria-live="polite"></div>
+          </div>
+          <details class="asset-lab-section asset-menu-json-panel">
+            <summary>
+              <div>
+                <strong>개발자용 JSON / 매핑 ID</strong>
+                <span>런타임과 매핑에서 참조할 저장 결과를 확인합니다.</span>
+              </div>
+            </summary>
+            <p class="asset-lab-help">
+              매핑에서는 이 메뉴의 id를 `open_management_menu.menuId`로 참조합니다.
+            </p>
+            <div class="asset-lab-actions">
+              <button type="button" id="copyMenuJsonButton">JSON 복사</button>
+            </div>
+            <pre id="menuOutput" class="asset-json-output">{}</pre>
+          </details>
+        </section>
+
+        <section class="asset-lab-panel asset-menu-builder-column asset-menu-editor-column" data-menu-step="action">
+          <div class="asset-lab-section asset-sticky-preview">
+            <h2>항목 편집</h2>
+            <p class="asset-lab-help" id="selectedItemPath">선택된 항목이 없습니다.</p>
+            <p class="asset-lab-help">
+              트리에서 고른 항목의 이름, 설명, 눌렀을 때 실행할 기능을 정합니다. 저장용 이름은 자동값을 써도 됩니다.
+            </p>
+            <div class="asset-lab-actions asset-menu-item-structure-actions">
+              <button type="button" id="addRootItemButton">상위 항목 추가</button>
+              <button type="button" id="addChildItemButton">하위 항목 추가</button>
+            </div>
+            <div class="asset-menu-item-basic-editor">
+              <h3>기본 정보</h3>
+              <div class="asset-lab-field-grid">
+                <label>
+                  항목 ID <small>저장용 이름</small>
+                  <input id="menuItemIdInput" type="text" placeholder="draw-fortune" />
+                </label>
+                <label>
+                  라벨 <small>사용자에게 보이는 이름</small>
+                  <input id="menuItemLabelInput" type="text" placeholder="운세 보기" />
+                </label>
+              </div>
+              <label>
+                설명
+                <input id="menuItemDescriptionInput" type="text" placeholder="사용자에게 보여줄 짧은 설명" />
+              </label>
+            </div>
+            <details class="asset-menu-action-editor" open>
+              <summary>
+                <strong>실행 기능</strong>
+                <span>메뉴 항목을 눌렀을 때 실행할 기능을 추가합니다.</span>
+              </summary>
+              <div class="asset-menu-action-form">
+                <label>
+                  기능 종류
+                  <select id="menuActionTypeSelect">
+                    <option value="navigate">페이지 이동</option>
+                    <option value="speak_text">고정 대사 말하기</option>
+                    <option value="speak">대사 카테고리 말하기</option>
+                    <option value="call_plugin">플러그인 실행</option>
+                    <option value="open_management_menu">다른 메뉴 열기</option>
+                    <option value="request_profile_change">프로필 전환 요청</option>
+                  </select>
+                </label>
+                <label>
+                  값
+                  <input id="menuActionValueInput" type="text" placeholder="/sample/page" />
+                  <select id="menuActionValueSelect" hidden></select>
+                </label>
+                <button type="button" id="addMenuActionButton">기능 추가</button>
+              </div>
+            </details>
+            <details class="asset-menu-action-editor" open>
+              <summary>
+                <strong>현재 실행 기능</strong>
+                <span>위에서 아래 순서로 실행됩니다.</span>
+              </summary>
+              <div class="asset-menu-action-list-editor" id="menuItemActionList"></div>
+            </details>
+            <details class="asset-menu-action-editor asset-menu-advanced-json">
+              <summary>
+                <strong>고급: 기능 JSON 직접 확인</strong>
+                <span>일반 편집은 위 기능 목록을 사용하세요.</span>
+              </summary>
+              <div class="asset-lab-section-header">
+                <div>
+                  <h3>기능 JSON</h3>
+                  <p class="asset-lab-help">위 기능 목록과 같은 값입니다. 구조를 아는 경우에만 직접 수정합니다.</p>
+                </div>
+              </div>
+              <textarea id="menuItemActionsInput" rows="8" spellcheck="false">[]</textarea>
+            </details>
+            <div class="asset-lab-actions asset-menu-editor-actions">
+              <button type="button" id="applyItemButton">항목 반영</button>
+              <button type="button" id="deleteItemButton" class="asset-danger-button">항목 삭제</button>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+    <script type="module" src="./dist/plugins/menuSettings/devtools/assetMenuSettings.js"></script>
+  </body>
+</html>

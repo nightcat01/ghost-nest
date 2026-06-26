@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GhostNest 메뉴 설정</title>
+    <title>GhostNest Menu Builder Vision</title>
     <style>
       :root {
         --bg: #f6f2ea;
@@ -56,6 +56,8 @@
       }
 
       .menu-vision-shell {
+        height: 100vh;
+        overflow: hidden;
         min-height: 100vh;
         padding: 16px;
       }
@@ -127,28 +129,9 @@
         background: var(--danger);
       }
 
-      .menu-vision-status {
-        grid-column: 1 / -1;
-        min-height: 30px;
-        display: flex;
-        align-items: center;
-        padding: 0 10px;
-        border: 1px solid rgba(52, 127, 121, 0.18);
-        border-radius: 8px;
-        color: var(--accent-strong);
-        background: rgba(231, 244, 239, 0.72);
-        font-size: 0.82rem;
-        font-weight: 800;
-      }
-
-      .menu-vision-status[data-state="warning"] {
-        border-color: rgba(182, 106, 43, 0.28);
-        color: #8a4c19;
-        background: rgba(255, 242, 218, 0.86);
-      }
-
       .menu-vision-layout {
-        min-height: calc(100vh - 136px);
+        height: calc(100vh - 136px);
+        min-height: 0;
         display: grid;
         grid-template-columns: minmax(240px, 0.7fr) minmax(520px, 1.45fr) minmax(300px, 0.85fr);
         gap: 14px;
@@ -261,38 +244,6 @@
         background: var(--accent-soft);
       }
 
-      .menu-vision-saved-list {
-        display: grid;
-        gap: 8px;
-      }
-
-      .menu-vision-saved-card {
-        width: 100%;
-        display: grid;
-        gap: 4px;
-        padding: 10px;
-        border: 1px solid rgba(52, 127, 121, 0.18);
-        border-radius: 8px;
-        color: var(--ink);
-        text-align: left;
-        background: rgba(255, 255, 255, 0.74);
-      }
-
-      .menu-vision-saved-card:hover {
-        border-color: rgba(52, 127, 121, 0.48);
-        background: var(--accent-soft);
-      }
-
-      .menu-vision-saved-card strong {
-        font-size: 0.9rem;
-      }
-
-      .menu-vision-saved-card span {
-        color: var(--muted);
-        font-size: 0.76rem;
-        line-height: 1.35;
-      }
-
       .menu-vision-menu-meta {
         display: grid;
         gap: 10px;
@@ -303,7 +254,7 @@
 
       .menu-vision-meta-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.72fr);
+        grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr);
         gap: 10px;
       }
 
@@ -577,7 +528,6 @@
       @media (max-width: 1180px) {
         .menu-vision-layout {
           grid-template-columns: minmax(230px, 0.72fr) minmax(0, 1.28fr);
-          min-height: 0;
         }
 
         .menu-vision-side {
@@ -614,15 +564,13 @@
       <header class="menu-vision-topbar">
         <div class="menu-vision-title">
           <small>Nanika menu material</small>
-          <h1>메뉴 설정</h1>
+          <h1>메뉴 빌더 Vision</h1>
         </div>
-        <nav class="menu-vision-actions" aria-label="화면 동작">
-          <a class="menu-vision-button secondary" href="./dev-assets.html">플러그인 목록</a>
-          <button class="menu-vision-button secondary" id="visionNewButton" type="button">새 메뉴</button>
+        <nav class="menu-vision-actions" aria-label="화면 이동">
+          <a class="menu-vision-button secondary" href="./dev-menu-settings.html">기존 화면</a>
+          <a class="menu-vision-button secondary" href="./dev-menu-settings-studio.html">Studio 화면</a>
           <button class="menu-vision-button" id="visionSaveButton" type="button">메뉴 저장</button>
-          <button class="menu-vision-button danger" id="visionDeleteMenuButton" type="button">메뉴 삭제</button>
         </nav>
-        <p class="menu-vision-status" id="visionStatus" data-state="ready">저장된 메뉴를 불러오는 중입니다.</p>
       </header>
 
       <section class="menu-vision-layout">
@@ -663,9 +611,14 @@
 
             <section class="menu-vision-palette" aria-label="저장된 메뉴">
               <h3>저장된 메뉴</h3>
-              <div class="menu-vision-saved-list" id="visionSavedMenus">
-                <p class="menu-vision-helper">저장된 메뉴를 불러오는 중입니다.</p>
-              </div>
+              <button class="menu-vision-template" type="button" data-load-sample="fortune">
+                <strong>운세 상담 메뉴</strong>
+                <span>대화 시작, 안내 받기, 다른 메뉴 열기</span>
+              </button>
+              <button class="menu-vision-template" type="button" data-load-sample="admin">
+                <strong>관리 메뉴</strong>
+                <span>대사창, 캐릭터, 런타임 진단</span>
+              </button>
             </section>
           </div>
         </aside>
@@ -686,14 +639,11 @@
                 <input id="visionMenuName" value="새 사용자 메뉴" />
               </label>
               <label class="menu-vision-field">
-                저장 ID
-                <input id="visionMenuId" value="menu.user.friendly" />
-              </label>
-              <label class="menu-vision-field">
                 표시 방식
                 <select id="visionDisplayMode">
                   <option value="balloon">말풍선 메뉴</option>
                   <option value="panel">고정 패널</option>
+                  <option value="overlay">오버레이</option>
                 </select>
               </label>
             </div>
@@ -960,14 +910,9 @@
         selectedId: "talk"
       };
 
-      let savedMenus = [];
-
       const tree = document.querySelector("#visionTree");
       const preview = document.querySelector("#visionRuntimePreview");
       const jsonOutput = document.querySelector("#visionJsonOutput");
-      const status = document.querySelector("#visionStatus");
-      const savedMenusContainer = document.querySelector("#visionSavedMenus");
-      const menuId = document.querySelector("#visionMenuId");
       const menuName = document.querySelector("#visionMenuName");
       const displayMode = document.querySelector("#visionDisplayMode");
       const menuDescription = document.querySelector("#visionMenuDescription");
@@ -977,245 +922,6 @@
       const valueInput = document.querySelector("#visionItemValue");
       const descriptionInput = document.querySelector("#visionItemDescription");
       const deleteButton = document.querySelector("#visionDeleteItemButton");
-      const newButton = document.querySelector("#visionNewButton");
-      let saveButton = document.querySelector("#visionSaveButton");
-      const deleteMenuButton = document.querySelector("#visionDeleteMenuButton");
-
-      function setStatus(message, stateName = "ready") {
-        status.textContent = message;
-        status.dataset.state = stateName;
-      }
-
-      function createMenuApiPath(id) {
-        return `/api/nanika/data/menus${id ? `/${encodeURIComponent(id)}` : ""}`;
-      }
-
-      async function readApiJson(response) {
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok || result.ok === false) {
-          throw new Error(result.message || result.error || "메뉴 데이터를 처리하지 못했어요.");
-        }
-        return result;
-      }
-
-      function validateMenuId(id) {
-        return /^[a-zA-Z0-9._:-]+$/.test(id);
-      }
-
-      function getActionForItem(item) {
-        if (item.type === "link") {
-          return { type: "navigate", route: item.value || "/" };
-        }
-        if (item.type === "submenu") {
-          return { type: "open_management_menu", menuId: item.value || item.id };
-        }
-        if (item.type === "custom") {
-          return { type: "log", label: item.value || item.id };
-        }
-        return { type: "speak_text", text: item.value || item.description || item.label };
-      }
-
-      function inferItemType(action) {
-        if (!action || typeof action !== "object") {
-          return { type: "custom", value: "" };
-        }
-        if (action.type === "navigate") {
-          return { type: "link", value: action.route || "" };
-        }
-        if (action.type === "open_management_menu") {
-          return { type: "submenu", value: action.menuId || "" };
-        }
-        if (action.type === "speak_text") {
-          return { type: "dialogue", value: action.text || "" };
-        }
-        return { type: "custom", value: action.label || action.pluginId || action.type || "" };
-      }
-
-      function serializeItems(items) {
-        return items.map((item) => ({
-          id: item.id,
-          label: item.label,
-          ...(item.description ? { description: item.description } : {}),
-          actions: [getActionForItem(item)],
-          ...(item.children?.length ? { children: serializeItems(item.children) } : {})
-        }));
-      }
-
-      function deserializeItems(items = []) {
-        return items.map((item) => {
-          const inferred = inferItemType(item.actions?.[0]);
-          return {
-            id: item.id || makeId("item"),
-            label: item.label || "이름 없는 항목",
-            type: inferred.type,
-            value: inferred.value,
-            description: item.description || "",
-            children: deserializeItems(item.children || [])
-          };
-        });
-      }
-
-      function serializeMenu() {
-        const id = menuId.value.trim();
-        return {
-          id,
-          name: menuName.value.trim() || id,
-          ...(menuDescription.value.trim() ? { description: menuDescription.value.trim() } : {}),
-          audience: "user",
-          defaultDisplay: displayMode.value === "panel" ? "panel" : "balloon",
-          closeOnSelect: displayMode.value !== "panel",
-          draggable: displayMode.value === "panel",
-          items: serializeItems(state.menu.items)
-        };
-      }
-
-      function deserializeMenu(menu) {
-        return {
-          id: menu.id || `menu.common.${Date.now().toString(36)}`,
-          name: menu.name || menu.id || "새 메뉴",
-          displayMode: menu.defaultDisplay === "panel" ? "panel" : "balloon",
-          description: menu.description || "",
-          items: deserializeItems(menu.items || [])
-        };
-      }
-
-      function renderSavedMenus() {
-        savedMenusContainer.innerHTML = "";
-        if (!savedMenus.length) {
-          const empty = document.createElement("p");
-          empty.className = "menu-vision-helper";
-          empty.textContent = "저장된 메뉴가 없습니다. 현재 메뉴를 저장하면 여기에 표시됩니다.";
-          savedMenusContainer.append(empty);
-          return;
-        }
-
-        for (const menu of savedMenus) {
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = "menu-vision-saved-card";
-
-          const title = document.createElement("strong");
-          title.textContent = menu.name || menu.id || "이름 없는 메뉴";
-          const meta = document.createElement("span");
-          meta.textContent = `${menu.id || "id 없음"} · ${(menu.items || []).length}개 항목 · ${menu.defaultDisplay === "panel" ? "고정 패널" : "말풍선 메뉴"}`;
-
-          button.append(title, meta);
-          button.addEventListener("click", () => {
-            loadMenu(deserializeMenu(menu), { statusMessage: `${menu.id || "선택한"} 메뉴를 불러왔어요.` });
-          });
-          savedMenusContainer.append(button);
-        }
-      }
-
-      function validateItems(items) {
-        for (const item of items) {
-          if (!item.id || !item.label) {
-            return false;
-          }
-          if (item.children?.length && !validateItems(item.children)) {
-            return false;
-          }
-        }
-        return true;
-      }
-
-      async function fetchSavedMenus() {
-        try {
-          const response = await fetch(createMenuApiPath());
-          const result = await readApiJson(response);
-          savedMenus = Array.isArray(result.items) ? result.items : [];
-          renderSavedMenus();
-          setStatus(`${savedMenus.length}개 저장된 메뉴를 불러왔어요.`);
-        } catch (error) {
-          savedMenus = [];
-          renderSavedMenus();
-          setStatus(error.message || "저장된 메뉴를 불러오지 못했어요.", "warning");
-        }
-      }
-
-      async function saveCurrentMenu() {
-        const menu = serializeMenu();
-        if (!menu.id) {
-          setStatus("저장 ID를 입력해야 저장할 수 있어요.", "warning");
-          menuId.focus();
-          return;
-        }
-        if (!validateMenuId(menu.id)) {
-          setStatus("저장 ID는 영문, 숫자, 점, 콜론, 하이픈, 밑줄만 사용할 수 있어요.", "warning");
-          menuId.focus();
-          return;
-        }
-        if (!menu.items.length || !validateItems(menu.items)) {
-          setStatus("메뉴 항목에는 ID와 이름이 필요해요.", "warning");
-          return;
-        }
-
-        saveButton.disabled = true;
-        setStatus("메뉴를 저장하는 중입니다.");
-        try {
-          const response = await fetch(createMenuApiPath(menu.id), {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ value: menu })
-          });
-          const result = await readApiJson(response);
-          savedMenus = Array.isArray(result.items) ? result.items : savedMenus;
-          state.menu = deserializeMenu(menu);
-          render();
-          setStatus(`${menu.id} 메뉴를 저장했어요.`);
-        } catch (error) {
-          setStatus(error.message || "메뉴 저장에 실패했어요.", "warning");
-        } finally {
-          saveButton.disabled = false;
-        }
-      }
-
-      async function deleteCurrentMenu() {
-        const id = menuId.value.trim();
-        if (!id) {
-          setStatus("삭제할 저장 ID가 없습니다.", "warning");
-          return;
-        }
-        if (!window.confirm(`${id} 메뉴를 삭제할까요?`)) {
-          return;
-        }
-
-        deleteMenuButton.disabled = true;
-        setStatus("메뉴를 삭제하는 중입니다.");
-        try {
-          const response = await fetch(createMenuApiPath(id), { method: "DELETE" });
-          const result = await readApiJson(response);
-          savedMenus = Array.isArray(result.items) ? result.items : savedMenus.filter((menu) => menu.id !== id);
-          createNewMenu({ statusMessage: `${id} 메뉴를 삭제했어요.` });
-        } catch (error) {
-          setStatus(error.message || "메뉴 삭제에 실패했어요.", "warning");
-        } finally {
-          deleteMenuButton.disabled = false;
-        }
-      }
-
-      function createNewMenu(options = {}) {
-        const id = `menu.common.${Date.now().toString(36)}`;
-        loadMenu(
-          {
-            id,
-            name: "새 메뉴",
-            displayMode: "balloon",
-            description: "메뉴 설명을 입력하세요.",
-            items: [
-              {
-                id: makeId("dialogue"),
-                label: "새 대화",
-                type: "dialogue",
-                value: "dialogue.new",
-                description: "선택하면 대사를 실행합니다.",
-                children: []
-              }
-            ]
-          },
-          options.statusMessage ? options : { statusMessage: "새 메뉴 초안을 만들었어요." }
-        );
-      }
 
       function flatten(items, depth = 0, result = []) {
         for (const item of items) {
@@ -1321,28 +1027,23 @@
       }
 
       function renderJson() {
-        jsonOutput.textContent = JSON.stringify(serializeMenu(), null, 2);
+        jsonOutput.textContent = JSON.stringify(state.menu, null, 2);
       }
 
       function render() {
-        menuId.value = state.menu.id;
         menuName.value = state.menu.name;
         displayMode.value = state.menu.displayMode;
         menuDescription.value = state.menu.description;
         renderTree();
         renderPreview();
         renderJson();
-        renderSavedMenus();
         updateInspector();
       }
 
-      function loadMenu(sample, options = {}) {
+      function loadMenu(sample) {
         state.menu = structuredClone(sample);
         state.selectedId = state.menu.items[0]?.id || null;
         render();
-        if (options.statusMessage) {
-          setStatus(options.statusMessage);
-        }
       }
 
       document.querySelectorAll("[data-template]").forEach((button) => {
@@ -1379,14 +1080,8 @@
         renderJson();
       });
 
-      menuId.addEventListener("input", () => {
-        state.menu.id = menuId.value;
-        renderJson();
-      });
-
       displayMode.addEventListener("change", () => {
         state.menu.displayMode = displayMode.value;
-        renderPreview();
         renderJson();
       });
 
@@ -1413,19 +1108,10 @@
         render();
       });
 
-      newButton.addEventListener("click", () => {
-        createNewMenu();
+      document.querySelector("#visionSaveButton").addEventListener("click", () => {
+        alert("컨셉 화면입니다. 실제 저장은 기존 메뉴 설정 화면과 연결한 뒤 활성화합니다.");
       });
 
-      saveButton.addEventListener("click", () => {
-        void saveCurrentMenu();
-      });
-
-      deleteMenuButton.addEventListener("click", () => {
-        void deleteCurrentMenu();
-      });
-
-      void fetchSavedMenus();
       render();
     </script>
   </body>
