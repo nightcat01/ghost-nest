@@ -136,6 +136,13 @@ export type RuntimeSceneLayer = {
     height: number;
     unit?: "percent";
   };
+  imagePlacement?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    unit?: "percent";
+  };
 };
 
 export type RuntimeScene = {

@@ -1,0 +1,4338 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GhostNest 캐릭터 설정 Lab</title>
+    <style>
+      :root {
+        --bg: #f5f0e8;
+        --panel: rgba(255, 253, 248, 0.92);
+        --panel-solid: #fffdf8;
+        --ink: #24201b;
+        --muted: #746b60;
+        --line: rgba(36, 32, 27, 0.13);
+        --line-strong: rgba(36, 32, 27, 0.22);
+        --teal: #347f79;
+        --teal-dark: #155c56;
+        --teal-soft: #e5f4ef;
+        --gold: #bf8332;
+        --gold-soft: #fff0d4;
+        --plum: #44395f;
+        --rose: #a24b3b;
+        --shadow: 0 20px 52px rgba(36, 32, 27, 0.13);
+        color: var(--ink);
+        font-family:
+          Pretendard,
+          "Apple SD Gothic Neo",
+          "Malgun Gothic",
+          system-ui,
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        background:
+          radial-gradient(circle at 8% 8%, rgba(191, 131, 50, 0.14), transparent 24rem),
+          radial-gradient(circle at 90% 4%, rgba(52, 127, 121, 0.14), transparent 22rem),
+          linear-gradient(90deg, rgba(52, 127, 121, 0.055) 1px, transparent 1px),
+          linear-gradient(180deg, rgba(52, 127, 121, 0.04) 1px, transparent 1px),
+          var(--bg);
+        background-size: auto, auto, 32px 32px, 32px 32px, auto;
+      }
+
+      button,
+      select,
+      a {
+        font: inherit;
+      }
+
+      button,
+      a {
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      button {
+        border: 0;
+        cursor: pointer;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .lab-shell {
+        min-height: 100vh;
+        padding: 16px;
+      }
+
+      .lab-topbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 16px;
+        align-items: center;
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: rgba(255, 253, 248, 0.94);
+        box-shadow: 0 12px 32px rgba(36, 32, 27, 0.08);
+        backdrop-filter: blur(12px);
+      }
+
+      .lab-title {
+        min-width: 0;
+      }
+
+      .lab-title small {
+        display: block;
+        margin-bottom: 3px;
+        color: var(--teal-dark);
+        font-size: 0.78rem;
+        font-weight: 900;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .lab-title h1 {
+        margin: 0;
+        font-size: clamp(1.45rem, 2.8vw, 2.5rem);
+        line-height: 1.05;
+      }
+
+      .lab-title p {
+        margin: 7px 0 0;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      .lab-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .lab-button {
+        min-height: 38px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 13px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: var(--panel-solid);
+        color: var(--teal-dark);
+        font-weight: 900;
+        white-space: nowrap;
+      }
+
+      .lab-button.primary {
+        border-color: transparent;
+        background: var(--teal);
+        color: #fff;
+      }
+
+      .lab-status {
+        grid-column: 1 / -1;
+        min-height: 30px;
+        display: flex;
+        align-items: center;
+        padding: 0 10px;
+        border: 1px solid rgba(52, 127, 121, 0.2);
+        border-radius: 8px;
+        background: var(--teal-soft);
+        color: var(--teal-dark);
+        font-size: 0.84rem;
+        font-weight: 800;
+      }
+
+      .lab-layout {
+        display: grid;
+        grid-template-columns: minmax(210px, 250px) minmax(620px, 1fr) minmax(280px, 320px);
+        gap: 14px;
+        align-items: start;
+        margin-top: 14px;
+      }
+
+      .lab-shell[data-mode-family="workbench"] .lab-layout {
+        grid-template-columns: minmax(220px, 280px) minmax(720px, 1fr);
+      }
+
+      .lab-shell[data-editor-dock="side-controls"] .lab-layout,
+      .lab-shell[data-mode-family="workbench"][data-editor-dock="side-controls"] .lab-layout {
+        grid-template-columns: minmax(220px, 280px) minmax(620px, 1fr) minmax(320px, 380px);
+      }
+
+      .lab-shell[data-inspector="hidden"] .lab-layout {
+        grid-template-columns: minmax(210px, 250px) minmax(720px, 1fr);
+      }
+
+      .lab-shell[data-mode-family="registration"] .lab-layout {
+        grid-template-columns: minmax(210px, 250px) minmax(760px, 1fr);
+      }
+
+      .lab-shell[data-editor-dock="inspector"] .lab-layout {
+        grid-template-columns: minmax(210px, 250px) minmax(520px, 1fr) minmax(320px, 380px);
+      }
+
+      .lab-shell[data-mode-family="workbench"] .inspector {
+        display: none;
+      }
+
+      .lab-shell[data-mode-family="workbench"][data-editor-dock="side-controls"] .inspector {
+        display: flex;
+      }
+
+      .lab-shell[data-mode-family="workbench"] .inspector-body {
+        max-height: none;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        align-items: start;
+      }
+
+      .lab-shell[data-mode-family="workbench"] .visual-editor-layout {
+        grid-template-columns: minmax(0, 1.45fr) minmax(240px, 0.55fr);
+      }
+
+      .lab-shell[data-editor-dock="side-controls"] .visual-editor-layout,
+      .lab-shell[data-mode-family="workbench"][data-editor-dock="side-controls"] .visual-editor-layout {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .lab-shell[data-mode-family="workbench"] .visual-canvas {
+        min-height: 380px;
+      }
+
+      .lab-panel {
+        min-width: 0;
+        min-height: 0;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .panel-head {
+        display: flex;
+        gap: 12px;
+        align-items: start;
+        justify-content: space-between;
+        padding: 14px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .panel-head h2 {
+        margin: 0;
+        font-size: 1.03rem;
+      }
+
+      .panel-head p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 0.82rem;
+        line-height: 1.45;
+      }
+
+      .chip {
+        min-height: 26px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 9px;
+        border-radius: 999px;
+        background: var(--teal-soft);
+        color: var(--teal-dark);
+        font-size: 0.76rem;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+
+      .chip.contract {
+        background: var(--gold-soft);
+        color: #7b4d12;
+      }
+
+      .character-column {
+        display: flex;
+        flex-direction: column;
+        max-height: calc(100vh - 150px);
+      }
+
+      .character-list {
+        min-height: 0;
+        max-height: min(260px, 32vh);
+        overflow: auto;
+        display: grid;
+        gap: 10px;
+        padding: 12px;
+      }
+
+      .character-card {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 44px minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.68);
+        color: var(--ink);
+        text-align: left;
+      }
+
+      .character-card[aria-pressed="true"] {
+        border-color: rgba(52, 127, 121, 0.45);
+        background: #eef8f5;
+        box-shadow: 0 10px 26px rgba(52, 127, 121, 0.13);
+      }
+
+      .avatar {
+        width: 44px;
+        height: 44px;
+        display: grid;
+        place-items: center;
+        border-radius: 9px;
+        background: linear-gradient(135deg, var(--teal), var(--plum));
+        color: #fff;
+        font-weight: 900;
+      }
+
+      .character-card strong,
+      .character-card span {
+        display: block;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .character-card span {
+        color: var(--muted);
+        font-size: 0.8rem;
+        line-height: 1.45;
+      }
+
+      .journey {
+        min-height: 0;
+        overflow: auto;
+        padding: 0 12px 12px;
+      }
+
+      .journey-title {
+        margin: 8px 0;
+        color: var(--teal-dark);
+        font-size: 0.82rem;
+        font-weight: 900;
+      }
+
+      .journey-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .journey-step {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr) auto;
+        gap: 9px;
+        align-items: center;
+        padding: 8px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: rgba(255, 253, 248, 0.72);
+        color: var(--ink);
+        text-align: left;
+      }
+
+      .journey-step[aria-pressed="true"] {
+        border-color: transparent;
+        background: var(--teal);
+        color: #fff;
+      }
+
+      .step-num {
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        border-radius: 8px;
+        background: rgba(52, 127, 121, 0.12);
+        color: var(--teal-dark);
+        font-weight: 900;
+      }
+
+      .journey-step[aria-pressed="true"] .step-num {
+        background: rgba(255, 255, 255, 0.18);
+        color: #fff;
+      }
+
+      .step-label strong,
+      .step-label span {
+        display: block;
+      }
+
+      .step-label strong {
+        font-size: 0.9rem;
+      }
+
+      .step-label span {
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.35;
+      }
+
+      .journey-step[aria-pressed="true"] .step-label span {
+        color: rgba(255, 255, 255, 0.78);
+      }
+
+      .journey-step .chip.contract {
+        background: rgba(191, 131, 50, 0.16);
+      }
+
+      .journey-step[aria-pressed="true"] .chip.contract {
+        background: rgba(255, 255, 255, 0.16);
+        color: #fff;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-rows: auto auto auto auto;
+      }
+
+      .workspace-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 14px;
+        align-items: center;
+        padding: 16px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .workspace-head h2 {
+        margin: 0;
+        font-size: clamp(1.5rem, 2.6vw, 2.5rem);
+        line-height: 1.05;
+      }
+
+      .workspace-head p {
+        margin: 7px 0 0;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .tool-pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: flex-end;
+      }
+
+      .workspace-main {
+        display: grid;
+        grid-template-columns: minmax(260px, 1fr) minmax(240px, 280px);
+        gap: 14px;
+        align-items: stretch;
+        padding: 14px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 253, 248, 0.48);
+      }
+
+      .lab-shell[data-mode-family="workbench"] .workspace-main {
+        grid-template-columns: 1fr;
+      }
+
+      .lab-shell[data-editor-dock="inspector"] .workspace-main {
+        grid-template-columns: 1fr;
+      }
+
+      .lab-shell[data-mode-family="registration"] .workspace-main {
+        grid-template-columns: 1fr;
+      }
+
+      .lab-shell[data-mode="state"] .workspace-main {
+        grid-template-columns: 1fr;
+      }
+
+      .lab-shell[data-mode="state"] .stage {
+        display: none;
+      }
+
+      .lab-shell[data-mode="state"] .workspace-editor-card {
+        max-height: none;
+        border-color: rgba(52, 127, 121, 0.28);
+        background: #fffdf8;
+      }
+
+      .lab-shell[data-mode-family="workbench"] .workspace-editor-card {
+        order: -1;
+      }
+
+      .lab-shell[data-mode-family="workbench"] .stage {
+        display: none;
+      }
+
+      .lab-shell[data-mode-family="registration"] .stage,
+      .lab-shell[data-mode-family="registration"] .mode-detail-board,
+      .lab-shell[data-mode-family="registration"] .material-board {
+        display: none;
+      }
+
+      .lab-shell[data-mode-family="workbench"] .mode-detail-board,
+      .lab-shell[data-mode-family="workbench"] .material-board {
+        display: none;
+      }
+
+      .stage {
+        position: relative;
+        min-height: 360px;
+        height: clamp(380px, 50vh, 540px);
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at center, rgba(52, 127, 121, 0.09), transparent 20rem),
+          linear-gradient(90deg, rgba(52, 127, 121, 0.055) 1px, transparent 1px),
+          linear-gradient(180deg, rgba(52, 127, 121, 0.04) 1px, transparent 1px),
+          #fffaf1;
+        background-size: auto, 28px 28px, 28px 28px, auto;
+        border: 1px solid rgba(52, 127, 121, 0.12);
+        border-radius: 10px;
+      }
+
+      .stage-card {
+        width: min(78%, 540px);
+        min-height: 310px;
+        display: grid;
+        place-items: center;
+        padding: 18px;
+        border: 1px dashed rgba(52, 127, 121, 0.3);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.5);
+      }
+
+      .stage-card img {
+        max-width: 100%;
+        max-height: 360px;
+        object-fit: contain;
+        filter: drop-shadow(0 18px 24px rgba(36, 32, 27, 0.18));
+      }
+
+      .stage-empty {
+        color: var(--muted);
+        font-weight: 800;
+      }
+
+      .stage-badges {
+        position: absolute;
+        left: 14px;
+        bottom: 14px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+      }
+
+      .stage-badges .chip {
+        background: rgba(255, 253, 248, 0.86);
+      }
+
+      .material-board {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        padding: 14px;
+        background: rgba(255, 253, 248, 0.7);
+      }
+
+      .metric-card {
+        min-width: 0;
+        padding: 11px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.7);
+      }
+
+      .metric-card strong {
+        display: block;
+        font-size: 1.3rem;
+      }
+
+      .metric-card span {
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 800;
+      }
+
+      .inspector {
+        display: flex;
+        flex-direction: column;
+        max-height: calc(100vh - 150px);
+      }
+
+      .inspector-body {
+        min-height: 0;
+        max-height: calc(100vh - 240px);
+        overflow: auto;
+        display: grid;
+        gap: 12px;
+        padding: 12px;
+      }
+
+      .inspector-card {
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.72);
+      }
+
+      .inspector-card h3 {
+        margin: 0 0 8px;
+        font-size: 0.98rem;
+      }
+
+      .inspector-card p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.84rem;
+        line-height: 1.5;
+      }
+
+      .readiness-list,
+      .key-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .readiness-item,
+      .key-item {
+        display: grid;
+        grid-template-columns: 9px minmax(0, 1fr) auto;
+        gap: 9px;
+        align-items: center;
+        padding: 8px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 253, 248, 0.7);
+      }
+
+      .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        background: var(--rose);
+      }
+
+      .readiness-item[data-ready="true"] .dot,
+      .key-item[data-ready="true"] .dot {
+        background: var(--teal);
+      }
+
+      .readiness-item strong,
+      .key-item strong {
+        display: block;
+        font-size: 0.84rem;
+      }
+
+      .readiness-item span,
+      .key-item span {
+        color: var(--muted);
+        font-size: 0.74rem;
+      }
+
+      .precision-links {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .precision-links button {
+        min-height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 8px;
+        border: 1px solid rgba(52, 127, 121, 0.22);
+        border-radius: 8px;
+        background: var(--teal-soft);
+        color: var(--teal-dark);
+        font-size: 0.8rem;
+        font-weight: 900;
+        text-align: center;
+      }
+
+      .precision-links button[aria-pressed="true"] {
+        border-color: transparent;
+        background: var(--teal);
+        color: #fff;
+      }
+
+      .mode-detail-board {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        padding: 14px;
+        border-top: 1px solid var(--line);
+        background: rgba(255, 253, 248, 0.78);
+      }
+
+      .detail-card {
+        min-width: 0;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.74);
+      }
+
+      .detail-card strong,
+      .detail-card span {
+        display: block;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .detail-card strong {
+        margin-bottom: 5px;
+        font-size: 0.94rem;
+      }
+
+      .detail-card span {
+        color: var(--muted);
+        font-size: 0.78rem;
+        line-height: 1.38;
+      }
+
+      .detail-card[data-muted="true"] {
+        border-style: dashed;
+        color: var(--muted);
+      }
+
+      .detail-card[data-kind="contract"] {
+        border-color: rgba(191, 131, 50, 0.32);
+        background: rgba(255, 240, 212, 0.72);
+      }
+
+      .detail-card[data-kind="focus"] {
+        border-color: rgba(52, 127, 121, 0.28);
+        background: rgba(231, 244, 239, 0.72);
+      }
+
+      .flow-preview {
+        display: grid;
+        gap: 8px;
+      }
+
+      .editor-slot,
+      .inspector-editor-slot {
+        min-width: 0;
+        min-height: 0;
+      }
+
+      .inspector-editor-slot {
+        padding: 12px 12px 0;
+      }
+
+      .lab-shell[data-editor-dock="side-controls"] .inspector-editor-slot {
+        display: grid;
+        gap: 10px;
+        max-height: calc(100vh - 170px);
+        overflow: auto;
+        padding: 12px;
+      }
+
+      .lab-shell[data-editor-dock="side-controls"] .inspector-body {
+        display: none;
+      }
+
+      .side-control-panel,
+      .side-control-stack {
+        display: grid;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .side-control-panel .editor-summary {
+        margin: 0;
+      }
+
+      .side-control-section {
+        display: grid;
+        gap: 8px;
+        padding: 10px;
+        border: 1px solid rgba(52, 127, 121, 0.16);
+        border-radius: 10px;
+        background: rgba(255, 253, 248, 0.74);
+      }
+
+      .side-control-section h3 {
+        margin: 0;
+        color: var(--teal-dark);
+        font-size: 0.86rem;
+        font-weight: 900;
+      }
+
+      .lab-shell[data-inspector="hidden"] .inspector {
+        display: none;
+      }
+
+      .lab-shell[data-editor-dock="inspector"] .inspector .panel-head {
+        padding-bottom: 10px;
+      }
+
+      .lab-shell[data-editor-dock="inspector"] .inspector-body {
+        max-height: 260px;
+        border-top: 1px solid var(--line);
+      }
+
+      .lab-shell[data-editor-dock="inspector"] .workspace-editor-card {
+        max-height: calc(100vh - 260px);
+      }
+
+      .lab-editor {
+        display: grid;
+        gap: 10px;
+      }
+
+      .workspace-editor-card {
+        min-width: 0;
+        min-height: 0;
+        max-height: clamp(380px, 50vh, 540px);
+        overflow: auto;
+        margin: 0;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: rgba(255, 253, 248, 0.84);
+      }
+
+      .lab-shell[data-mode-family="registration"] .workspace-editor-card {
+        max-height: none;
+      }
+
+      .lab-shell[data-mode-family="workbench"] .workspace-editor-card {
+        max-height: none;
+      }
+
+      .workspace-editor-card h3 {
+        margin: 0 0 10px;
+        font-size: 1rem;
+      }
+
+      .editor-summary {
+        padding: 10px;
+        border: 1px solid rgba(52, 127, 121, 0.18);
+        border-radius: 8px;
+        background: rgba(231, 244, 239, 0.7);
+      }
+
+      .editor-summary strong,
+      .editor-summary span {
+        display: block;
+      }
+
+      .editor-summary span {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 0.78rem;
+        line-height: 1.4;
+      }
+
+      .editor-split {
+        display: grid;
+        grid-template-columns: minmax(220px, 0.8fr) minmax(280px, 1.2fr);
+        gap: 12px;
+        align-items: start;
+      }
+
+      .editor-panel,
+      .editor-preview-panel,
+      .editor-list-panel {
+        min-width: 0;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.76);
+      }
+
+      .editor-preview-panel {
+        display: grid;
+        gap: 10px;
+      }
+
+      .editor-preview-frame {
+        min-height: 180px;
+        display: grid;
+        place-items: center;
+        border: 1px dashed rgba(52, 127, 121, 0.24);
+        border-radius: 10px;
+        overflow: hidden;
+        background:
+          linear-gradient(45deg, rgba(52, 127, 121, 0.06) 25%, transparent 25%),
+          linear-gradient(-45deg, rgba(52, 127, 121, 0.06) 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, rgba(52, 127, 121, 0.06) 75%),
+          linear-gradient(-45deg, transparent 75%, rgba(52, 127, 121, 0.06) 75%),
+          #fffdf8;
+        background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+        background-size: 20px 20px;
+      }
+
+      .editor-preview-frame img {
+        max-width: 100%;
+        max-height: 260px;
+        object-fit: contain;
+        object-position: center bottom;
+      }
+
+      .editor-list {
+        display: grid;
+        gap: 8px;
+        max-height: 320px;
+        overflow: auto;
+        padding-right: 4px;
+      }
+
+      .editor-choice-card {
+        min-width: 0;
+        padding: 10px;
+        border: 1px solid rgba(52, 127, 121, 0.18);
+        border-radius: 9px;
+        background: #fffdf8;
+        text-align: left;
+      }
+
+      .editor-choice-card[aria-pressed="true"] {
+        border-color: var(--teal);
+        background: rgba(231, 244, 239, 0.92);
+        box-shadow: inset 3px 0 0 var(--teal);
+      }
+
+      .editor-choice-card strong,
+      .editor-choice-card span {
+        display: block;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .editor-choice-card strong {
+        font-size: 0.86rem;
+      }
+
+      .editor-choice-card span {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 0.76rem;
+        line-height: 1.35;
+      }
+
+      .editor-meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .editor-form-stack {
+        display: grid;
+        gap: 10px;
+      }
+
+      .editor-line-tools {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .editor-line-tools button {
+        min-height: 32px;
+        padding: 0 10px;
+        border: 1px solid rgba(52, 127, 121, 0.22);
+        border-radius: 999px;
+        background: #fff;
+        color: var(--teal-dark);
+        font-size: 0.78rem;
+        font-weight: 900;
+      }
+
+      .editor-field {
+        display: grid;
+        gap: 6px;
+      }
+
+      .editor-field label {
+        color: var(--teal-dark);
+        font-size: 0.78rem;
+        font-weight: 900;
+      }
+
+      .editor-field select,
+      .editor-field input,
+      .editor-field textarea {
+        width: 100%;
+        min-width: 0;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        background: #fffdf8;
+        color: var(--ink);
+        font: inherit;
+      }
+
+      .editor-field select,
+      .editor-field input {
+        min-height: 36px;
+        padding: 0 10px;
+      }
+
+      .editor-field textarea {
+        min-height: 150px;
+        max-height: 260px;
+        padding: 10px;
+        resize: vertical;
+        font-family:
+          "Cascadia Mono",
+          "Consolas",
+          monospace;
+        font-size: 0.78rem;
+        line-height: 1.45;
+      }
+
+      .editor-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .editor-actions button {
+        min-height: 36px;
+        padding: 0 12px;
+        border-radius: 8px;
+        background: var(--teal);
+        color: #fff;
+        font-weight: 900;
+      }
+
+      .editor-actions button.secondary {
+        border: 1px solid var(--line);
+        background: var(--panel-solid);
+        color: var(--teal-dark);
+      }
+
+      .editor-shortcuts {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .editor-shortcuts a {
+        min-height: 42px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 12px;
+        border: 1px solid rgba(52, 127, 121, 0.22);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--teal-dark);
+        font-size: 0.85rem;
+        font-weight: 900;
+        text-align: center;
+      }
+
+      .editor-shortcuts a.primary {
+        border-color: transparent;
+        background: var(--teal);
+        color: #fff;
+      }
+
+      .visual-editor {
+        display: grid;
+        gap: 10px;
+      }
+
+      .visual-editor-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr);
+        gap: 10px;
+        align-items: start;
+      }
+
+      .visual-canvas {
+        position: relative;
+        min-height: 260px;
+        aspect-ratio: var(--visual-aspect-ratio, 4 / 3);
+        outline: 1px solid rgba(52, 127, 121, 0.22);
+        outline-offset: 0;
+        border-radius: 10px;
+        overflow: hidden;
+        background:
+          linear-gradient(45deg, rgba(52, 127, 121, 0.07) 25%, transparent 25%),
+          linear-gradient(-45deg, rgba(52, 127, 121, 0.07) 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, rgba(52, 127, 121, 0.07) 75%),
+          linear-gradient(-45deg, transparent 75%, rgba(52, 127, 121, 0.07) 75%),
+          #fffdf8;
+        background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+        background-size: 20px 20px;
+      }
+
+      .visual-canvas img {
+        user-select: none;
+        -webkit-user-drag: none;
+      }
+
+      .visual-base,
+      .visual-layer,
+      .visual-hit-source {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        object-position: center bottom;
+        pointer-events: none;
+      }
+
+      .visual-image-space {
+        position: absolute;
+        overflow: visible;
+      }
+
+      .visual-image-space > .visual-base,
+      .visual-image-space > .visual-hit-source {
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: fill;
+        object-position: center center;
+      }
+
+      .visual-scene-layer {
+        position: absolute;
+        overflow: hidden;
+      }
+
+      .visual-layer-badge {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        z-index: 2;
+        max-width: calc(100% - 12px);
+        display: none;
+        align-items: center;
+        min-height: 22px;
+        padding: 0 7px;
+        border-radius: 999px;
+        background: rgba(36, 32, 27, 0.72);
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 900;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .visual-scene-layer.is-selected .visual-layer-badge,
+      .visual-scene-layer[data-missing-image="true"] .visual-layer-badge {
+        display: inline-flex;
+      }
+
+      .visual-scene-layer.is-selected,
+      .visual-drag-box {
+        outline: 2px solid rgba(52, 127, 121, 0.72);
+        outline-offset: 0;
+        background: rgba(52, 127, 121, 0.08);
+        box-shadow: 0 10px 22px rgba(36, 32, 27, 0.12);
+      }
+
+      .visual-scene-layer.is-selected {
+        cursor: grab;
+        touch-action: none;
+      }
+
+      .visual-scene-layer.is-selected:active {
+        cursor: grabbing;
+      }
+
+      .visual-scene-layer img,
+      .visual-drag-box img {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .visual-scene-layer img[data-image-placement="percent"] {
+        position: absolute;
+        max-width: none;
+      }
+
+      .visual-drag-box {
+        position: absolute;
+        touch-action: none;
+        cursor: grab;
+      }
+
+      .visual-drag-box::before {
+        content: "";
+        position: absolute;
+        inset: min(-8px, -20%);
+        min-width: 24px;
+        min-height: 24px;
+        pointer-events: none;
+      }
+
+      .visual-drag-box:active {
+        cursor: grabbing;
+      }
+
+      .visual-drag-box[data-empty="true"] {
+        display: grid;
+        place-items: center;
+        color: var(--teal-dark);
+        font-size: 0.76rem;
+        font-weight: 900;
+        text-align: center;
+      }
+
+      .visual-handle {
+        position: absolute;
+        right: -5px;
+        bottom: -5px;
+        width: 12px;
+        height: 12px;
+        border: 2px solid #fff;
+        border-radius: 999px;
+        background: var(--teal);
+        box-shadow: 0 2px 8px rgba(36, 32, 27, 0.18);
+        cursor: nwse-resize;
+      }
+
+      .visual-scene-layer .visual-handle {
+        right: 3px;
+        bottom: 3px;
+        z-index: 4;
+      }
+
+      .visual-caption {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 253, 248, 0.76);
+        color: var(--muted);
+        font-size: 0.78rem;
+        line-height: 1.4;
+      }
+
+      .visual-side {
+        display: grid;
+        gap: 10px;
+      }
+
+      .visual-tool-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .visual-tool-row button {
+        min-height: 32px;
+        padding: 0 10px;
+        border: 1px solid rgba(52, 127, 121, 0.22);
+        border-radius: 8px;
+        background: var(--panel-solid);
+        color: var(--teal-dark);
+        font-size: 0.78rem;
+        font-weight: 900;
+      }
+
+      .visual-tool-row button.primary {
+        border-color: transparent;
+        background: var(--teal);
+        color: #fff;
+      }
+
+      .editor-note {
+        color: var(--muted);
+        font-size: 0.76rem;
+        line-height: 1.42;
+      }
+
+      .editor-stack,
+      .editor-grid,
+      .editor-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .editor-grid.two {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .editor-grid.four {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .editor-row-card {
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 253, 248, 0.74);
+      }
+
+      .editor-row-card strong,
+      .editor-row-card span {
+        display: block;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .editor-row-card span {
+        color: var(--muted);
+        font-size: 0.76rem;
+        line-height: 1.35;
+      }
+
+      .editor-field.inline {
+        grid-template-columns: minmax(82px, 0.42fr) minmax(0, 1fr);
+        align-items: center;
+      }
+
+      .editor-field.inline label {
+        margin: 0;
+      }
+
+      .editor-advanced {
+        border: 1px dashed var(--line-strong);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.58);
+        overflow: hidden;
+      }
+
+      .editor-advanced summary {
+        padding: 9px 10px;
+        color: var(--teal-dark);
+        cursor: pointer;
+        font-size: 0.82rem;
+        font-weight: 900;
+      }
+
+      .editor-advanced .editor-field {
+        padding: 0 10px 10px;
+      }
+
+      .flow-node {
+        padding: 9px 10px;
+        border-left: 4px solid var(--teal);
+        border-radius: 8px;
+        background: rgba(231, 244, 239, 0.72);
+      }
+
+      .flow-node strong,
+      .flow-node span {
+        display: block;
+      }
+
+      .flow-node span {
+        color: var(--muted);
+        font-size: 0.78rem;
+        line-height: 1.35;
+      }
+
+      @media (max-width: 1180px) {
+        .lab-layout {
+          grid-template-columns: minmax(210px, 260px) minmax(0, 1fr);
+        }
+
+        .lab-shell[data-mode-family="workbench"] .lab-layout {
+          grid-template-columns: minmax(210px, 260px) minmax(0, 1fr);
+        }
+
+        .inspector {
+          grid-column: 1 / -1;
+        }
+
+        .lab-shell[data-mode-family="workbench"] .inspector-body {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 760px) {
+        .lab-topbar,
+        .workspace-head {
+          grid-template-columns: 1fr;
+        }
+
+        .lab-layout,
+        .lab-shell[data-mode-family="workbench"] .lab-layout,
+        .lab-shell[data-inspector="hidden"] .lab-layout,
+        .lab-shell[data-mode-family="registration"] .lab-layout,
+        .lab-shell[data-editor-dock="inspector"] .lab-layout,
+        .lab-shell[data-editor-dock="side-controls"] .lab-layout,
+        .lab-shell[data-mode-family="workbench"][data-editor-dock="side-controls"] .lab-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .lab-panel,
+        .workspace,
+        .workspace-editor-card,
+        .editor-panel,
+        .editor-preview-panel,
+        .editor-list-panel,
+        .inspector {
+          min-width: 0;
+          width: 100%;
+        }
+
+        .material-board {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .mode-detail-board {
+          grid-template-columns: 1fr;
+        }
+
+        .visual-editor-layout,
+        .lab-shell[data-mode-family="workbench"] .visual-editor-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .visual-side {
+          min-width: 0;
+          width: 100%;
+        }
+
+        .visual-canvas {
+          width: 100%;
+          max-width: 100%;
+          min-height: min(260px, 70vw);
+        }
+
+        .workspace-main,
+        .lab-shell[data-mode-family="workbench"] .workspace-main,
+        .lab-shell[data-editor-dock="inspector"] .workspace-main,
+        .lab-shell[data-editor-dock="side-controls"] .workspace-main,
+        .lab-shell[data-mode-family="workbench"][data-editor-dock="side-controls"] .workspace-main,
+        .lab-shell[data-mode-family="registration"] .workspace-main {
+          grid-template-columns: 1fr;
+        }
+
+        .lab-shell[data-mode-family="workbench"] .inspector-body {
+          grid-template-columns: 1fr;
+        }
+
+        .editor-split {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="lab-shell">
+      <header class="lab-topbar">
+        <div class="lab-title">
+          <small>Character Settings UX Lab</small>
+          <h1>캐릭터 제작 Lab</h1>
+          <p>기존 설정 화면에 영향 없이, 실제 캐릭터 데이터를 작업 흐름 중심으로 다시 보여주는 테스트 페이지입니다.</p>
+        </div>
+        <nav class="lab-actions" aria-label="Lab navigation">
+          <a class="lab-button" href="./dev-assets.html">플러그인 목록</a>
+          <button class="lab-button" type="button" id="labResetViewButton">Lab 처음으로</button>
+          <button class="lab-button primary" type="button" id="primaryModeButton">현재 단계 보기</button>
+        </nav>
+        <div class="lab-status" id="statusLine" role="status">캐릭터 데이터를 불러오는 중입니다.</div>
+      </header>
+
+      <section class="lab-layout" aria-label="캐릭터 제작 테스트 화면">
+        <aside class="lab-panel character-column">
+          <div class="panel-head">
+            <div>
+              <h2>캐릭터</h2>
+              <p>작업할 캐릭터를 먼저 고릅니다.</p>
+            </div>
+            <span class="chip" id="characterCount">0명</span>
+          </div>
+          <div class="character-list" id="characterList"></div>
+          <div class="journey">
+            <p class="journey-title">제작 흐름</p>
+            <div class="journey-list" id="journeyList"></div>
+          </div>
+        </aside>
+
+        <section class="lab-panel workspace">
+          <header class="workspace-head">
+            <div>
+              <h2 id="modeTitle">제작 홈</h2>
+              <p id="modeCopy">현재 캐릭터가 런타임에 들어가기 전 어떤 재료를 가지고 있는지 한눈에 확인합니다.</p>
+            </div>
+            <div class="tool-pill-row" id="toolPills"></div>
+          </header>
+          <div class="workspace-main">
+            <div class="stage" aria-label="캐릭터 미리보기 작업판">
+              <div class="stage-card" id="stageCard">
+                <span class="stage-empty">캐릭터 기본 이미지를 불러오는 중입니다.</span>
+              </div>
+              <div class="stage-badges" id="stageBadges"></div>
+            </div>
+            <div class="editor-slot" id="workspaceEditorSlot">
+              <section class="workspace-editor-card" id="workspaceEditorCard">
+                <h3 id="workspaceEditorTitle">현재 단계 설정</h3>
+                <div class="lab-editor" id="labEditor"></div>
+              </section>
+            </div>
+          </div>
+          <div class="mode-detail-board" id="modeDetailBoard"></div>
+          <div class="material-board" id="materialBoard"></div>
+        </section>
+
+        <aside class="lab-panel inspector">
+          <div class="panel-head">
+            <div>
+              <h2>선택 항목</h2>
+              <p>지금 단계에서 확인해야 할 기준만 보여줍니다.</p>
+            </div>
+            <span class="chip" id="activeCharacterChip">미선택</span>
+          </div>
+          <div class="inspector-editor-slot" id="inspectorEditorSlot" hidden></div>
+          <div class="inspector-body">
+            <section class="inspector-card">
+              <h3>런타임 준비도</h3>
+              <div class="readiness-list" id="readinessList"></div>
+            </section>
+            <section class="inspector-card">
+              <h3>현재 단계 체크</h3>
+              <div class="key-list" id="modeCheckList"></div>
+            </section>
+            <section class="inspector-card">
+              <h3>Lab 내부 도구</h3>
+              <p>각 단계의 새 화면 구성을 이 안에서 확인합니다. 대사, 표정, 상태, 파츠, 무대, 터치 영역을 폼으로 수정하고 저장합니다.</p>
+              <div class="precision-links" id="precisionLinks"></div>
+            </section>
+            <section class="inspector-card">
+              <h3>사용자가 읽는 흐름</h3>
+              <div class="flow-preview" id="flowPreview"></div>
+            </section>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <script type="module">
+      const modes = [
+        {
+          id: "home",
+          label: "홈",
+          family: "흐름",
+          familyKey: "flow",
+          familyText: "전체 재료 흐름을 확인하는 시작 화면입니다.",
+          stateFocus: "캐릭터 선택, 누락 재료, 다음 작업을 구분합니다.",
+          title: "제작 홈",
+          copy: "캐릭터가 런타임에 들어가기 전 어떤 재료를 가지고 있는지 한눈에 확인합니다.",
+          tools: ["요약", "누락", "다음 작업"],
+          checks: [["선택", "캐릭터를 먼저 고르면 모든 단계가 해당 캐릭터 기준으로 바뀝니다."], ["누락", "필수 재료가 없으면 오른쪽 준비도에서 먼저 보여줍니다."]],
+        },
+        {
+          id: "profile",
+          label: "기본",
+          family: "등록",
+          familyKey: "registration",
+          familyText: "캐릭터의 이름, 설명, 기본값, 경로 기준을 정하는 등록 화면입니다.",
+          stateFocus: "캐릭터 자체 정보와 런타임이 참조할 기본값을 구분합니다.",
+          title: "캐릭터 기본 정보",
+          copy: "이름, 기본 표정, 기본 상태, 에셋 경로처럼 캐릭터의 기준값을 확인합니다.",
+          tools: ["ID", "기본값", "경로"],
+          checks: [["ID", "저장 키는 런타임과 매핑에서 캐릭터를 찾는 기준입니다."], ["기본값", "기본 표정과 상태가 있어야 첫 화면이 안정적으로 뜹니다."]],
+        },
+        {
+          id: "expression",
+          label: "표정",
+          family: "등록",
+          familyKey: "registration",
+          familyText: "얼굴과 감정 후보를 키와 이미지로 등록하는 화면입니다.",
+          stateFocus: "보유한 표정과 기본 표정 후보를 구분합니다.",
+          title: "표정 재료",
+          copy: "neutral, happy 같은 표정 키와 이미지를 먼저 확인합니다.",
+          tools: ["표정 키", "이미지", "기본 표정"],
+          checks: [["neutral", "neutral 표정은 최소 기준 표정으로 필요합니다."], ["한국어 라벨", "사용자에게는 표정 용도를 한국어로 설명해야 합니다."]],
+        },
+        {
+          id: "dialogue",
+          label: "대사",
+          family: "등록",
+          familyKey: "registration",
+          familyText: "캐릭터가 말할 문장을 카테고리별로 등록하는 화면입니다.",
+          stateFocus: "대사 카테고리와 각 카테고리 안의 문장 후보를 구분합니다.",
+          title: "캐릭터 대사",
+          copy: "시작 인사, 클릭 반응, idle 반응처럼 캐릭터가 말할 문장 묶음을 확인합니다.",
+          tools: ["카테고리", "문장", "말풍선"],
+          checks: [["카테고리", "대사 카테고리는 매핑에서 액션 후보로 쓰입니다."], ["샘플", "비어 있으면 사용자가 바로 테스트하기 어렵습니다."]],
+        },
+        {
+          id: "state",
+          label: "상태",
+          family: "조합",
+          familyKey: "composition",
+          familyText: "표정, 기본 이미지, 파츠, 무대를 런타임 표시 상태로 묶는 화면입니다.",
+          stateFocus: "보유한 재료와 현재 표시 상태에 실제 연결된 재료를 구분합니다.",
+          title: "표시 상태",
+          copy: "표정과 파츠 레이어가 합쳐진 런타임 표시 상태를 확인합니다.",
+          tools: ["표시 상태", "표정", "레이어"],
+          checks: [["기본 상태", "첫 표시 상태가 없으면 런타임에서 보여줄 조합이 없습니다."], ["레이어", "파츠 레이어는 기준 이미지와 함께 움직여야 합니다."]],
+        },
+        {
+          id: "parts",
+          label: "파츠",
+          family: "작업판",
+          familyKey: "workbench",
+          familyText: "상태 이미지 위에서 파츠 위치와 프레임을 직접 조정하는 작업판 화면입니다.",
+          stateFocus: "선택한 상태, 선택한 파츠, 저장될 좌표와 프레임을 구분합니다.",
+          title: "파츠 움직임",
+          copy: "눈, 입, FX처럼 캐릭터 위에 붙는 파츠와 프레임을 확인합니다.",
+          tools: ["작업판", "좌표", "프레임"],
+          checks: [["좌표", "파츠는 기준 이미지 확대/축소와 함께 움직여야 합니다."], ["프레임", "눈/입 애니메이션은 깜빡임 없이 바뀌어야 합니다."]],
+        },
+        {
+          id: "scene",
+          label: "무대",
+          family: "작업판",
+          familyKey: "workbench",
+          familyText: "배경, 캐릭터 자리, 소품을 같은 viewport 기준으로 배치하는 작업판 화면입니다.",
+          stateFocus: "선택한 무대, 선택한 레이어, 저장될 viewport 좌표를 구분합니다.",
+          title: "무대 조합",
+          copy: "배경, 소품, 캐릭터 자리가 같은 viewport 기준으로 맞는지 확인합니다.",
+          tools: ["작업 영역", "소품", "배경"],
+          checks: [["동일 기준", "설정 화면과 런타임은 같은 viewport 기준으로 보여야 합니다."], ["분리", "무대 조합은 캐릭터 레이어를 밀어내지 않아야 합니다."]],
+        },
+        {
+          id: "hitbox",
+          label: "터치",
+          family: "작업판",
+          familyKey: "workbench",
+          familyText: "캐릭터 이미지 위에서 클릭/터치 가능 영역을 지정하는 작업판 화면입니다.",
+          stateFocus: "선택한 영역과 저장될 0~1 비율 좌표를 구분합니다.",
+          title: "터치 영역",
+          copy: "머리, 얼굴, 몸처럼 사용자가 누를 수 있는 캐릭터 영역을 확인합니다.",
+          tools: ["영역", "이벤트", "확대/축소"],
+          checks: [["영역", "확대해도 히트박스가 캐릭터 이미지와 같은 비율로 움직여야 합니다."], ["매핑", "터치 영역은 매핑의 이벤트 후보로 연결됩니다."]],
+        },
+        {
+          id: "runtime",
+          label: "검증",
+          family: "검증",
+          familyKey: "verification",
+          familyText: "저장된 캐릭터 재료가 매핑과 런타임으로 이어질 수 있는지 확인하는 화면입니다.",
+          stateFocus: "누락된 재료, 매핑 후보, 런타임 검증 경로를 구분합니다.",
+          title: "런타임 검증",
+          copy: "완성된 재료가 런타임과 매핑으로 이어질 수 있는지 마지막으로 확인합니다.",
+          tools: ["런타임", "매핑", "누락"],
+          checks: [["매핑", "캐릭터 재료가 연결 후보로 나타나야 합니다."], ["런타임", "대사창, 무대, 파츠가 서로 밀어내지 않아야 합니다."]],
+        },
+      ];
+
+      const metricLabels = [
+        ["expression", "표정"],
+        ["dialogue", "대사"],
+        ["surface", "상태"],
+        ["part", "파츠"],
+        ["layer", "움직임"],
+        ["scene", "무대"],
+        ["hitArea", "터치"],
+        ["sceneAsset", "장면 재료"],
+      ];
+
+      let characters = [];
+      let selectedCharacterId = "";
+      let activeModeId = new URLSearchParams(location.search).get("mode") || "home";
+      let currentData = createEmptyData();
+
+      const statusLine = document.querySelector("#statusLine");
+      const labShell = document.querySelector(".lab-shell");
+      const characterCount = document.querySelector("#characterCount");
+      const characterList = document.querySelector("#characterList");
+      const journeyList = document.querySelector("#journeyList");
+      const modeTitle = document.querySelector("#modeTitle");
+      const modeCopy = document.querySelector("#modeCopy");
+      const toolPills = document.querySelector("#toolPills");
+      const stageCard = document.querySelector("#stageCard");
+      const stageBadges = document.querySelector("#stageBadges");
+      const modeDetailBoard = document.querySelector("#modeDetailBoard");
+      const materialBoard = document.querySelector("#materialBoard");
+      const inspectorPanel = document.querySelector(".inspector");
+      const activeCharacterChip = document.querySelector("#activeCharacterChip");
+      const readinessList = document.querySelector("#readinessList");
+      const modeCheckList = document.querySelector("#modeCheckList");
+      const precisionLinks = document.querySelector("#precisionLinks");
+      const flowPreview = document.querySelector("#flowPreview");
+      const primaryModeButton = document.querySelector("#primaryModeButton");
+      const labResetViewButton = document.querySelector("#labResetViewButton");
+      const workspaceEditorSlot = document.querySelector("#workspaceEditorSlot");
+      const inspectorEditorSlot = document.querySelector("#inspectorEditorSlot");
+      const workspaceEditorCard = document.querySelector("#workspaceEditorCard");
+      const workspaceEditorTitle = document.querySelector("#workspaceEditorTitle");
+      const labEditor = document.querySelector("#labEditor");
+      const inspectorEditorModes = new Set([]);
+      const sideControlModes = new Set(["state", "parts", "scene", "hitbox"]);
+      const inspectorVisibleModes = new Set(["runtime"]);
+
+      function createEmptyData() {
+        return {
+          characterId: "",
+          profile: null,
+          assets: {},
+          lines: {},
+          files: [],
+          previewSrc: "",
+          counts: {
+            expression: 0,
+            dialogue: 0,
+            surface: 0,
+            part: 0,
+            layer: 0,
+            scene: 0,
+            hitArea: 0,
+            sceneAsset: 0,
+          },
+        };
+      }
+
+      async function readJson(response) {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || payload.ok === false) {
+          throw new Error(payload.message || payload.error || "데이터를 불러오지 못했습니다.");
+        }
+        return payload;
+      }
+
+      async function postJson(url, body) {
+        return readJson(await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }));
+      }
+
+      async function fetchCharacters() {
+        const result = await readJson(await fetch("./api/devtools/characters"));
+        return result.characters || [];
+      }
+
+      function toBrowserPath(path) {
+        if (!path) return "";
+        if (/^(https?:|\/)/.test(path)) return path;
+        return `./${path.replace(/^\.?\//, "")}`;
+      }
+
+      function findPreview(files, assets) {
+        const neutral = assets.expressions?.neutral;
+        if (typeof neutral === "string") return neutral;
+        if (neutral && typeof neutral === "object") {
+          if (typeof neutral.image === "string") return neutral.image;
+          if (typeof neutral.src === "string") return neutral.src;
+          if (Array.isArray(neutral.frames) && neutral.frames[0]) return neutral.frames[0];
+        }
+        return files.find((file) => file.scope !== "common" && file.kind === "base")?.path || "";
+      }
+
+      function countLayers(surfaces) {
+        return Object.values(surfaces || {}).reduce((total, surface) => {
+          const layers = surface && typeof surface === "object" ? surface.layers : undefined;
+          return total + (layers && typeof layers === "object" ? Object.keys(layers).length : 0);
+        }, 0);
+      }
+
+      async function fetchCharacterData(characterId) {
+        if (!characterId) return createEmptyData();
+        const [assetsResult, filesResult] = await Promise.all([
+          readJson(await fetch(`./api/devtools/character-assets?characterId=${encodeURIComponent(characterId)}`)),
+          readJson(await fetch(`./api/devtools/asset-files?characterId=${encodeURIComponent(characterId)}`)),
+        ]);
+        const assets = assetsResult.assets || {};
+        const files = filesResult.files || [];
+        const characterFiles = files.filter((file) => file.scope !== "common");
+        return {
+          characterId,
+          profile: assetsResult.profile || null,
+          assets,
+          lines: assetsResult.lines || {},
+          files,
+          previewSrc: toBrowserPath(findPreview(characterFiles, assets)),
+          counts: {
+            expression: Object.keys(assets.expressions || {}).length,
+            dialogue: Object.keys(assetsResult.lines || {}).length,
+            surface: Object.keys(assets.surfaces || {}).length,
+            part: characterFiles.filter((file) => file.kind === "part").length,
+            layer: countLayers(assets.surfaces),
+            scene: Object.keys(assets.scenes || {}).length,
+            hitArea: Object.keys(assets.hitAreas || {}).length,
+            sceneAsset: characterFiles.filter((file) => file.kind === "scene").length,
+          },
+        };
+      }
+
+      function getMode() {
+        return modes.find((mode) => mode.id === activeModeId) || modes[0];
+      }
+
+      function setStatus(message) {
+        statusLine.textContent = message;
+      }
+
+      function renderCharacters() {
+        characterCount.textContent = `${characters.length}명`;
+        characterList.replaceChildren(...characters.map((characterId) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "character-card";
+          button.setAttribute("aria-pressed", String(characterId === selectedCharacterId));
+          button.innerHTML = `
+            <span class="avatar"></span>
+            <span>
+              <strong></strong>
+              <span></span>
+            </span>
+          `;
+          button.querySelector(".avatar").textContent = characterId.slice(0, 2);
+          button.querySelector("strong").textContent = characterId;
+          button.querySelector("span span").textContent = characterId === selectedCharacterId ? "현재 작업 중" : "클릭해서 확인";
+          button.addEventListener("click", () => void selectCharacter(characterId));
+          return button;
+        }));
+      }
+
+      function renderJourney() {
+        journeyList.replaceChildren(...modes.map((mode, index) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "journey-step";
+          button.setAttribute("aria-pressed", String(mode.id === activeModeId));
+          button.innerHTML = `
+            <span class="step-num"></span>
+            <span class="step-label"><strong></strong><span></span></span>
+            <span class="chip"></span>
+          `;
+          button.querySelector(".step-num").textContent = String(index + 1);
+          button.querySelector("strong").textContent = mode.label;
+          button.querySelector(".step-label span").textContent = `${mode.family} · ${mode.tools.join(" / ")}`;
+          button.querySelector(".chip").textContent = getModeCount(mode.id);
+          button.querySelector(".chip").classList.toggle("contract", mode.family === "작업판");
+          button.addEventListener("click", () => {
+            activeModeId = mode.id;
+            updateUrl();
+            renderAll();
+          });
+          return button;
+        }));
+      }
+
+      function getModeCount(modeId) {
+        const countByMode = {
+          home: selectedCharacterId ? "선택됨" : "대기",
+          profile: selectedCharacterId ? "기준" : "필수",
+          expression: `${currentData.counts.expression}`,
+          dialogue: `${currentData.counts.dialogue}`,
+          state: `${currentData.counts.surface}`,
+          parts: `${currentData.counts.layer}`,
+          scene: `${currentData.counts.scene}`,
+          hitbox: `${currentData.counts.hitArea}`,
+          runtime: readiness().every(([, ready]) => ready) ? "준비" : "누락",
+        };
+        return countByMode[modeId] || "-";
+      }
+
+      function readiness() {
+        return [
+          ["캐릭터", Boolean(currentData.characterId), currentData.characterId || "미선택"],
+          ["기본 표정", Boolean(currentData.assets?.expressions?.neutral), "neutral"],
+          ["표시 상태", currentData.counts.surface > 0, `${currentData.counts.surface}개`],
+          ["대사", currentData.counts.dialogue > 0, `${currentData.counts.dialogue}개`],
+          ["무대", currentData.counts.scene > 0, `${currentData.counts.scene}개`],
+          ["터치", currentData.counts.hitArea > 0, `${currentData.counts.hitArea}개`],
+        ];
+      }
+
+      function createSideControlPanel(title, text, ...children) {
+        const panel = document.createElement("div");
+        panel.className = "side-control-panel";
+        panel.append(createEditorSummary(title, text), ...children);
+        return panel;
+      }
+
+      function renderSideControls(...children) {
+        inspectorEditorSlot.hidden = false;
+        inspectorEditorSlot.replaceChildren(...children);
+      }
+
+      function configureEditorDock() {
+        const mode = getMode();
+        const modeId = mode.id;
+        const dockInInspector = inspectorEditorModes.has(modeId);
+        const sideControls = sideControlModes.has(modeId);
+        const showInspector = inspectorVisibleModes.has(modeId) || sideControls;
+
+        labShell.dataset.editorDock = sideControls ? "side-controls" : dockInInspector ? "inspector" : "workspace";
+        labShell.dataset.inspector = showInspector ? "visible" : "hidden";
+
+        if (dockInInspector) {
+          workspaceEditorSlot.hidden = true;
+          inspectorEditorSlot.hidden = false;
+          inspectorEditorSlot.append(workspaceEditorCard);
+          workspaceEditorTitle.textContent = `${mode.label} 선택 설정`;
+        } else {
+          workspaceEditorSlot.hidden = false;
+          workspaceEditorSlot.append(workspaceEditorCard);
+          if (!sideControls) {
+            inspectorEditorSlot.hidden = true;
+            inspectorEditorSlot.replaceChildren();
+          }
+          workspaceEditorTitle.textContent = "현재 단계 설정";
+        }
+
+        if (inspectorPanel) {
+          const title = inspectorPanel.querySelector(".panel-head h2");
+          const copy = inspectorPanel.querySelector(".panel-head p");
+          if (dockInInspector || sideControls) {
+            title.textContent = "현재 선택 설정";
+            copy.textContent = "선택한 항목의 속성과 저장 동작을 이곳에서 다룹니다.";
+          } else if (showInspector) {
+            title.textContent = "검증 항목";
+            copy.textContent = "런타임 적용 전에 확인해야 할 준비 상태만 보여줍니다.";
+          } else {
+            title.textContent = "선택 항목";
+            copy.textContent = "현재 단계에서 필요한 보조 정보만 보여줍니다.";
+          }
+        }
+      }
+
+      function renderWorkspace() {
+        const mode = getMode();
+        labShell.dataset.modeFamily = mode.familyKey || "flow";
+        labShell.dataset.mode = mode.id || "home";
+        configureEditorDock();
+        modeTitle.textContent = mode.title;
+        modeCopy.textContent = mode.copy;
+        primaryModeButton.textContent = `${mode.label} 상세 보기`;
+        toolPills.replaceChildren(...mode.tools.map((tool) => {
+          const chip = document.createElement("span");
+          chip.className = "chip";
+          chip.textContent = tool;
+          return chip;
+        }));
+        toolPills.prepend(createChip(`${mode.family} 화면`, "contract"));
+
+        stageCard.innerHTML = "";
+        if (currentData.previewSrc) {
+          const image = document.createElement("img");
+          image.src = currentData.previewSrc;
+          image.alt = `${selectedCharacterId} 캐릭터 미리보기`;
+          stageCard.append(image);
+        } else {
+          const empty = document.createElement("span");
+          empty.className = "stage-empty";
+          empty.textContent = "기본 이미지를 등록하면 여기에 크게 표시됩니다.";
+          stageCard.append(empty);
+        }
+
+        stageBadges.replaceChildren(
+          createChip(`캐릭터: ${selectedCharacterId || "미선택"}`),
+          createChip(`현재 단계: ${mode.label}`),
+          createChip(`성격: ${mode.family}`, "contract"),
+          createChip(readiness().every(([, ready]) => ready) ? "런타임 준비" : "누락 있음"),
+        );
+
+        renderModeDetails();
+        materialBoard.replaceChildren(...metricLabels.map(([key, label]) => {
+          const card = document.createElement("article");
+          card.className = "metric-card";
+          card.innerHTML = "<strong></strong><span></span>";
+          card.querySelector("strong").textContent = currentData.counts[key] ?? 0;
+          card.querySelector("span").textContent = label;
+          return card;
+        }));
+      }
+
+      function renderModeDetails() {
+        const details = getModeDetails(activeModeId);
+        modeDetailBoard.replaceChildren(...details.map((detail) => createDetailCard(detail.title, detail.text, detail.muted, detail.kind)));
+      }
+
+      function getModeDetails(modeId) {
+        const mode = modes.find((item) => item.id === modeId) || modes[0];
+        const expressionKeys = Object.keys(currentData.assets?.expressions || {});
+        const dialogueKeys = Object.keys(currentData.lines || {});
+        const surfaceKeys = Object.keys(currentData.assets?.surfaces || {});
+        const sceneKeys = Object.keys(currentData.assets?.scenes || {});
+        const hitAreaKeys = Object.keys(currentData.assets?.hitAreas || {});
+        const partFiles = currentData.files.filter((file) => file.scope !== "common" && file.kind === "part");
+        const sceneFiles = currentData.files.filter((file) => file.scope !== "common" && file.kind === "scene");
+
+        const modeMap = {
+          home: [
+            { title: "선택한 캐릭터", text: selectedCharacterId || "아직 선택되지 않았습니다." },
+            { title: "다음에 볼 것", text: readiness().find(([, ready]) => !ready)?.[0] || "런타임 연결 준비가 끝났습니다." },
+            { title: "Lab 원칙", text: "기존 페이지로 이동하지 않고, 이 화면 안에서 전체 흐름을 검토합니다." },
+          ],
+          profile: [
+            { title: "캐릭터 ID", text: currentData.characterId || "미선택" },
+            { title: "기본 표정", text: currentData.assets?.meta?.defaultExpression || "neutral" },
+            { title: "첫 표시 상태", text: surfaceKeys[0] || "아직 상태가 없습니다.", muted: surfaceKeys.length === 0 },
+          ],
+          expression: listDetails(expressionKeys, "저장된 표정", "표정이 아직 없습니다."),
+          dialogue: listDetails(dialogueKeys, "대사 카테고리", "대사 카테고리가 아직 없습니다.", (key) => `${(currentData.lines[key] || []).length}문장`),
+          state: listDetails(surfaceKeys, "표시 상태", "표시 상태가 아직 없습니다.", (key) => {
+            const layers = currentData.assets?.surfaces?.[key]?.layers;
+            return layers && typeof layers === "object" ? `${Object.keys(layers).length} 레이어` : "레이어 없음";
+          }),
+          parts: listDetails(partFiles.map((file) => file.name || file.path), "파츠 파일", "파츠 파일이 아직 없습니다."),
+          scene: [
+            ...listDetails(sceneKeys, "무대 조합", "무대 조합이 아직 없습니다."),
+            ...listDetails(sceneFiles.map((file) => file.name || file.path), "무대 재료", "무대 재료가 아직 없습니다.").slice(0, 3),
+          ],
+          hitbox: listDetails(hitAreaKeys, "터치 영역", "터치 영역이 아직 없습니다."),
+          runtime: readiness().map(([title, ready, text]) => ({ title, text, muted: !ready })),
+        };
+
+        const contractDetails = [
+          { title: "화면 성격", text: mode.familyText, kind: "contract" },
+          { title: "구분할 상태", text: mode.stateFocus, kind: "focus" },
+        ];
+
+        return [...contractDetails, ...(modeMap[modeId] || modeMap.home)].slice(0, 6);
+      }
+
+      function listDetails(keys, titlePrefix, emptyText, makeText = () => titlePrefix) {
+        if (!keys.length) {
+          return [{ title: titlePrefix, text: emptyText, muted: true }];
+        }
+        return keys.slice(0, 6).map((key) => ({
+          title: key,
+          text: makeText(key),
+        }));
+      }
+
+      function createDetailCard(title, text, muted = false, kind = "") {
+        const card = document.createElement("article");
+        card.className = "detail-card";
+        card.dataset.muted = String(Boolean(muted));
+        if (kind) {
+          card.dataset.kind = kind;
+        }
+        card.innerHTML = "<strong></strong><span></span>";
+        card.querySelector("strong").textContent = title;
+        card.querySelector("span").textContent = text;
+        return card;
+      }
+
+      function createChip(text, kind = "") {
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        if (kind) {
+          chip.classList.add(kind);
+        }
+        chip.textContent = text;
+        return chip;
+      }
+
+      function renderInspector() {
+        const mode = getMode();
+        activeCharacterChip.textContent = selectedCharacterId || "미선택";
+        readinessList.replaceChildren(...readiness().map(([label, ready, help]) => createCheckItem(label, ready, help)));
+        modeCheckList.replaceChildren(...mode.checks.map(([label, help]) => createCheckItem(label, true, help)));
+        precisionLinks.replaceChildren(...modes.filter((modeItem) => modeItem.id !== "home").map((modeItem) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = modeItem.label;
+          button.setAttribute("aria-pressed", String(modeItem.id === activeModeId));
+          button.addEventListener("click", () => {
+            activeModeId = modeItem.id;
+            updateUrl();
+            renderAll();
+          });
+          return button;
+        }));
+        renderLabEditor();
+        flowPreview.replaceChildren(
+          createFlowNode("1. 캐릭터 선택", selectedCharacterId ? `${selectedCharacterId} 기준으로 모든 재료를 읽습니다.` : "먼저 캐릭터를 선택합니다."),
+          createFlowNode("2. 재료 확인", "표정, 대사, 상태, 파츠, 무대를 한 흐름 안에서 확인합니다."),
+          createFlowNode("3. Lab 내부 설정", "대사, 표정, 상태, 파츠, 무대, 터치 영역을 폼으로 수정하고 저장합니다."),
+          createFlowNode("4. 런타임 연결", "완성된 재료는 매핑과 런타임 검증으로 이어집니다."),
+        );
+      }
+
+      function createCheckItem(label, ready, help) {
+        const item = document.createElement("article");
+        item.className = "readiness-item";
+        item.dataset.ready = String(Boolean(ready));
+        item.innerHTML = `
+          <i class="dot"></i>
+          <span><strong></strong><span></span></span>
+          <span class="chip"></span>
+        `;
+        item.querySelector("strong").textContent = label;
+        item.querySelector("span span").textContent = help;
+        item.querySelector(".chip").textContent = ready ? "확인" : "필요";
+        return item;
+      }
+
+      function renderLabEditor() {
+        labEditor.replaceChildren();
+        if (sideControlModes.has(activeModeId)) {
+          inspectorEditorSlot.replaceChildren(createSideControlPanel("현재 선택 설정", "왼쪽에서 캐릭터를 고르면 이 단계의 설정 컨트롤이 나타납니다."));
+        }
+        if (!selectedCharacterId) {
+          labEditor.append(createEditorSummary("캐릭터 선택 필요", "왼쪽에서 캐릭터를 고르면 이 영역에 해당 단계의 설정이 나타납니다."));
+          return;
+        }
+
+        const modeId = activeModeId;
+        if (modeId === "dialogue") {
+          renderDialogueEditorV2();
+          return;
+        }
+        if (modeId === "hitbox") {
+          renderHitboxEditorV2();
+          return;
+        }
+        if (modeId === "expression") {
+          renderExpressionEditorV2();
+          return;
+        }
+        if (modeId === "state") {
+          renderSurfaceEditorV2();
+          return;
+        }
+        if (modeId === "parts") {
+          renderPartLayerEditorV2();
+          return;
+        }
+        if (modeId === "scene") {
+          renderSceneEditorV2();
+          return;
+        }
+        if (modeId === "profile") {
+          renderProfileEditorV2();
+          return;
+        }
+        if (modeId === "runtime") {
+          const ready = readiness();
+          const missing = ready.filter(([, isReady]) => !isReady).map(([label]) => label);
+          const shortcuts = document.createElement("div");
+          shortcuts.className = "editor-shortcuts";
+          shortcuts.append(
+            createShortcutLink("./dev-nanika-mapping.html", "매핑 프로필 만들기", true),
+            createShortcutLink("./dev-runtime-embed.html", "임베드 런타임 확인"),
+            createShortcutLink("./", "전체 런타임 확인"),
+            createShortcutLink("./dev-assets.html", "플러그인 목록"),
+          );
+          labEditor.append(
+            createEditorSummary("검증 기준", missing.length === 0 ? "필수 재료가 준비되었습니다." : `${missing.join(", ")} 항목을 먼저 채우세요.`),
+            createEditorSummary("런타임 연결", "캐릭터 재료는 여기서 만들고, 실제 실행 흐름은 매핑 프로필에서 연결합니다."),
+            shortcuts,
+          );
+          return;
+        }
+
+        labEditor.append(createEditorSummary("Lab 홈", "왼쪽 흐름에서 단계를 선택하면 실제 확인 항목과 저장 가능한 설정이 여기에 나타납니다."));
+      }
+
+      function renderProfileEditor() {
+        const profile = currentData.profile || {};
+        const assets = currentData.assets || {};
+        const expressionKeys = Object.keys(assets.expressions || {});
+        const idField = createField("캐릭터 ID", "input");
+        const nameField = createField("이름", "input");
+        const descriptionField = createField("설명", "textarea");
+        const toneField = createField("말투", "textarea");
+        const defaultExpressionField = createField("기본 표정", "select");
+        const altField = createField("대체 설명", "textarea");
+        const idInput = idField.querySelector("input");
+        const nameInput = nameField.querySelector("input");
+        const descriptionInput = descriptionField.querySelector("textarea");
+        const toneInput = toneField.querySelector("textarea");
+        const defaultExpressionSelect = defaultExpressionField.querySelector("select");
+        const altInput = altField.querySelector("textarea");
+        const actions = document.createElement("div");
+        const save = document.createElement("button");
+
+        idInput.value = selectedCharacterId;
+        idInput.readOnly = true;
+        nameInput.value = profile.name || selectedCharacterId;
+        descriptionInput.value = profile.description || "";
+        toneInput.value = profile.tone || "";
+        altInput.value = assets.alt || "";
+        fillSelect(defaultExpressionSelect, expressionKeys.length ? expressionKeys : ["neutral"], profile.defaultExpression || assets.meta?.defaultExpression || "neutral", "neutral");
+
+        actions.className = "editor-actions";
+        save.type = "button";
+        save.textContent = "기본 정보 저장";
+        save.addEventListener("click", async () => {
+          const nextProfile = {
+            name: nameInput.value.trim() || selectedCharacterId,
+            description: descriptionInput.value.trim(),
+            tone: toneInput.value.trim(),
+            defaultExpression: defaultExpressionSelect.value || "neutral",
+          };
+          const nextAlt = altInput.value.trim();
+
+          try {
+            setStatus(`${selectedCharacterId}: 기본 정보를 저장하는 중입니다.`);
+            await postJson("./api/devtools/save-character-profile", {
+              characterId: selectedCharacterId,
+              profile: nextProfile,
+            });
+            if (nextAlt !== (assets.alt || "")) {
+              await postJson("./api/devtools/save-character-lab-assets", {
+                characterId: selectedCharacterId,
+                assets: { alt: nextAlt },
+              });
+            }
+            await selectCharacter(selectedCharacterId, { keepMode: true });
+            setStatus(`${selectedCharacterId}: 기본 정보를 저장했습니다.`);
+          } catch (error) {
+            setStatus(error.message || "기본 정보를 저장하지 못했습니다.");
+          }
+        });
+        actions.append(save);
+
+        labEditor.append(
+          createEditorSummary("기본 정보 편집", "캐릭터의 표시 이름, 소개 문장, 말투, 기본 표정, 이미지 대체 설명을 한 곳에서 정리합니다. 캐릭터 ID와 폴더 경로 변경은 저장소 경계가 커서 여기서는 읽기 전용으로 둡니다."),
+          createInlineGrid(idField, nameField),
+          descriptionField,
+          toneField,
+          createInlineGrid(defaultExpressionField, altField),
+          actions,
+          createAdvancedJson("프로필 JSON 보기", { ...profile, alt: assets.alt || "" }),
+        );
+      }
+
+      function renderDialogueEditor() {
+        const categories = Object.keys(currentData.lines || {});
+        const selectedCategory = categories[0] || "start";
+        const categorySelect = createField("대사 카테고리", "select");
+        const select = categorySelect.querySelector("select");
+        const categoryInputField = createField("새 카테고리", "input");
+        const categoryInput = categoryInputField.querySelector("input");
+        const linesField = createField("문장 목록", "textarea");
+        const textarea = linesField.querySelector("textarea");
+        const actions = document.createElement("div");
+
+        categories.forEach((category) => {
+          const option = document.createElement("option");
+          option.value = category;
+          option.textContent = `${category} (${(currentData.lines[category] || []).length}문장)`;
+          select.append(option);
+        });
+        if (!categories.length) {
+          const option = document.createElement("option");
+          option.value = "start";
+          option.textContent = "start (새 카테고리)";
+          select.append(option);
+        }
+        categoryInput.value = selectedCategory;
+        textarea.value = (currentData.lines?.[selectedCategory] || ["안녕하세요."]).join("\n");
+        select.addEventListener("change", () => {
+          categoryInput.value = select.value;
+          textarea.value = (currentData.lines?.[select.value] || []).join("\n");
+        });
+
+        actions.className = "editor-actions";
+        const save = document.createElement("button");
+        save.type = "button";
+        save.textContent = "대사 저장";
+        save.addEventListener("click", async () => {
+          const category = categoryInput.value.trim();
+          if (!category) {
+            setStatus("대사 카테고리를 입력하세요.");
+            return;
+          }
+          const nextLines = textarea.value
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean);
+          const next = { ...(currentData.lines || {}), [category]: nextLines };
+          try {
+            setStatus(`${category} 대사를 저장하는 중입니다.`);
+            await postJson("./api/devtools/save-character-lines", {
+              characterId: selectedCharacterId,
+              lines: next,
+            });
+            await selectCharacter(selectedCharacterId, { keepMode: true });
+            setStatus(`${selectedCharacterId}: ${category} 대사를 저장했습니다.`);
+          } catch (error) {
+            setStatus(error.message || "대사를 저장하지 못했습니다.");
+          }
+        });
+        actions.append(save);
+        labEditor.append(
+          createEditorSummary("대사 편집", "한 줄이 하나의 후보 문장입니다. 같은 카테고리 안의 문장은 매핑에서 랜덤/조건 액션으로 사용할 수 있습니다."),
+          categorySelect,
+          categoryInputField,
+          linesField,
+          actions,
+        );
+      }
+
+      function renderExpressionEditor() {
+        const expressions = { ...(currentData.assets?.expressions || {}) };
+        const keys = Object.keys(expressions);
+        const selectedKey = keys[0] || "neutral";
+        const summary = createEditorSummary("표정 편집", "표정 키를 고르고 이미지 경로를 연결합니다. 저장 후 매핑과 상태에서 같은 키를 사용할 수 있습니다.");
+        const keyField = createField("표정 선택", "select");
+        const keySelect = keyField.querySelector("select");
+        const idField = createField("표정 키", "input");
+        const idInput = idField.querySelector("input");
+        const imageField = createField("이미지 경로", "input");
+        const imageInput = imageField.querySelector("input");
+        const actions = createEditorActions();
+
+        fillSelect(keySelect, keys, selectedKey, "새 표정");
+        idInput.value = selectedKey;
+        imageInput.value = expressionToEditableValue(expressions[selectedKey]);
+        keySelect.addEventListener("change", () => {
+          idInput.value = keySelect.value;
+          imageInput.value = expressionToEditableValue(expressions[keySelect.value]);
+        });
+
+        actions.save.textContent = "표정 저장";
+        actions.save.addEventListener("click", async () => {
+          const key = idInput.value.trim();
+          const image = imageInput.value.trim();
+          if (!key || !image) {
+            setStatus("표정 키와 이미지 경로를 입력하세요.");
+            return;
+          }
+          const next = { ...expressions, [key]: parseExpressionValue(image) };
+          await saveLabAssetsPatch({ expressions: next }, `${key} 표정을 저장했습니다.`);
+        });
+        actions.remove.textContent = "표정 삭제";
+        actions.remove.addEventListener("click", async () => {
+          const key = idInput.value.trim();
+          if (!key || !expressions[key]) {
+            setStatus("삭제할 기존 표정을 선택하세요.");
+            return;
+          }
+          const next = { ...expressions };
+          delete next[key];
+          await saveLabAssetsPatch({ expressions: next }, `${key} 표정을 삭제했습니다.`);
+        });
+
+        labEditor.append(summary, keyField, idField, imageField, actions.node, createAdvancedJson("표정 JSON 보기", expressions));
+      }
+
+      function renderSurfaceEditor() {
+        const surfaces = { ...(currentData.assets?.surfaces || {}) };
+        const surfaceIds = Object.keys(surfaces);
+        const selectedId = surfaceIds[0] || "default";
+        const surface = surfaces[selectedId] || {};
+        const expressionKeys = Object.keys(currentData.assets?.expressions || {});
+        const sceneKeys = Object.keys(currentData.assets?.scenes || {});
+        const summary = createEditorSummary("표시 상태 편집", "상태는 런타임에서 실제로 보이는 캐릭터 조합입니다. 표정, 기본 이미지, 무대를 연결할 수 있습니다.");
+        const selectField = createField("상태 선택", "select");
+        const select = selectField.querySelector("select");
+        const idField = createField("상태 ID", "input");
+        const idInput = idField.querySelector("input");
+        const expressionField = createField("연결 표정", "select");
+        const expressionSelect = expressionField.querySelector("select");
+        const imageField = createField("기본 이미지 경로", "input");
+        const imageInput = imageField.querySelector("input");
+        const altField = createField("대체 설명", "input");
+        const altInput = altField.querySelector("input");
+        const sceneField = createField("연결 무대", "select");
+        const sceneSelect = sceneField.querySelector("select");
+        const actions = createEditorActions();
+
+        fillSelect(select, surfaceIds, selectedId, "새 상태");
+        fillSelect(expressionSelect, ["", ...expressionKeys], surface.expression || "", "표정 없음");
+        fillSelect(sceneSelect, ["", ...sceneKeys], surface.sceneId || "", "무대 없음");
+        applySurface(surface, selectedId);
+        select.addEventListener("change", () => applySurface(surfaces[select.value] || {}, select.value));
+
+        actions.save.textContent = "상태 저장";
+        actions.save.addEventListener("click", async () => {
+          const id = idInput.value.trim();
+          if (!id) {
+            setStatus("상태 ID를 입력하세요.");
+            return;
+          }
+          const existing = surfaces[id] || {};
+          const nextSurface = {
+            ...existing,
+            id,
+            ...(imageInput.value.trim() ? { image: imageInput.value.trim() } : {}),
+            ...(expressionSelect.value ? { expression: expressionSelect.value } : {}),
+            ...(altInput.value.trim() ? { alt: altInput.value.trim() } : {}),
+            ...(sceneSelect.value ? { sceneId: sceneSelect.value } : {}),
+          };
+          const next = { ...surfaces, [id]: nextSurface };
+          await saveLabAssetsPatch({ surfaces: next }, `${id} 상태를 저장했습니다.`);
+        });
+        actions.remove.textContent = "상태 삭제";
+        actions.remove.addEventListener("click", async () => {
+          const id = idInput.value.trim();
+          if (!id || !surfaces[id]) {
+            setStatus("삭제할 기존 상태를 선택하세요.");
+            return;
+          }
+          const next = { ...surfaces };
+          delete next[id];
+          await saveLabAssetsPatch({ surfaces: next }, `${id} 상태를 삭제했습니다.`);
+        });
+
+        labEditor.append(summary, selectField, idField, expressionField, imageField, altField, sceneField, actions.node, createAdvancedJson("상태 JSON 보기", surfaces));
+
+        function applySurface(nextSurface, id) {
+          idInput.value = id || "default";
+          expressionSelect.value = nextSurface.expression || "";
+          imageInput.value = nextSurface.image || "";
+          altInput.value = nextSurface.alt || "";
+          sceneSelect.value = nextSurface.sceneId || "";
+        }
+      }
+
+      function renderProfileEditorV2() {
+        const profile = currentData.profile || {};
+        const assets = currentData.assets || {};
+        const expressionKeys = Object.keys(assets.expressions || {});
+        const surfaceKeys = Object.keys(assets.surfaces || {});
+        const defaultExpression = profile.defaultExpression || assets.meta?.defaultExpression || expressionKeys[0] || "neutral";
+        const previewSrc = toBrowserPath(expressionToPreviewSource(assets.expressions?.[defaultExpression]) || currentData.previewSrc);
+
+        const preview = createEditorPreviewPanel({
+          title: profile.name || selectedCharacterId,
+          text: profile.description || "캐릭터 소개가 아직 비어 있습니다.",
+          image: previewSrc,
+          chips: [
+            `id: ${selectedCharacterId}`,
+            `기본 표정: ${defaultExpression}`,
+            `상태 ${surfaceKeys.length}개`,
+          ],
+        });
+
+        const idField = createField("캐릭터 ID", "input");
+        const nameField = createField("표시 이름", "input");
+        const descriptionField = createField("사용자에게 보일 소개", "textarea");
+        const toneField = createField("말투와 성격 메모", "textarea");
+        const defaultExpressionField = createField("기본 표정", "select");
+        const altField = createField("이미지 대체 설명", "textarea");
+        const idInput = idField.querySelector("input");
+        const nameInput = nameField.querySelector("input");
+        const descriptionInput = descriptionField.querySelector("textarea");
+        const toneInput = toneField.querySelector("textarea");
+        const defaultExpressionSelect = defaultExpressionField.querySelector("select");
+        const altInput = altField.querySelector("textarea");
+        const actions = document.createElement("div");
+        const save = document.createElement("button");
+
+        idInput.value = selectedCharacterId;
+        idInput.readOnly = true;
+        nameInput.value = profile.name || selectedCharacterId;
+        descriptionInput.value = profile.description || "";
+        toneInput.value = profile.tone || "";
+        altInput.value = assets.alt || "";
+        fillSelect(defaultExpressionSelect, expressionKeys.length ? expressionKeys : ["neutral"], defaultExpression, "neutral");
+
+        actions.className = "editor-actions";
+        save.type = "button";
+        save.textContent = "기본 정보 저장";
+        save.addEventListener("click", async () => {
+          const nextProfile = {
+            name: nameInput.value.trim() || selectedCharacterId,
+            description: descriptionInput.value.trim(),
+            tone: toneInput.value.trim(),
+            defaultExpression: defaultExpressionSelect.value || "neutral",
+          };
+          const nextAlt = altInput.value.trim();
+
+          try {
+            setStatus(`${selectedCharacterId}: 기본 정보를 저장하는 중입니다.`);
+            await postJson("./api/devtools/save-character-profile", {
+              characterId: selectedCharacterId,
+              profile: nextProfile,
+            });
+            if (nextAlt !== (assets.alt || "")) {
+              await postJson("./api/devtools/save-character-lab-assets", {
+                characterId: selectedCharacterId,
+                assets: { alt: nextAlt },
+              });
+            }
+            await selectCharacter(selectedCharacterId, { keepMode: true });
+            setStatus(`${selectedCharacterId}: 기본 정보를 저장했습니다.`);
+          } catch (error) {
+            setStatus(error.message || "기본 정보를 저장하지 못했습니다.");
+          }
+        });
+        actions.append(save);
+
+        const form = document.createElement("div");
+        form.className = "editor-form-stack";
+        form.append(
+          createInlineGrid(idField, nameField),
+          createInlineGrid(defaultExpressionField, altField),
+          descriptionField,
+          toneField,
+          actions,
+          createAdvancedJson("기본 정보 JSON 보기", { ...profile, alt: assets.alt || "" }),
+        );
+
+        const layout = document.createElement("div");
+        layout.className = "editor-split";
+        layout.append(preview, form);
+        labEditor.replaceChildren(
+          createEditorSummary("기본 정보", "이 캐릭터를 사용자가 어떤 이름과 성격으로 만나게 될지 정합니다."),
+          layout,
+        );
+      }
+
+      function renderExpressionEditorV2() {
+        const expressions = { ...(currentData.assets?.expressions || {}) };
+        const keys = Object.keys(expressions);
+        let selectedKey = keys[0] || "neutral";
+
+        const list = document.createElement("div");
+        list.className = "editor-list";
+        const previewHost = document.createElement("div");
+        const formHost = document.createElement("div");
+        formHost.className = "side-control-stack";
+
+        function renderList() {
+          const cards = (Object.keys(expressions).length ? Object.keys(expressions) : [selectedKey]).map((key) => {
+            const value = expressions[key];
+            return createEditorChoiceCard({
+              title: key,
+              text: expressionToEditableValue(value) || "이미지 경로를 입력해 표정 재료로 저장합니다.",
+              selected: key === selectedKey,
+              onClick: () => {
+                selectedKey = key;
+                renderList();
+                renderForm();
+              },
+            });
+          });
+          list.replaceChildren(...cards);
+        }
+
+        function renderForm() {
+          const idField = createField("표정 키", "input");
+          const imageField = createField("이미지 경로 또는 scene:ID", "textarea");
+          const idInput = idField.querySelector("input");
+          const imageInput = imageField.querySelector("textarea");
+          const actions = createEditorActions();
+          idInput.value = selectedKey;
+          imageInput.value = expressionToEditableValue(expressions[selectedKey]);
+          actions.save.textContent = "표정 저장";
+          actions.remove.textContent = "표정 삭제";
+          actions.save.addEventListener("click", async () => {
+            const key = idInput.value.trim();
+            const image = imageInput.value.trim();
+            if (!key || !image) {
+              setStatus("표정 키와 이미지 경로를 입력하세요.");
+              return;
+            }
+            const next = { ...expressions, [key]: parseExpressionValue(image) };
+            await saveLabAssetsPatch({ expressions: next }, `${key} 표정을 저장했습니다.`);
+          });
+          actions.remove.addEventListener("click", async () => {
+            const key = idInput.value.trim();
+            if (!key || !expressions[key]) {
+              setStatus("삭제할 기존 표정을 선택하세요.");
+              return;
+            }
+            const next = { ...expressions };
+            delete next[key];
+            await saveLabAssetsPatch({ expressions: next }, `${key} 표정을 삭제했습니다.`);
+          });
+
+          previewHost.replaceChildren(createEditorPreviewPanel({
+            title: selectedKey,
+            text: "표정은 상태와 매핑에서 재사용되는 캐릭터 재료입니다.",
+            image: toBrowserPath(expressionToPreviewSource(expressions[selectedKey])),
+            chips: [`총 ${Object.keys(expressions).length}개`, selectedKey === "neutral" ? "기본 후보" : "추가 표정"],
+          }));
+          formHost.replaceChildren(idField, imageField, actions.node, createAdvancedJson("표정 JSON 보기", expressions));
+        }
+
+        const left = document.createElement("section");
+        left.className = "editor-list-panel";
+        left.append(createEditorSummary("표정 목록", "표정을 고르고 오른쪽에서 경로를 수정합니다."), list);
+        const right = document.createElement("section");
+        right.className = "editor-panel";
+        right.append(previewHost, formHost);
+        const layout = document.createElement("div");
+        layout.className = "editor-split";
+        layout.append(left, right);
+        renderList();
+        renderForm();
+        labEditor.replaceChildren(
+          createEditorSummary("표정", "캐릭터가 어떤 얼굴로 보일지 정하는 기본 재료입니다."),
+          layout,
+        );
+      }
+
+      function renderDialogueEditorV2() {
+        const lines = { ...(currentData.lines || {}) };
+        const categories = Object.keys(lines);
+        let selectedCategory = categories[0] || "start";
+        const starterCategories = [
+          ["start", "처음 등장할 때"],
+          ["onClick", "캐릭터 클릭"],
+          ["onIdle", "대기 중"],
+          ["onTouchHead", "머리 터치"],
+        ];
+
+        const list = document.createElement("div");
+        list.className = "editor-list";
+        const tools = document.createElement("div");
+        tools.className = "editor-line-tools";
+        const formHost = document.createElement("div");
+        formHost.className = "editor-form-stack";
+
+        starterCategories.forEach(([key, label]) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = `${label} 추가`;
+          button.addEventListener("click", () => {
+            selectedCategory = key;
+            if (!lines[selectedCategory]) lines[selectedCategory] = [];
+            renderList();
+            renderForm();
+          });
+          tools.append(button);
+        });
+
+        function renderList() {
+          const all = Object.keys(lines).length ? Object.keys(lines) : [selectedCategory];
+          list.replaceChildren(...all.map((category) => createEditorChoiceCard({
+            title: dialogueCategoryLabel(category),
+            text: `${category} / ${(lines[category] || []).length}문장`,
+            selected: category === selectedCategory,
+            onClick: () => {
+              selectedCategory = category;
+              renderList();
+              renderForm();
+            },
+          })));
+        }
+
+        function renderForm() {
+          const categoryInputField = createField("대사 카테고리 키", "input");
+          const categoryInput = categoryInputField.querySelector("input");
+          const linesField = createField("문장 목록", "textarea");
+          const textarea = linesField.querySelector("textarea");
+          const actions = createEditorActions();
+          categoryInput.value = selectedCategory;
+          textarea.value = (lines[selectedCategory] || ["안녕하세요."]).join("\n");
+          actions.save.textContent = "대사 저장";
+          actions.remove.textContent = "카테고리 삭제";
+          actions.save.addEventListener("click", async () => {
+            const category = categoryInput.value.trim();
+            if (!category) {
+              setStatus("대사 카테고리를 입력하세요.");
+              return;
+            }
+            const nextLines = textarea.value
+              .split(/\r?\n/)
+              .map((line) => line.trim())
+              .filter(Boolean);
+            const next = { ...lines, [category]: nextLines };
+            try {
+              setStatus(`${category} 대사를 저장하는 중입니다.`);
+              await postJson("./api/devtools/save-character-lines", {
+                characterId: selectedCharacterId,
+                lines: next,
+              });
+              await selectCharacter(selectedCharacterId, { keepMode: true });
+              setStatus(`${selectedCharacterId}: ${category} 대사를 저장했습니다.`);
+            } catch (error) {
+              setStatus(error.message || "대사를 저장하지 못했습니다.");
+            }
+          });
+          actions.remove.addEventListener("click", async () => {
+            const category = categoryInput.value.trim();
+            if (!category || !lines[category]) {
+              setStatus("삭제할 기존 대사 카테고리를 선택하세요.");
+              return;
+            }
+            const next = { ...lines };
+            delete next[category];
+            try {
+              await postJson("./api/devtools/save-character-lines", {
+                characterId: selectedCharacterId,
+                lines: next,
+              });
+              await selectCharacter(selectedCharacterId, { keepMode: true });
+              setStatus(`${selectedCharacterId}: ${category} 대사를 삭제했습니다.`);
+            } catch (error) {
+              setStatus(error.message || "대사를 삭제하지 못했습니다.");
+            }
+          });
+          formHost.replaceChildren(
+            createEditorSummary(dialogueCategoryLabel(selectedCategory), "한 줄에 한 문장씩 입력합니다. 매핑에서는 이 카테고리 키를 호출합니다."),
+            createInlineGrid(categoryInputField),
+            linesField,
+            actions.node,
+            createAdvancedJson("대사 JSON 보기", lines),
+          );
+        }
+
+        const left = document.createElement("section");
+        left.className = "editor-list-panel";
+        left.append(createEditorSummary("대사 카테고리", "사용 시점별로 대사를 묶어 둡니다."), tools, list);
+        const right = document.createElement("section");
+        right.className = "editor-panel";
+        right.append(formHost);
+        const layout = document.createElement("div");
+        layout.className = "editor-split";
+        layout.append(left, right);
+        renderList();
+        renderForm();
+        labEditor.replaceChildren(
+          createEditorSummary("대사", "캐릭터가 말할 문장을 카테고리별로 저장합니다."),
+          layout,
+        );
+      }
+
+      function renderSurfaceEditorV2() {
+        const surfaces = { ...(currentData.assets?.surfaces || {}) };
+        const surfaceIds = Object.keys(surfaces);
+        let selectedId = surfaceIds[0] || "default";
+        const expressionKeys = Object.keys(currentData.assets?.expressions || {});
+        const sceneKeys = Object.keys(currentData.assets?.scenes || {});
+        const list = document.createElement("div");
+        list.className = "editor-list";
+        const previewHost = document.createElement("div");
+        const formHost = document.createElement("div");
+        formHost.className = "editor-form-stack";
+
+        function getSurface(id) {
+          return surfaces[id] || {};
+        }
+
+        function renderList() {
+          const all = Object.keys(surfaces).length ? Object.keys(surfaces) : [selectedId];
+          list.replaceChildren(...all.map((id) => {
+            const surface = getSurface(id);
+            const meta = [surface.expression && `표정: ${surface.expression}`, surface.sceneId && `무대: ${surface.sceneId}`].filter(Boolean).join(" / ");
+            return createEditorChoiceCard({
+              title: id,
+              text: meta || "표정, 이미지, 무대를 연결할 수 있습니다.",
+              selected: id === selectedId,
+              onClick: () => {
+                selectedId = id;
+                renderList();
+                renderForm();
+              },
+            });
+          }));
+        }
+
+        function renderForm() {
+          const surface = getSurface(selectedId);
+          const idField = createField("표시 상태 ID", "input");
+          const expressionField = createField("연결 표정", "select");
+          const imageField = createField("기본 이미지 경로", "input");
+          const altField = createField("대체 설명", "input");
+          const sceneField = createField("연결 무대", "select");
+          const idInput = idField.querySelector("input");
+          const expressionSelect = expressionField.querySelector("select");
+          const imageInput = imageField.querySelector("input");
+          const altInput = altField.querySelector("input");
+          const sceneSelect = sceneField.querySelector("select");
+          const actions = createEditorActions();
+
+          idInput.value = selectedId;
+          imageInput.value = surface.image || "";
+          altInput.value = surface.alt || "";
+          fillSelect(expressionSelect, ["", ...expressionKeys], surface.expression || "", "표정 없음");
+          fillSelect(sceneSelect, ["", ...sceneKeys], surface.sceneId || "", "무대 없음");
+
+          actions.save.textContent = "상태 저장";
+          actions.remove.textContent = "상태 삭제";
+          actions.save.addEventListener("click", async () => {
+            const id = idInput.value.trim();
+            if (!id) {
+              setStatus("표시 상태 ID를 입력하세요.");
+              return;
+            }
+            const existing = surfaces[id] || {};
+            const nextSurface = {
+              ...existing,
+              id,
+              ...(imageInput.value.trim() ? { image: imageInput.value.trim() } : {}),
+              ...(expressionSelect.value ? { expression: expressionSelect.value } : {}),
+              ...(altInput.value.trim() ? { alt: altInput.value.trim() } : {}),
+              ...(sceneSelect.value ? { sceneId: sceneSelect.value } : {}),
+            };
+            const next = { ...surfaces, [id]: nextSurface };
+            await saveLabAssetsPatch({ surfaces: next }, `${id} 상태를 저장했습니다.`);
+          });
+          actions.remove.addEventListener("click", async () => {
+            const id = idInput.value.trim();
+            if (!id || !surfaces[id]) {
+              setStatus("삭제할 기존 상태를 선택하세요.");
+              return;
+            }
+            const next = { ...surfaces };
+            delete next[id];
+            await saveLabAssetsPatch({ surfaces: next }, `${id} 상태를 삭제했습니다.`);
+          });
+
+          const expressionPreview = expressionToPreviewSource(currentData.assets?.expressions?.[surface.expression]);
+          previewHost.replaceChildren(createEditorPreviewPanel({
+            title: selectedId,
+            text: "상태는 런타임에서 실제로 보여줄 캐릭터 조합입니다.",
+            image: toBrowserPath(surface.image || expressionPreview || currentData.previewSrc),
+            chips: [
+              surface.expression ? `표정: ${surface.expression}` : "표정 없음",
+              surface.sceneId ? `무대: ${surface.sceneId}` : "무대 없음",
+              surface.layers ? `파츠 ${Object.keys(surface.layers).length}개` : "파츠 0개",
+            ],
+          }));
+          formHost.replaceChildren(
+            createInlineGrid(idField, expressionField),
+            imageField,
+            createInlineGrid(sceneField, altField),
+            actions.node,
+            createAdvancedJson("상태 JSON 보기", surfaces),
+          );
+          renderSideControls(createSideControlPanel(
+            "표시 상태 설정",
+            "선택한 표시 상태에 연결할 표정, 기본 이미지, 무대와 저장 동작을 다룹니다.",
+            formHost,
+          ));
+        }
+
+        const left = document.createElement("section");
+        left.className = "editor-list-panel";
+        left.append(createEditorSummary("표시 상태 목록", "상태를 고르면 오른쪽에서 연결된 표정, 이미지, 무대를 수정합니다."), list);
+        const right = document.createElement("section");
+        right.className = "editor-panel";
+        right.append(previewHost);
+        const layout = document.createElement("div");
+        layout.className = "editor-split";
+        layout.append(left, right);
+        renderList();
+        renderForm();
+        labEditor.replaceChildren(
+          createEditorSummary("표시 상태", "표정, 기본 이미지, 파츠, 무대를 묶어 런타임 표시 상태로 사용합니다."),
+          layout,
+        );
+      }
+
+      function renderPartLayerEditor() {
+        const surfaces = { ...(currentData.assets?.surfaces || {}) };
+        const surfaceIds = Object.keys(surfaces);
+        const selectedSurfaceId = surfaceIds[0] || "default";
+        const selectedSurface = surfaces[selectedSurfaceId] || {};
+        const layerIds = Object.keys(selectedSurface.layers || {});
+        const selectedLayerId = layerIds[0] || "eyes";
+        const layer = selectedSurface.layers?.[selectedLayerId] || {};
+        const summary = createEditorSummary("파츠/레이어 편집", "파츠는 상태 안의 레이어로 저장됩니다. 프레임, 깊이, 위치를 조정하면 런타임 파츠 위치가 바뀝니다.");
+        const surfaceField = createField("상태 선택", "select");
+        const surfaceSelect = surfaceField.querySelector("select");
+        const layerField = createField("레이어 선택", "select");
+        const layerSelect = layerField.querySelector("select");
+        const layerIdField = createField("레이어 ID", "input");
+        const layerIdInput = layerIdField.querySelector("input");
+        const framesField = createField("프레임 이미지", "textarea");
+        const framesInput = framesField.querySelector("textarea");
+        const depthField = createField("깊이", "input");
+        const depthInput = depthField.querySelector("input");
+        const intervalField = createField("프레임 간격(ms)", "input");
+        const intervalInput = intervalField.querySelector("input");
+        const idleField = createField("대기 반복 간격(ms)", "input");
+        const idleInput = idleField.querySelector("input");
+        const placementFields = createPlacementFields(layer.placement);
+        const actions = createEditorActions();
+
+        depthInput.type = "number";
+        intervalInput.type = "number";
+        idleInput.type = "number";
+        fillSelect(surfaceSelect, surfaceIds, selectedSurfaceId, "상태 없음");
+        fillLayerSelect();
+        applyLayer(layer, selectedLayerId);
+        surfaceSelect.addEventListener("change", () => {
+          fillLayerSelect();
+          const nextLayerId = layerSelect.value;
+          applyLayer(getSelectedSurface().layers?.[nextLayerId] || {}, nextLayerId);
+        });
+        layerSelect.addEventListener("change", () => applyLayer(getSelectedSurface().layers?.[layerSelect.value] || {}, layerSelect.value));
+
+        actions.save.textContent = "파츠 저장";
+        actions.save.addEventListener("click", async () => {
+          const surfaceId = surfaceSelect.value;
+          const layerId = layerIdInput.value.trim();
+          if (!surfaceId || !layerId) {
+            setStatus("상태와 레이어 ID를 입력하세요.");
+            return;
+          }
+          const surface = { ...(surfaces[surfaceId] || { id: surfaceId }) };
+          const layers = { ...(surface.layers || {}) };
+          layers[layerId] = {
+            ...layers[layerId],
+            frames: framesInput.value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
+            ...(numberOrNull(depthInput.value) !== null ? { depth: numberOrNull(depthInput.value) } : {}),
+            ...(numberOrNull(intervalInput.value) !== null ? { intervalMs: numberOrNull(intervalInput.value) } : {}),
+            ...(numberOrNull(idleInput.value) !== null ? { idleIntervalMs: numberOrNull(idleInput.value) } : {}),
+            placement: readPlacementFields(placementFields),
+          };
+          const next = { ...surfaces, [surfaceId]: { ...surface, id: surfaceId, layers } };
+          await saveLabAssetsPatch({ surfaces: next }, `${surfaceId}/${layerId} 파츠를 저장했습니다.`);
+        });
+        actions.remove.textContent = "파츠 삭제";
+        actions.remove.addEventListener("click", async () => {
+          const surfaceId = surfaceSelect.value;
+          const layerId = layerIdInput.value.trim();
+          if (!surfaceId || !layerId || !surfaces[surfaceId]?.layers?.[layerId]) {
+            setStatus("삭제할 기존 파츠를 선택하세요.");
+            return;
+          }
+          const surface = { ...surfaces[surfaceId] };
+          const layers = { ...(surface.layers || {}) };
+          delete layers[layerId];
+          const next = { ...surfaces, [surfaceId]: { ...surface, layers } };
+          await saveLabAssetsPatch({ surfaces: next }, `${surfaceId}/${layerId} 파츠를 삭제했습니다.`);
+        });
+
+        labEditor.append(
+          summary,
+          surfaceField,
+          layerField,
+          layerIdField,
+          framesField,
+          createInlineGrid(depthField, intervalField, idleField),
+          placementFields.node,
+          actions.node,
+          createAdvancedJson("파츠 JSON 보기", surfaces),
+        );
+
+        function getSelectedSurface() {
+          return surfaces[surfaceSelect.value] || {};
+        }
+
+        function fillLayerSelect() {
+          const ids = Object.keys(getSelectedSurface().layers || {});
+          fillSelect(layerSelect, ids, ids[0] || "eyes", "새 레이어");
+        }
+
+        function applyLayer(nextLayer, id) {
+          layerIdInput.value = id || "eyes";
+          framesInput.value = [...(nextLayer.frames || []), nextLayer.image || ""].filter(Boolean).join("\n");
+          depthInput.value = nextLayer.depth ?? "";
+          intervalInput.value = nextLayer.intervalMs ?? "";
+          idleInput.value = nextLayer.idleIntervalMs ?? "";
+          setPlacementFields(placementFields, nextLayer.placement);
+        }
+      }
+
+      function renderSceneEditor() {
+        const scenes = { ...(currentData.assets?.scenes || {}) };
+        const sceneIds = Object.keys(scenes);
+        const selectedSceneId = currentData.assets?.defaultScene || sceneIds[0] || "main";
+        const scene = scenes[selectedSceneId] || { id: selectedSceneId, layers: [] };
+        const layerIds = (scene.layers || []).map((layer) => layer.id);
+        const selectedLayerId = layerIds[0] || "background";
+        const layer = (scene.layers || []).find((item) => item.id === selectedLayerId) || { id: selectedLayerId, role: "background", depth: 0 };
+        const summary = createEditorSummary("무대 조합 편집", "배경, 소품, 캐릭터 자리, 기본 무대를 한 화면에서 조정합니다. 각 레이어는 같은 viewport 기준으로 저장됩니다.");
+        const sceneField = createField("무대 선택", "select");
+        const sceneSelect = sceneField.querySelector("select");
+        const sceneIdField = createField("무대 ID", "input");
+        const sceneIdInput = sceneIdField.querySelector("input");
+        const defaultField = createField("기본 무대 ID", "input");
+        const defaultInput = defaultField.querySelector("input");
+        const canvasWField = createField("캔버스 너비", "input");
+        const canvasWInput = canvasWField.querySelector("input");
+        const canvasHField = createField("캔버스 높이", "input");
+        const canvasHInput = canvasHField.querySelector("input");
+        const layerField = createField("레이어 선택", "select");
+        const layerSelect = layerField.querySelector("select");
+        const layerIdField = createField("레이어 ID", "input");
+        const layerIdInput = layerIdField.querySelector("input");
+        const roleField = createField("역할", "select");
+        const roleSelect = roleField.querySelector("select");
+        const imageField = createField("이미지 경로", "input");
+        const imageInput = imageField.querySelector("input");
+        const colorField = createField("색상/배경값", "input");
+        const colorInput = colorField.querySelector("input");
+        const depthField = createField("깊이", "input");
+        const depthInput = depthField.querySelector("input");
+        const fitField = createField("맞춤", "select");
+        const fitSelect = fitField.querySelector("select");
+        const overflowField = createField("넘침 처리", "select");
+        const overflowSelect = overflowField.querySelector("select");
+        const placementFields = createPlacementFields(layer.placement);
+        const actions = createEditorActions();
+
+        canvasWInput.type = "number";
+        canvasHInput.type = "number";
+        depthInput.type = "number";
+        fillSelect(sceneSelect, sceneIds, selectedSceneId, "새 무대");
+        fillSelect(roleSelect, ["background", "character", "prop", "foreground", "effect"], layer.role || "background", "역할 선택");
+        fillSelect(fitSelect, ["contain", "cover", "fill"], layer.fit || "contain", "맞춤 선택");
+        fillSelect(overflowSelect, ["hidden", "visible"], layer.overflow || "hidden", "넘침 선택");
+        fillSceneLayerSelect();
+        applyScene(scene, selectedSceneId);
+        applySceneLayer(layer, selectedLayerId);
+        sceneSelect.addEventListener("change", () => {
+          const nextScene = scenes[sceneSelect.value] || { id: sceneSelect.value, layers: [] };
+          applyScene(nextScene, sceneSelect.value);
+          fillSceneLayerSelect();
+          const nextLayerId = layerSelect.value;
+          applySceneLayer((nextScene.layers || []).find((item) => item.id === nextLayerId) || {}, nextLayerId);
+        });
+        layerSelect.addEventListener("change", () => {
+          const nextScene = scenes[sceneSelect.value] || { layers: [] };
+          applySceneLayer((nextScene.layers || []).find((item) => item.id === layerSelect.value) || {}, layerSelect.value);
+        });
+
+        actions.save.textContent = "무대 저장";
+        actions.save.addEventListener("click", async () => {
+          const sceneId = sceneIdInput.value.trim();
+          const layerId = layerIdInput.value.trim();
+          if (!sceneId || !layerId) {
+            setStatus("무대 ID와 레이어 ID를 입력하세요.");
+            return;
+          }
+          const nextScene = { ...(scenes[sceneId] || { id: sceneId, layers: [] }), id: sceneId };
+          const layers = [...(nextScene.layers || [])].filter((item) => item.id !== layerId);
+          const nextLayer = {
+            id: layerId,
+            role: roleSelect.value,
+            ...(imageInput.value.trim() ? { image: imageInput.value.trim() } : {}),
+            ...(colorInput.value.trim() ? { color: colorInput.value.trim() } : {}),
+            ...(numberOrNull(depthInput.value) !== null ? { depth: numberOrNull(depthInput.value) } : {}),
+            fit: fitSelect.value,
+            overflow: overflowSelect.value,
+            placement: readPlacementFields(placementFields),
+          };
+          layers.push(nextLayer);
+          nextScene.layers = layers.sort((a, b) => Number(a.depth || 0) - Number(b.depth || 0));
+          const width = numberOrNull(canvasWInput.value);
+          const height = numberOrNull(canvasHInput.value);
+          if (width && height) {
+            nextScene.canvas = { width, height };
+          }
+          const nextScenes = { ...scenes, [sceneId]: nextScene };
+          await saveLabAssetsPatch({ scenes: nextScenes, defaultScene: defaultInput.value.trim() }, `${sceneId} 무대를 저장했습니다.`);
+        });
+        actions.remove.textContent = "레이어 삭제";
+        actions.remove.addEventListener("click", async () => {
+          const sceneId = sceneIdInput.value.trim();
+          const layerId = layerIdInput.value.trim();
+          if (!sceneId || !layerId || !scenes[sceneId]) {
+            setStatus("삭제할 기존 무대 레이어를 선택하세요.");
+            return;
+          }
+          const nextScene = { ...scenes[sceneId], layers: (scenes[sceneId].layers || []).filter((item) => item.id !== layerId) };
+          const nextScenes = { ...scenes, [sceneId]: nextScene };
+          await saveLabAssetsPatch({ scenes: nextScenes, defaultScene: defaultInput.value.trim() }, `${sceneId}/${layerId} 레이어를 삭제했습니다.`);
+        });
+
+        labEditor.append(
+          summary,
+          sceneField,
+          sceneIdField,
+          defaultField,
+          createInlineGrid(canvasWField, canvasHField),
+          layerField,
+          layerIdField,
+          createInlineGrid(roleField, fitField, overflowField),
+          imageField,
+          colorField,
+          depthField,
+          placementFields.node,
+          actions.node,
+          createAdvancedJson("무대 JSON 보기", { defaultScene: currentData.assets?.defaultScene || "", scenes }),
+        );
+
+        function fillSceneLayerSelect() {
+          const nextScene = scenes[sceneSelect.value] || { layers: [] };
+          fillSelect(layerSelect, (nextScene.layers || []).map((item) => item.id), "background", "새 레이어");
+        }
+
+        function applyScene(nextScene, id) {
+          sceneIdInput.value = id || "main";
+          defaultInput.value = currentData.assets?.defaultScene || "";
+          canvasWInput.value = nextScene.canvas?.width ?? "";
+          canvasHInput.value = nextScene.canvas?.height ?? "";
+        }
+
+        function applySceneLayer(nextLayer, id) {
+          layerIdInput.value = id || "background";
+          roleSelect.value = nextLayer.role || "background";
+          imageInput.value = nextLayer.image || "";
+          colorInput.value = nextLayer.color || "";
+          depthInput.value = nextLayer.depth ?? "";
+          fitSelect.value = nextLayer.fit || "contain";
+          overflowSelect.value = nextLayer.overflow || "hidden";
+          setPlacementFields(placementFields, nextLayer.placement);
+        }
+      }
+
+      function renderHitboxEditor() {
+        const hitAreas = { ...(currentData.assets?.hitAreas || {}) };
+        const ids = Object.keys(hitAreas);
+        const selectedId = ids[0] || "head";
+        const area = hitAreas[selectedId] || { minX: 0.25, maxX: 0.75, minY: 0.1, maxY: 0.35 };
+        const summary = createEditorSummary("터치 영역 편집", "캐릭터를 눌렀을 때 반응할 영역을 0~1 비율 좌표로 지정합니다.");
+        const selectField = createField("영역 선택", "select");
+        const select = selectField.querySelector("select");
+        const idField = createField("영역 ID", "input");
+        const idInput = idField.querySelector("input");
+        const numberFields = createRangeFields(area);
+        const actions = createEditorActions();
+
+        fillSelect(select, ids, selectedId, "새 영역");
+        applyArea(area, selectedId);
+        select.addEventListener("change", () => applyArea(hitAreas[select.value] || area, select.value));
+        actions.save.textContent = "터치 영역 저장";
+        actions.save.addEventListener("click", async () => {
+          const id = idInput.value.trim();
+          if (!id) {
+            setStatus("터치 영역 ID를 입력하세요.");
+            return;
+          }
+          const next = { ...hitAreas, [id]: readRangeFields(numberFields) };
+          await saveLabAssetsPatch({ hitAreas: next }, `${id} 터치 영역을 저장했습니다.`);
+        });
+        actions.remove.textContent = "영역 삭제";
+        actions.remove.addEventListener("click", async () => {
+          const id = idInput.value.trim();
+          if (!id || !hitAreas[id]) {
+            setStatus("삭제할 기존 터치 영역을 선택하세요.");
+            return;
+          }
+          const next = { ...hitAreas };
+          delete next[id];
+          await saveLabAssetsPatch({ hitAreas: next }, `${id} 터치 영역을 삭제했습니다.`);
+        });
+
+        labEditor.append(summary, selectField, idField, numberFields.node, actions.node, createAdvancedJson("터치 영역 JSON 보기", hitAreas));
+
+        function applyArea(nextArea, id) {
+          idInput.value = id || "head";
+          setRangeFields(numberFields, nextArea);
+        }
+      }
+
+      function renderJsonSaveEditor({ title, description, value, saveLabel, onSave }) {
+        const textareaField = createField(title, "textarea");
+        const textarea = textareaField.querySelector("textarea");
+        const actions = document.createElement("div");
+        const save = document.createElement("button");
+        const reset = document.createElement("button");
+
+        textarea.value = JSON.stringify(value, null, 2);
+        actions.className = "editor-actions";
+        save.type = "button";
+        save.textContent = saveLabel;
+        save.addEventListener("click", async () => {
+          try {
+            const parsed = JSON.parse(textarea.value);
+            setStatus(`${title} 저장 중입니다.`);
+            await onSave(parsed);
+            setStatus(`${selectedCharacterId}: ${title} 저장을 완료했습니다.`);
+          } catch (error) {
+            setStatus(error instanceof SyntaxError ? "JSON 형식이 올바르지 않습니다." : error.message || "저장하지 못했습니다.");
+          }
+        });
+        reset.type = "button";
+        reset.className = "secondary";
+        reset.textContent = "되돌리기";
+        reset.addEventListener("click", () => {
+          textarea.value = JSON.stringify(value, null, 2);
+        });
+        actions.append(save, reset);
+        labEditor.append(createEditorSummary(title, description), textareaField, actions);
+      }
+
+      function renderAssetsPatchEditor({ title, description, value, saveLabel, createPatch }) {
+        renderJsonSaveEditor({
+          title,
+          description,
+          value,
+          saveLabel,
+          onSave: async (parsed) => {
+            await postJson("./api/devtools/save-character-lab-assets", {
+              characterId: selectedCharacterId,
+              assets: createPatch(parsed),
+            });
+            await selectCharacter(selectedCharacterId, { keepMode: true });
+          },
+        });
+        labEditor.append(createEditorNote("이미지 파일 업로드와 드래그 좌표 작업은 아직 전용 작업판이 더 안전하지만, 저장 데이터 자체는 이 화면에서 직접 수정할 수 있습니다."));
+      }
+
+      async function saveLabAssetsPatch(assets, successMessage) {
+        try {
+          setStatus("캐릭터 설정을 저장하는 중입니다.");
+          await postJson("./api/devtools/save-character-lab-assets", {
+            characterId: selectedCharacterId,
+            assets,
+          });
+          await selectCharacter(selectedCharacterId, { keepMode: true });
+          setStatus(`${selectedCharacterId}: ${successMessage}`);
+        } catch (error) {
+          setStatus(error.message || "캐릭터 설정을 저장하지 못했습니다.");
+        }
+      }
+
+      function fillSelect(select, values, selectedValue, emptyLabel) {
+        select.replaceChildren();
+        if (!values.length) {
+          const option = document.createElement("option");
+          option.value = selectedValue || "";
+          option.textContent = emptyLabel;
+          select.append(option);
+          return;
+        }
+        values.forEach((value) => {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = value || emptyLabel;
+          select.append(option);
+        });
+        select.value = values.includes(selectedValue) ? selectedValue : values[0];
+      }
+
+      function expressionToEditableValue(value) {
+        if (Array.isArray(value)) {
+          return value.map(expressionToEditableValue).filter(Boolean).join("\n");
+        }
+        if (typeof value === "string") return value;
+        if (value && typeof value === "object") {
+          if (value.type === "image") return value.src || "";
+          if (value.type === "scene") return `scene:${value.sceneId || ""}`;
+        }
+        return "";
+      }
+
+      function parseExpressionValue(value) {
+        const lines = value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+        const parsed = lines.map((line) => {
+          if (line.startsWith("scene:")) {
+            return { type: "scene", sceneId: line.slice("scene:".length).trim() };
+          }
+          return line;
+        });
+        return parsed.length === 1 ? parsed[0] : parsed;
+      }
+
+      function createInlineGrid(...fields) {
+        const grid = document.createElement("div");
+        grid.className = `editor-grid ${fields.length >= 4 ? "four" : "two"}`;
+        grid.append(...fields);
+        return grid;
+      }
+
+      function createControlSection(title, ...children) {
+        const section = document.createElement("section");
+        const heading = document.createElement("h3");
+        section.className = "side-control-section";
+        heading.textContent = title;
+        section.append(heading, ...children);
+        return section;
+      }
+
+      function createEditorActions() {
+        const node = document.createElement("div");
+        const save = document.createElement("button");
+        const remove = document.createElement("button");
+        node.className = "editor-actions";
+        save.type = "button";
+        remove.type = "button";
+        remove.className = "secondary";
+        node.append(save, remove);
+        return { node, save, remove };
+      }
+
+      function createAdvancedJson(label, value) {
+        const details = document.createElement("details");
+        const summary = document.createElement("summary");
+        const field = createField(label, "textarea");
+        const textarea = field.querySelector("textarea");
+        details.className = "editor-advanced";
+        summary.textContent = "고급 JSON 보기";
+        textarea.value = JSON.stringify(value, null, 2);
+        textarea.readOnly = true;
+        details.append(summary, field);
+        return details;
+      }
+
+      function createPlacementFields(placement = {}, labels = {}) {
+        const node = document.createElement("div");
+        const fields = {
+          x: createField(labels.x || "x", "input"),
+          y: createField(labels.y || "y", "input"),
+          width: createField(labels.width || "너비", "input"),
+          height: createField(labels.height || "높이", "input"),
+        };
+        node.className = "editor-grid four";
+        Object.values(fields).forEach((field) => {
+          const input = field.querySelector("input");
+          input.type = "number";
+          input.step = "0.01";
+          node.append(field);
+        });
+        setPlacementFields({ fields }, placement);
+        return { node, fields };
+      }
+
+      function setPlacementFields(placementFields, placement = {}) {
+        placementFields.fields.x.querySelector("input").value = placement?.x ?? 0;
+        placementFields.fields.y.querySelector("input").value = placement?.y ?? 0;
+        placementFields.fields.width.querySelector("input").value = placement?.width ?? 100;
+        placementFields.fields.height.querySelector("input").value = placement?.height ?? 100;
+      }
+
+      function readPlacementFields(placementFields) {
+        return {
+          x: numberOrDefault(placementFields.fields.x.querySelector("input").value, 0),
+          y: numberOrDefault(placementFields.fields.y.querySelector("input").value, 0),
+          width: numberOrDefault(placementFields.fields.width.querySelector("input").value, 100),
+          height: numberOrDefault(placementFields.fields.height.querySelector("input").value, 100),
+          unit: "percent",
+        };
+      }
+
+      function createRangeFields(area = {}) {
+        const node = document.createElement("div");
+        const fields = {
+          minX: createField("minX", "input"),
+          maxX: createField("maxX", "input"),
+          minY: createField("minY", "input"),
+          maxY: createField("maxY", "input"),
+        };
+        node.className = "editor-grid four";
+        Object.values(fields).forEach((field) => {
+          const input = field.querySelector("input");
+          input.type = "number";
+          input.min = "0";
+          input.max = "1";
+          input.step = "0.01";
+          node.append(field);
+        });
+        setRangeFields({ fields }, area);
+        return { node, fields };
+      }
+
+      function setRangeFields(rangeFields, area = {}) {
+        rangeFields.fields.minX.querySelector("input").value = area.minX ?? 0;
+        rangeFields.fields.maxX.querySelector("input").value = area.maxX ?? 1;
+        rangeFields.fields.minY.querySelector("input").value = area.minY ?? 0;
+        rangeFields.fields.maxY.querySelector("input").value = area.maxY ?? 1;
+      }
+
+      function readRangeFields(rangeFields) {
+        return {
+          minX: numberOrDefault(rangeFields.fields.minX.querySelector("input").value, 0),
+          maxX: numberOrDefault(rangeFields.fields.maxX.querySelector("input").value, 1),
+          minY: numberOrDefault(rangeFields.fields.minY.querySelector("input").value, 0),
+          maxY: numberOrDefault(rangeFields.fields.maxY.querySelector("input").value, 1),
+        };
+      }
+
+      function numberOrNull(value) {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : null;
+      }
+
+      function numberOrDefault(value, fallback) {
+        const number = numberOrNull(value);
+        return number === null ? fallback : number;
+      }
+
+      function positiveNumberOrDefault(value, fallback) {
+        const number = Number(value);
+        return Number.isFinite(number) && number > 0 ? number : fallback;
+      }
+
+      function sceneCanvasBasis(scene) {
+        if (scene?.canvas?.width && scene?.canvas?.height) {
+          return { width: scene.canvas.width, height: scene.canvas.height, source: "authored" };
+        }
+        return { width: 1, height: 1, source: "preview" };
+      }
+
+      function renderReadOnlyJsonEditor(title, value, description) {
+        const textareaField = createField(title, "textarea");
+        const textarea = textareaField.querySelector("textarea");
+        textarea.value = JSON.stringify(value, null, 2);
+        textarea.readOnly = true;
+        labEditor.append(
+          createEditorSummary(title, description),
+          textareaField,
+          createEditorNote("이 항목은 이미지 좌표와 파일 저장 경계를 함께 다루므로 Lab에서는 읽기 전용으로 보여줍니다."),
+        );
+      }
+
+      function renderPartLayerEditorV2() {
+        const surfaces = { ...(currentData.assets?.surfaces || {}) };
+        const surfaceIds = Object.keys(surfaces);
+        const selectedSurfaceId = surfaceIds[0] || "default";
+        const selectedSurface = surfaces[selectedSurfaceId] || {};
+        const isMovablePartLayer = (id, item = {}) => id !== "base" && item.role !== "base";
+        const layerIds = Object.entries(selectedSurface.layers || {})
+          .filter(([id, item]) => isMovablePartLayer(id, item))
+          .map(([id]) => id);
+        const selectedLayerId = layerIds[0] || "eyes";
+        const layer = selectedSurface.layers?.[selectedLayerId] || {};
+        const summary = createEditorSummary("파츠 움직임 편집", "상태 이미지 위에 눈, 입, FX 같은 파츠가 어디에 붙는지 직접 보고 조정합니다.");
+        const surfaceField = createField("상태 선택", "select");
+        const surfaceSelect = surfaceField.querySelector("select");
+        const layerField = createField("파츠 선택", "select");
+        const layerSelect = layerField.querySelector("select");
+        const layerIdField = createField("파츠 ID", "input");
+        const layerIdInput = layerIdField.querySelector("input");
+        const framesField = createField("프레임 이미지", "textarea");
+        const framesInput = framesField.querySelector("textarea");
+        const depthField = createField("깊이", "input");
+        const depthInput = depthField.querySelector("input");
+        const intervalField = createField("프레임 간격(ms)", "input");
+        const intervalInput = intervalField.querySelector("input");
+        const idleField = createField("대기 반복 간격(ms)", "input");
+        const idleInput = idleField.querySelector("input");
+        const placementFields = createPlacementFields(layer.placement);
+        const actions = createEditorActions();
+        const visual = createVisualEditor("상태 위 파츠 배치", "박스를 끌어 위치를 바꾸고 오른쪽 아래 점으로 크기를 조정합니다.");
+        const layout = document.createElement("div");
+        const side = document.createElement("div");
+
+        depthInput.type = "number";
+        intervalInput.type = "number";
+        idleInput.type = "number";
+        fillSelect(surfaceSelect, surfaceIds, selectedSurfaceId, "상태 없음");
+        fillLayerSelect();
+        applyLayer(layer, selectedLayerId);
+
+        surfaceSelect.addEventListener("change", () => {
+          fillLayerSelect();
+          const nextLayerId = layerSelect.value;
+          applyLayer(getSelectedSurface().layers?.[nextLayerId] || {}, nextLayerId);
+        });
+        layerSelect.addEventListener("change", () => applyLayer(getSelectedSurface().layers?.[layerSelect.value] || {}, layerSelect.value));
+
+        actions.save.textContent = "파츠 저장";
+        actions.save.addEventListener("click", async () => {
+          const surfaceId = surfaceSelect.value;
+          const layerId = layerIdInput.value.trim();
+          if (!surfaceId || !layerId) {
+            setStatus("상태와 파츠 ID를 입력하세요.");
+            return;
+          }
+          const surface = { ...(surfaces[surfaceId] || { id: surfaceId }) };
+          const layers = { ...(surface.layers || {}) };
+          layers[layerId] = {
+            ...layers[layerId],
+            frames: framesInput.value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
+            ...(numberOrNull(depthInput.value) !== null ? { depth: numberOrNull(depthInput.value) } : {}),
+            ...(numberOrNull(intervalInput.value) !== null ? { intervalMs: numberOrNull(intervalInput.value) } : {}),
+            ...(numberOrNull(idleInput.value) !== null ? { idleIntervalMs: numberOrNull(idleInput.value) } : {}),
+            placement: readPlacementFields(placementFields),
+          };
+          await saveLabAssetsPatch({ surfaces: { ...surfaces, [surfaceId]: { ...surface, id: surfaceId, layers } } }, `${surfaceId}/${layerId} 파츠를 저장했습니다.`);
+        });
+        actions.remove.textContent = "파츠 삭제";
+        actions.remove.addEventListener("click", async () => {
+          const surfaceId = surfaceSelect.value;
+          const layerId = layerIdInput.value.trim();
+          if (!surfaceId || !layerId || !surfaces[surfaceId]?.layers?.[layerId]) {
+            setStatus("삭제할 기존 파츠를 선택하세요.");
+            return;
+          }
+          const surface = { ...surfaces[surfaceId] };
+          const layers = { ...(surface.layers || {}) };
+          delete layers[layerId];
+          await saveLabAssetsPatch({ surfaces: { ...surfaces, [surfaceId]: { ...surface, layers } } }, `${surfaceId}/${layerId} 파츠를 삭제했습니다.`);
+        });
+
+        [layerIdInput, framesInput].forEach((input) => input.addEventListener("input", renderPreview));
+        Object.values(placementFields.fields).forEach((field) => field.querySelector("input").addEventListener("input", renderPreview));
+        side.className = "side-control-stack";
+        side.append(
+          surfaceField,
+          layerField,
+          layerIdField,
+          framesField,
+          createInlineGrid(depthField, intervalField, idleField),
+          placementFields.node,
+          createVisualTools([
+            ["중앙 배치", () => setPlacementAndRender(placementFields, { x: 35, y: 35, width: 30, height: 20 }, renderPreview)],
+            ["작게", () => setPlacementAndRender(placementFields, { ...readPlacementFields(placementFields), width: 18, height: 12 }, renderPreview)],
+            ["크게", () => setPlacementAndRender(placementFields, { ...readPlacementFields(placementFields), width: 42, height: 28 }, renderPreview)],
+          ]),
+          actions.node,
+          createAdvancedJson("파츠 JSON 보기", surfaces),
+        );
+        layout.className = "visual-editor-layout";
+        layout.append(visual.node);
+        labEditor.replaceChildren(summary, layout);
+        renderSideControls(createSideControlPanel(
+          "파츠 선택 설정",
+          "선택한 상태 위에 붙을 파츠 프레임, 깊이, 위치와 저장 동작을 다룹니다.",
+          side,
+        ));
+        renderPreview();
+
+        function getSelectedSurface() {
+          return surfaces[surfaceSelect.value] || {};
+        }
+
+        function fillLayerSelect() {
+          const ids = Object.entries(getSelectedSurface().layers || {})
+            .filter(([id, item]) => isMovablePartLayer(id, item))
+            .map(([id]) => id);
+          fillSelect(layerSelect, ids, ids[0] || "eyes", "새 파츠");
+        }
+
+        function applyLayer(nextLayer, id) {
+          layerIdInput.value = id || "eyes";
+          framesInput.value = [...(nextLayer.frames || []), nextLayer.image || ""].filter(Boolean).join("\n");
+          depthInput.value = nextLayer.depth ?? "";
+          intervalInput.value = nextLayer.intervalMs ?? "";
+          idleInput.value = nextLayer.idleIntervalMs ?? "";
+          setPlacementFields(placementFields, nextLayer.placement);
+          renderPreview();
+        }
+
+        function renderPreview() {
+          const surface = getSelectedSurface();
+          const frame = framesInput.value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)[0] || "";
+          visual.canvas.replaceChildren();
+          const imageSpace = createImageCoordinateSpace(visual.canvas, surface.image || currentData.previewSrc, surface.alt || "base image");
+          imageSpace.append(createDragBox(readPlacementFields(placementFields), {
+            label: layerIdInput.value.trim() || "파츠",
+            image: frame,
+            fit: "contain",
+            onChange: (placement) => setPlacementFields(placementFields, placement),
+          }));
+          visual.caption.textContent = `${surfaceSelect.value || "상태 없음"} 위에 저장되는 파츠 좌표입니다.`;
+        }
+      }
+
+      function renderSceneEditorV2() {
+        const scenes = { ...(currentData.assets?.scenes || {}) };
+        const sceneIds = Object.keys(scenes);
+        const selectedSceneId = currentData.assets?.defaultScene || sceneIds[0] || "main";
+        const scene = scenes[selectedSceneId] || { id: selectedSceneId, layers: [] };
+        const layerIds = (scene.layers || []).map((item) => item.id);
+        const selectedLayerId = layerIds[0] || "background";
+        const layer = (scene.layers || []).find((item) => item.id === selectedLayerId) || { id: selectedLayerId, role: "background", depth: 0 };
+        const summary = createEditorSummary("무대 조합 편집", "배경, 캐릭터 자리, 소품을 같은 viewport 안에서 보고 조정합니다.");
+        const sceneField = createField("무대 선택", "select");
+        const sceneSelect = sceneField.querySelector("select");
+        const sceneIdField = createField("무대 ID", "input");
+        const sceneIdInput = sceneIdField.querySelector("input");
+        const defaultField = createField("기본 무대 ID", "input");
+        const defaultInput = defaultField.querySelector("input");
+        const canvasWField = createField("캔버스 너비", "input");
+        const canvasWInput = canvasWField.querySelector("input");
+        const canvasHField = createField("캔버스 높이", "input");
+        const canvasHInput = canvasHField.querySelector("input");
+        const layerField = createField("레이어 선택", "select");
+        const layerSelect = layerField.querySelector("select");
+        const layerIdField = createField("레이어 ID", "input");
+        const layerIdInput = layerIdField.querySelector("input");
+        const roleField = createField("역할", "select");
+        const roleSelect = roleField.querySelector("select");
+        const imageField = createField("이미지 경로", "input");
+        const imageInput = imageField.querySelector("input");
+        const colorField = createField("색상/배경값", "input");
+        const colorInput = colorField.querySelector("input");
+        const depthField = createField("깊이", "input");
+        const depthInput = depthField.querySelector("input");
+        const fitField = createField("맞춤", "select");
+        const fitSelect = fitField.querySelector("select");
+        const overflowField = createField("넘침 처리", "select");
+        const overflowSelect = overflowField.querySelector("select");
+        const placementFields = createPlacementFields(layer.placement);
+        const imagePlacementFields = createPlacementFields(layer.imagePlacement || { x: 0, y: 0, width: 100, height: 100 }, {
+          x: "이미지 x",
+          y: "이미지 y",
+          width: "이미지 너비",
+          height: "이미지 높이",
+        });
+        const objectPositionField = createField("이미지 기준점", "input");
+        const objectPositionInput = objectPositionField.querySelector("input");
+        const actions = createEditorActions();
+        const visual = createVisualEditor("무대 viewport", "선택한 레이어는 드래그로 이동하고, 오른쪽 아래 점으로 크기를 조정합니다. 우측 패널에서는 정확한 숫자를 입력합니다.");
+        const layout = document.createElement("div");
+        const side = document.createElement("div");
+        const canvasNote = createEditorNote("");
+        let sceneZoom = 1;
+        const zoomTools = createVisualTools([
+          ["축소", () => {
+            sceneZoom = Math.max(0.5, Number((sceneZoom - 0.1).toFixed(2)));
+            applySceneZoom();
+          }],
+          ["확대", () => {
+            sceneZoom = Math.min(2, Number((sceneZoom + 0.1).toFixed(2)));
+            applySceneZoom();
+          }],
+          ["원래 크기", () => {
+            sceneZoom = 1;
+            applySceneZoom();
+          }],
+        ]);
+        visual.node.prepend(zoomTools);
+        applySceneZoom();
+
+        canvasWInput.type = "number";
+        canvasHInput.type = "number";
+        canvasWInput.placeholder = "예: 760";
+        canvasHInput.placeholder = "예: 604";
+        objectPositionInput.placeholder = "예: center center";
+        depthInput.type = "number";
+        fillSelect(sceneSelect, sceneIds, selectedSceneId, "새 무대");
+        fillSelect(roleSelect, ["background", "character", "prop", "foreground", "effect"], layer.role || "background", "역할 선택");
+        fillSelect(fitSelect, ["contain", "cover", "fill"], layer.fit || "contain", "맞춤 선택");
+        fillSelect(overflowSelect, ["hidden", "visible"], layer.overflow || "hidden", "넘침 선택");
+        fillSceneLayerSelect();
+        applyScene(scene, selectedSceneId);
+        applySceneLayer(layer, selectedLayerId);
+
+        sceneSelect.addEventListener("change", () => {
+          const nextScene = scenes[sceneSelect.value] || { id: sceneSelect.value, layers: [] };
+          applyScene(nextScene, sceneSelect.value);
+          fillSceneLayerSelect();
+          const nextLayerId = layerSelect.value;
+          applySceneLayer((nextScene.layers || []).find((item) => item.id === nextLayerId) || {}, nextLayerId);
+        });
+        layerSelect.addEventListener("change", () => {
+          const nextScene = scenes[sceneSelect.value] || { layers: [] };
+          applySceneLayer((nextScene.layers || []).find((item) => item.id === layerSelect.value) || {}, layerSelect.value);
+        });
+
+        actions.save.textContent = "무대 저장";
+        actions.save.addEventListener("click", async () => {
+          const sceneId = sceneIdInput.value.trim();
+          const layerId = layerIdInput.value.trim();
+          if (!sceneId || !layerId) {
+            setStatus("무대 ID와 레이어 ID를 입력하세요.");
+            return;
+          }
+          const nextScene = { ...(scenes[sceneId] || { id: sceneId, layers: [] }), id: sceneId };
+          const layers = [...(nextScene.layers || [])].filter((item) => item.id !== layerId);
+          layers.push({
+            id: layerId,
+            role: roleSelect.value,
+            ...(imageInput.value.trim() ? { image: imageInput.value.trim() } : {}),
+            ...(colorInput.value.trim() ? { color: colorInput.value.trim() } : {}),
+            ...(numberOrNull(depthInput.value) !== null ? { depth: numberOrNull(depthInput.value) } : {}),
+            ...(objectPositionInput.value.trim() ? { objectPosition: objectPositionInput.value.trim() } : {}),
+            fit: fitSelect.value,
+            overflow: overflowSelect.value,
+            placement: readPlacementFields(placementFields),
+            ...optionalImagePlacement(imagePlacementFields),
+          });
+          const width = numberOrNull(canvasWInput.value);
+          const height = numberOrNull(canvasHInput.value);
+          nextScene.layers = layers.sort((a, b) => Number(a.depth || 0) - Number(b.depth || 0));
+          if (width && height) nextScene.canvas = { width, height };
+          await saveLabAssetsPatch({ scenes: { ...scenes, [sceneId]: nextScene }, defaultScene: defaultInput.value.trim() }, `${sceneId} 무대를 저장했습니다.`);
+        });
+        actions.remove.textContent = "레이어 삭제";
+        actions.remove.addEventListener("click", async () => {
+          const sceneId = sceneIdInput.value.trim();
+          const layerId = layerIdInput.value.trim();
+          if (!sceneId || !layerId || !scenes[sceneId]) {
+            setStatus("삭제할 기존 무대 레이어를 선택하세요.");
+            return;
+          }
+          const nextScene = { ...scenes[sceneId], layers: (scenes[sceneId].layers || []).filter((item) => item.id !== layerId) };
+          await saveLabAssetsPatch({ scenes: { ...scenes, [sceneId]: nextScene }, defaultScene: defaultInput.value.trim() }, `${sceneId}/${layerId} 레이어를 삭제했습니다.`);
+        });
+
+        [sceneIdInput, layerIdInput, imageInput, colorInput, canvasWInput, canvasHInput, depthInput, objectPositionInput].forEach((input) => input.addEventListener("input", renderPreview));
+        [roleSelect, fitSelect, overflowSelect].forEach((input) => input.addEventListener("change", renderPreview));
+        Object.values(placementFields.fields).forEach((field) => field.querySelector("input").addEventListener("input", renderPreview));
+        Object.values(imagePlacementFields.fields).forEach((field) => field.querySelector("input").addEventListener("input", renderPreview));
+        side.className = "side-control-stack";
+        side.append(
+          createControlSection(
+            "선택 레이어",
+            layerField,
+            layerIdField,
+            createInlineGrid(roleField, fitField, overflowField),
+          ),
+          createControlSection(
+            "위치와 크기",
+            placementFields.node,
+            createVisualTools([
+              ["전체 채우기", () => setPlacementAndRender(placementFields, { x: 0, y: 0, width: 100, height: 100 }, renderPreview)],
+              ["캐릭터 자리", () => {
+                roleSelect.value = "character";
+                depthInput.value = "20";
+                setPlacementAndRender(placementFields, { x: 31, y: 8, width: 38, height: 86 }, renderPreview);
+              }],
+              ["소품 앞쪽", () => {
+                roleSelect.value = "prop";
+                depthInput.value = "30";
+                renderPreview();
+              }],
+            ]),
+          ),
+          createControlSection(
+            "이미지 내부 조정",
+            imageField,
+            imagePlacementFields.node,
+            objectPositionField,
+            createVisualTools([
+              ["기본 맞춤", () => setPlacementAndRender(imagePlacementFields, { x: 0, y: 0, width: 100, height: 100 }, renderPreview)],
+              ["조금 크게", () => setPlacementAndRender(imagePlacementFields, { x: -10, y: -10, width: 120, height: 120 }, renderPreview)],
+              ["많이 크게", () => setPlacementAndRender(imagePlacementFields, { x: -25, y: -25, width: 150, height: 150 }, renderPreview)],
+            ]),
+          ),
+          createControlSection("저장", actions.node),
+          createControlSection(
+            "레이어 상세",
+            colorField,
+            depthField,
+          ),
+          createControlSection(
+            "무대 설정",
+            sceneField,
+            sceneIdField,
+            defaultField,
+            createInlineGrid(canvasWField, canvasHField),
+            canvasNote,
+          ),
+          createAdvancedJson("무대 JSON 보기", { defaultScene: currentData.assets?.defaultScene || "", scenes }),
+        );
+        layout.className = "visual-editor-layout";
+        layout.append(visual.node);
+        labEditor.replaceChildren(summary, layout);
+        renderSideControls(createSideControlPanel(
+          "무대 선택 설정",
+          "선택한 무대와 레이어의 역할, 이미지, 위치와 저장 동작을 다룹니다.",
+          side,
+        ));
+        renderPreview();
+
+        function getSelectedScene() {
+          return scenes[sceneSelect.value] || { id: sceneSelect.value || "main", layers: [] };
+        }
+
+        function fillSceneLayerSelect() {
+          const nextScene = getSelectedScene();
+          fillSelect(layerSelect, (nextScene.layers || []).map((item) => item.id), "background", "새 레이어");
+        }
+
+        function applyScene(nextScene, id) {
+          sceneIdInput.value = id || "main";
+          defaultInput.value = currentData.assets?.defaultScene || "";
+          canvasWInput.value = nextScene.canvas?.width ?? "";
+          canvasHInput.value = nextScene.canvas?.height ?? "";
+          renderPreview();
+        }
+
+        function applySceneLayer(nextLayer, id) {
+          layerIdInput.value = id || "background";
+          roleSelect.value = nextLayer.role || "background";
+          imageInput.value = nextLayer.image || "";
+          colorInput.value = nextLayer.color || "";
+          depthInput.value = nextLayer.depth ?? "";
+          objectPositionInput.value = nextLayer.objectPosition || "";
+          fitSelect.value = nextLayer.fit || "contain";
+          overflowSelect.value = nextLayer.overflow || "hidden";
+          setPlacementFields(placementFields, nextLayer.placement);
+          setPlacementFields(imagePlacementFields, nextLayer.imagePlacement || { x: 0, y: 0, width: 100, height: 100 });
+          renderPreview();
+        }
+
+        function renderPreview() {
+          const sceneId = sceneIdInput.value.trim() || sceneSelect.value || "main";
+          const selectedLayerId = layerIdInput.value.trim();
+          const baseScene = sceneId === sceneSelect.value ? getSelectedScene() : { id: sceneId, layers: [] };
+          const basis = sceneCanvasBasis(baseScene);
+          const canvasWidth = positiveNumberOrDefault(canvasWInput.value, basis.width);
+          const canvasHeight = positiveNumberOrDefault(canvasHInput.value, basis.height);
+          const layerPreview = {
+            id: selectedLayerId || "layer",
+            role: roleSelect.value,
+            image: imageInput.value.trim(),
+            color: colorInput.value.trim(),
+            fit: fitSelect.value,
+            overflow: overflowSelect.value,
+            objectPosition: objectPositionInput.value.trim(),
+            depth: numberOrDefault(depthInput.value, 0),
+            placement: readPlacementFields(placementFields),
+            ...optionalImagePlacement(imagePlacementFields),
+          };
+          const layers = [...(baseScene.layers || []).filter((item) => item.id !== layerPreview.id), layerPreview]
+            .sort((a, b) => Number(a.depth || 0) - Number(b.depth || 0));
+          visual.canvas.style.setProperty("--visual-aspect-ratio", `${canvasWidth} / ${canvasHeight}`);
+          visual.canvas.replaceChildren(...layers.map((item) => {
+            const node = createSceneLayerNode(item, item.id === layerPreview.id);
+            if (item.id === layerPreview.id) {
+              enableBoxDrag(node, item.placement || { x: 0, y: 0, width: 100, height: 100 }, (placement) => setPlacementFields(placementFields, placement));
+            }
+            return node;
+          }));
+          if (basis.source === "authored") {
+            canvasNote.textContent = "저장된 캔버스 너비/높이 기준으로 런타임과 같은 무대 비율을 확인합니다.";
+            visual.caption.textContent = `${sceneId}: ${layers.length}개 레이어를 저장된 canvas 기준으로 봅니다.`;
+          } else {
+            canvasNote.textContent = "이 무대에는 canvas가 저장되지 않았습니다. 정밀 배치가 필요하면 캔버스 너비/높이를 입력하고 저장하세요.";
+            visual.caption.textContent = `${sceneId}: ${layers.length}개 레이어를 canvas 미저장 미리보기 기준으로 봅니다.`;
+          }
+        }
+
+        function applySceneZoom() {
+          visual.canvas.style.width = `${sceneZoom * 100}%`;
+          visual.canvas.style.maxWidth = "none";
+        }
+
+        function optionalImagePlacement(fields) {
+          const placement = readPlacementFields(fields);
+          if (
+            placement.x === 0
+            && placement.y === 0
+            && placement.width === 100
+            && placement.height === 100
+          ) {
+            return {};
+          }
+
+          return { imagePlacement: placement };
+        }
+      }
+
+      function renderHitboxEditorV2() {
+        const hitAreas = { ...(currentData.assets?.hitAreas || {}) };
+        const ids = Object.keys(hitAreas);
+        const selectedId = ids[0] || "head";
+        const area = hitAreas[selectedId] || { minX: 0.25, maxX: 0.75, minY: 0.1, maxY: 0.35 };
+        const summary = createEditorSummary("터치 영역 편집", "캐릭터 이미지 위에서 사용자가 누를 수 있는 영역을 직접 보고 조정합니다.");
+        const selectField = createField("영역 선택", "select");
+        const select = selectField.querySelector("select");
+        const idField = createField("영역 ID", "input");
+        const idInput = idField.querySelector("input");
+        const numberFields = createRangeFields(area);
+        const actions = createEditorActions();
+        const visual = createVisualEditor("캐릭터 터치 영역", "박스를 끌어 영역을 이동하고 오른쪽 아래 점으로 크기를 조정합니다.");
+        const layout = document.createElement("div");
+        const side = document.createElement("div");
+
+        fillSelect(select, ids, selectedId, "새 영역");
+        applyArea(area, selectedId);
+        select.addEventListener("change", () => applyArea(hitAreas[select.value] || area, select.value));
+        actions.save.textContent = "터치 영역 저장";
+        actions.save.addEventListener("click", async () => {
+          const id = idInput.value.trim();
+          if (!id) {
+            setStatus("터치 영역 ID를 입력하세요.");
+            return;
+          }
+          await saveLabAssetsPatch({ hitAreas: { ...hitAreas, [id]: readRangeFields(numberFields) } }, `${id} 터치 영역을 저장했습니다.`);
+        });
+        actions.remove.textContent = "영역 삭제";
+        actions.remove.addEventListener("click", async () => {
+          const id = idInput.value.trim();
+          if (!id || !hitAreas[id]) {
+            setStatus("삭제할 기존 터치 영역을 선택하세요.");
+            return;
+          }
+          const next = { ...hitAreas };
+          delete next[id];
+          await saveLabAssetsPatch({ hitAreas: next }, `${id} 터치 영역을 삭제했습니다.`);
+        });
+
+        idInput.addEventListener("input", renderPreview);
+        Object.values(numberFields.fields).forEach((field) => field.querySelector("input").addEventListener("input", renderPreview));
+        side.className = "side-control-stack";
+        side.append(
+          selectField,
+          idField,
+          numberFields.node,
+          createVisualTools([
+            ["머리 예시", () => setRangeAndRender(numberFields, { minX: 0.36, maxX: 0.64, minY: 0.1, maxY: 0.34 }, renderPreview)],
+            ["얼굴 예시", () => setRangeAndRender(numberFields, { minX: 0.38, maxX: 0.62, minY: 0.24, maxY: 0.46 }, renderPreview)],
+            ["몸 예시", () => setRangeAndRender(numberFields, { minX: 0.3, maxX: 0.72, minY: 0.42, maxY: 0.86 }, renderPreview)],
+          ]),
+          actions.node,
+          createAdvancedJson("터치 영역 JSON 보기", hitAreas),
+        );
+        layout.className = "visual-editor-layout";
+        layout.append(visual.node);
+        labEditor.replaceChildren(summary, layout);
+        renderSideControls(createSideControlPanel(
+          "터치 영역 설정",
+          "선택한 캐릭터 터치 영역의 좌표와 저장 동작을 다룹니다.",
+          side,
+        ));
+        renderPreview();
+
+        function applyArea(nextArea, id) {
+          idInput.value = id || "head";
+          setRangeFields(numberFields, nextArea);
+          renderPreview();
+        }
+
+        function renderPreview() {
+          visual.canvas.replaceChildren();
+          const imageSpace = createImageCoordinateSpace(visual.canvas, currentData.previewSrc, "character image", "visual-hit-source");
+          imageSpace.append(createDragBox(rangeToPlacement(readRangeFields(numberFields)), {
+            label: idInput.value.trim() || "터치 영역",
+            onChange: (nextPlacement) => setRangeFields(numberFields, placementToRange(nextPlacement)),
+          }));
+          visual.caption.textContent = `${idInput.value.trim() || "새 영역"}: 0~1 비율 좌표로 저장되어 런타임 hit test에 사용됩니다.`;
+        }
+      }
+
+      function createVisualEditor(title, text) {
+        const node = document.createElement("section");
+        const canvas = document.createElement("div");
+        const caption = document.createElement("div");
+        node.className = "visual-editor";
+        canvas.className = "visual-canvas";
+        caption.className = "visual-caption";
+        caption.innerHTML = `<strong>${title}</strong><span>${text}</span>`;
+        node.append(canvas, caption);
+        return { node, canvas, caption };
+      }
+
+      function appendImage(parent, src, className, alt) {
+        if (!src) {
+          const empty = document.createElement("div");
+          empty.className = "visual-drag-box";
+          empty.dataset.empty = "true";
+          empty.style.inset = "20%";
+          empty.textContent = "이미지 없음";
+          parent.append(empty);
+          return empty;
+        }
+        const img = document.createElement("img");
+        img.className = className;
+        img.src = toBrowserPath(src);
+        img.alt = alt || "";
+        parent.append(img);
+        return img;
+      }
+
+      function createImageCoordinateSpace(canvas, src, alt, imageClassName = "visual-base") {
+        const space = document.createElement("div");
+        space.className = "visual-image-space";
+        canvas.append(space);
+
+        if (!src) {
+          const empty = document.createElement("div");
+          empty.className = "visual-drag-box";
+          empty.dataset.empty = "true";
+          empty.style.inset = "0";
+          empty.textContent = "이미지 없음";
+          space.append(empty);
+          return space;
+        }
+
+        const img = document.createElement("img");
+        img.className = imageClassName;
+        img.src = toBrowserPath(src);
+        img.alt = alt || "";
+        space.append(img);
+
+        const updateSpace = () => {
+          const canvasWidth = canvas.clientWidth || 1;
+          const canvasHeight = canvas.clientHeight || 1;
+          const naturalWidth = img.naturalWidth || canvasWidth;
+          const naturalHeight = img.naturalHeight || canvasHeight;
+          const ratio = Math.min(canvasWidth / naturalWidth, canvasHeight / naturalHeight);
+          const width = naturalWidth * ratio;
+          const height = naturalHeight * ratio;
+          space.style.left = `${(canvasWidth - width) / 2}px`;
+          space.style.top = `${canvasHeight - height}px`;
+          space.style.width = `${width}px`;
+          space.style.height = `${height}px`;
+        };
+
+        img.addEventListener("load", updateSpace, { once: true });
+        img.addEventListener("error", () => {
+          space.dataset.missingImage = "true";
+          space.style.inset = "20%";
+        }, { once: true });
+        requestAnimationFrame(updateSpace);
+        if (typeof ResizeObserver === "function") {
+          const observer = new ResizeObserver(updateSpace);
+          observer.observe(canvas);
+          img.addEventListener("load", () => requestAnimationFrame(updateSpace), { once: true });
+        }
+        return space;
+      }
+
+      function createSceneLayerNode(layer, selected) {
+        const node = document.createElement("div");
+        const badge = document.createElement("span");
+        const placement = normalizePlacement(layer.placement);
+        node.className = `visual-scene-layer${selected ? " is-selected" : ""}`;
+        node.dataset.layerId = layer.id || "";
+        badge.className = "visual-layer-badge";
+        badge.textContent = layer.id || "layer";
+        applyPlacementToNode(node, placement);
+        node.style.zIndex = String(layer.depth ?? 0);
+        node.style.overflow = layer.overflow || "hidden";
+        if (layer.color) node.style.background = layer.color;
+        if (layer.image) {
+          const img = document.createElement("img");
+          const imagePlacement = normalizePlacement(layer.imagePlacement || { x: 0, y: 0, width: 100, height: 100 });
+          img.src = toBrowserPath(layer.image);
+          img.alt = "";
+          img.draggable = false;
+          img.style.objectFit = layer.fit || "contain";
+          img.style.objectPosition = layer.objectPosition || "center center";
+          if (layer.imagePlacement) {
+            img.dataset.imagePlacement = imagePlacement.unit || "percent";
+            img.style.left = `${imagePlacement.x}%`;
+            img.style.top = `${imagePlacement.y}%`;
+            img.style.width = `${imagePlacement.width}%`;
+            img.style.height = `${imagePlacement.height}%`;
+          }
+          img.addEventListener("error", () => {
+            img.hidden = true;
+            node.dataset.missingImage = "true";
+            badge.textContent = `${layer.id || "layer"} 이미지 없음`;
+          }, { once: true });
+          node.append(img, badge);
+        } else {
+          node.append(badge);
+          node.dataset.empty = "true";
+        }
+        if (selected) {
+          const handle = document.createElement("span");
+          handle.className = "visual-handle";
+          handle.title = "크기 조절";
+          node.append(handle);
+        }
+        return node;
+      }
+
+      function createDragBox(placement, options = {}) {
+        const box = document.createElement("div");
+        const handle = document.createElement("span");
+        box.className = "visual-drag-box";
+        applyPlacementToNode(box, normalizePlacement(placement));
+        if (options.image) {
+          const img = document.createElement("img");
+          img.src = toBrowserPath(options.image);
+          img.alt = options.label || "";
+          img.style.objectFit = options.fit || "contain";
+          img.style.objectPosition = "center center";
+          box.append(img);
+        } else {
+          box.dataset.empty = "true";
+          box.textContent = options.label || "영역";
+        }
+        handle.className = "visual-handle";
+        box.append(handle);
+        enableBoxDrag(box, normalizePlacement(placement), options.onChange);
+        return box;
+      }
+
+      function enableBoxDrag(box, initialPlacement, onChange) {
+        let placement = normalizePlacement(initialPlacement);
+        let start = null;
+        const update = (next) => {
+          placement = clampPlacement(next);
+          applyPlacementToNode(box, placement);
+          onChange?.(placement);
+        };
+        const beginDrag = (event, capturePointer = false) => {
+          if (start) return;
+          event.preventDefault();
+          if (capturePointer && typeof box.setPointerCapture === "function" && event.pointerId !== undefined) {
+            box.setPointerCapture(event.pointerId);
+          }
+          start = {
+            x: event.clientX,
+            y: event.clientY,
+            placement: { ...placement },
+            resizing: event.target?.classList?.contains("visual-handle"),
+            width: box.parentElement?.clientWidth || 1,
+            height: box.parentElement?.clientHeight || 1,
+          };
+        };
+        const moveDrag = (event) => {
+          if (!start) return;
+          const dx = ((event.clientX - start.x) / start.width) * 100;
+          const dy = ((event.clientY - start.y) / start.height) * 100;
+          if (start.resizing) {
+            update({ ...start.placement, width: start.placement.width + dx, height: start.placement.height + dy });
+          } else {
+            update({ ...start.placement, x: start.placement.x + dx, y: start.placement.y + dy });
+          }
+        };
+        const endDrag = () => {
+          start = null;
+        };
+        box.addEventListener("pointerdown", (event) => beginDrag(event, true));
+        box.addEventListener("pointermove", moveDrag);
+        box.addEventListener("pointerup", endDrag);
+        box.addEventListener("pointercancel", endDrag);
+        box.addEventListener("mousedown", (event) => beginDrag(event, false));
+        box.addEventListener("mousemove", moveDrag);
+        document.addEventListener("mousemove", moveDrag);
+        document.addEventListener("mouseup", endDrag);
+        window.addEventListener("mousemove", moveDrag);
+        window.addEventListener("mouseup", endDrag);
+      }
+
+      function applyPlacementToNode(node, placement) {
+        const next = normalizePlacement(placement);
+        node.style.left = `${next.x}%`;
+        node.style.top = `${next.y}%`;
+        node.style.width = `${next.width}%`;
+        node.style.height = `${next.height}%`;
+      }
+
+      function normalizePlacement(placement = {}) {
+        return {
+          x: numberOrDefault(placement.x, 0),
+          y: numberOrDefault(placement.y, 0),
+          width: numberOrDefault(placement.width, 100),
+          height: numberOrDefault(placement.height, 100),
+          unit: "percent",
+        };
+      }
+
+      function clampPlacement(placement) {
+        const width = Math.max(1, Math.min(100, placement.width));
+        const height = Math.max(1, Math.min(100, placement.height));
+        return {
+          x: Math.max(0, Math.min(100 - width, placement.x)),
+          y: Math.max(0, Math.min(100 - height, placement.y)),
+          width,
+          height,
+          unit: "percent",
+        };
+      }
+
+      function rangeToPlacement(range) {
+        const minX = numberOrDefault(range.minX, 0);
+        const maxX = numberOrDefault(range.maxX, 1);
+        const minY = numberOrDefault(range.minY, 0);
+        const maxY = numberOrDefault(range.maxY, 1);
+        return {
+          x: minX * 100,
+          y: minY * 100,
+          width: Math.max(1, (maxX - minX) * 100),
+          height: Math.max(1, (maxY - minY) * 100),
+          unit: "percent",
+        };
+      }
+
+      function placementToRange(placement) {
+        const next = clampPlacement(placement);
+        return {
+          minX: roundRatio(next.x / 100),
+          maxX: roundRatio((next.x + next.width) / 100),
+          minY: roundRatio(next.y / 100),
+          maxY: roundRatio((next.y + next.height) / 100),
+        };
+      }
+
+      function roundRatio(value) {
+        return Math.round(Math.max(0, Math.min(1, value)) * 1000) / 1000;
+      }
+
+      function setPlacementAndRender(fields, placement, render) {
+        setPlacementFields(fields, placement);
+        render();
+      }
+
+      function setRangeAndRender(fields, range, render) {
+        setRangeFields(fields, range);
+        render();
+      }
+
+      function createVisualTools(items) {
+        const row = document.createElement("div");
+        row.className = "visual-tool-row";
+        items.forEach(([label, handler], index) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = label;
+          if (index === 0) button.className = "primary";
+          button.addEventListener("click", handler);
+          row.append(button);
+        });
+        return row;
+      }
+
+      function createEditorSummary(title, text) {
+        const summary = document.createElement("article");
+        summary.className = "editor-summary";
+        summary.innerHTML = "<strong></strong><span></span>";
+        summary.querySelector("strong").textContent = title;
+        summary.querySelector("span").textContent = text;
+        return summary;
+      }
+
+      function createEditorNote(text) {
+        const note = document.createElement("p");
+        note.className = "editor-note";
+        note.textContent = text;
+        return note;
+      }
+
+      function createEditorChoiceCard({ title, text, selected, onClick }) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "editor-choice-card";
+        button.setAttribute("aria-pressed", String(Boolean(selected)));
+        button.innerHTML = "<strong></strong><span></span>";
+        button.querySelector("strong").textContent = title;
+        button.querySelector("span").textContent = text || "";
+        button.addEventListener("click", onClick);
+        return button;
+      }
+
+      function createEditorPreviewPanel({ title, text, image, chips = [] }) {
+        const panel = document.createElement("section");
+        const frame = document.createElement("div");
+        const copy = createEditorSummary(title, text);
+        const meta = document.createElement("div");
+        panel.className = "editor-preview-panel";
+        frame.className = "editor-preview-frame";
+        meta.className = "editor-meta-row";
+        if (image) {
+          const img = document.createElement("img");
+          img.src = toBrowserPath(image);
+          img.alt = title;
+          frame.append(img);
+        } else {
+          frame.append(createEditorNote("미리보기 이미지가 아직 없습니다."));
+        }
+        meta.append(...chips.filter(Boolean).map((chip) => createChip(chip)));
+        panel.append(frame, copy, meta);
+        return panel;
+      }
+
+      function expressionToPreviewSource(value) {
+        if (Array.isArray(value)) {
+          return value.map(expressionToPreviewSource).find(Boolean) || "";
+        }
+        if (typeof value === "string") return value;
+        if (value && typeof value === "object") {
+          if (typeof value.src === "string") return value.src;
+          if (typeof value.image === "string") return value.image;
+          if (Array.isArray(value.frames) && value.frames[0]) return value.frames[0];
+        }
+        return "";
+      }
+
+      function dialogueCategoryLabel(category) {
+        const labels = {
+          start: "시작 인사",
+          onMount: "처음 등장",
+          onClick: "캐릭터 클릭",
+          onDoubleClick: "캐릭터 더블 클릭",
+          onIdle: "대기 반응",
+          onTouchHead: "머리 터치",
+          onTouchFace: "얼굴 터치",
+          onTouchBody: "몸 터치",
+          onHoverCommandMenu: "명령 메뉴 hover",
+        };
+        return labels[category] || category || "새 대사";
+      }
+
+      function createShortcutLink(href, label, primary = false) {
+        const link = document.createElement("a");
+        link.href = href;
+        link.textContent = label;
+        if (primary) {
+          link.className = "primary";
+        }
+        return link;
+      }
+
+      function createField(labelText, controlType) {
+        const field = document.createElement("div");
+        const label = document.createElement("label");
+        const control = document.createElement(controlType);
+        field.className = "editor-field";
+        label.textContent = labelText;
+        field.append(label, control);
+        return field;
+      }
+
+      function createFlowNode(title, text) {
+        const node = document.createElement("article");
+        node.className = "flow-node";
+        node.innerHTML = "<strong></strong><span></span>";
+        node.querySelector("strong").textContent = title;
+        node.querySelector("span").textContent = text;
+        return node;
+      }
+
+      function updateUrl() {
+        const url = new URL(window.location.href);
+        if (selectedCharacterId) url.searchParams.set("characterId", selectedCharacterId);
+        url.searchParams.set("mode", activeModeId);
+        history.replaceState(null, "", `${url.pathname}${url.search}`);
+      }
+
+      function renderAll() {
+        renderCharacters();
+        renderJourney();
+        renderWorkspace();
+        renderInspector();
+      }
+
+      primaryModeButton.addEventListener("click", () => {
+        document.querySelector(".mode-detail-board")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+
+      labResetViewButton.addEventListener("click", () => {
+        activeModeId = "home";
+        updateUrl();
+        renderAll();
+      });
+
+      async function selectCharacter(characterId, options = {}) {
+        selectedCharacterId = characterId;
+        if (!options.keepMode) updateUrl();
+        setStatus(`${characterId} 캐릭터 정보를 불러오는 중입니다.`);
+        renderAll();
+        try {
+          currentData = await fetchCharacterData(characterId);
+          renderAll();
+          setStatus(`${characterId}: 캐릭터 재료를 Lab 화면에 연결했습니다.`);
+        } catch (error) {
+          currentData = { ...createEmptyData(), characterId };
+          renderAll();
+          setStatus(error.message || "캐릭터 정보를 불러오지 못했습니다.");
+        }
+      }
+
+      function readInitialCharacterId() {
+        const params = new URLSearchParams(window.location.search);
+        const queryCharacterId = params.get("characterId")?.trim();
+        return [queryCharacterId, "rine", characters[0]]
+          .find((candidate) => Boolean(candidate && characters.includes(candidate))) || "";
+      }
+
+      async function init() {
+        try {
+          characters = await fetchCharacters();
+          selectedCharacterId = readInitialCharacterId();
+          renderAll();
+          if (selectedCharacterId) {
+            await selectCharacter(selectedCharacterId);
+          } else {
+            setStatus("등록된 캐릭터가 없습니다. 기존 캐릭터 만들기 화면에서 먼저 생성하세요.");
+          }
+        } catch (error) {
+          renderAll();
+          setStatus(error.message || "캐릭터 목록을 불러오지 못했습니다.");
+        }
+      }
+
+      void init();
+    </script>
+  </body>
+</html>

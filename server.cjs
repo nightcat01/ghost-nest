@@ -148,6 +148,7 @@ function isCharacterDevtoolsStaticPath(pathname) {
 
   return [
     "/dev-character.html",
+    "/dev-character-lab.html",
     "/dev-character-create.html",
     "/dev-character-expression.html",
     "/dev-character-dialogue.html",
@@ -1658,22 +1659,27 @@ async function readCharacterAssets(characterId) {
     surfaces: path.join(assetDirectory, "surfaces.js"),
     scenes: path.join(assetDirectory, "scenes.js"),
   };
+  const profilePath = path.join(buildCharactersDirectory, safeCharacterId, "profile.js");
   const linesPath = path.join(buildCharactersDirectory, safeCharacterId, "lines.js");
 
   if (Object.values(assetPaths).every((assetPath) => fs.existsSync(assetPath))) {
     const names = createCharacterAssetExportNames(safeCharacterId);
     const exportName = toExportName(safeCharacterId);
     const cacheKey = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const [metaModule, expressionsModule, surfacesModule, scenesModule, linesModule] = await Promise.all([
+    const [metaModule, expressionsModule, surfacesModule, scenesModule, profileModule, linesModule] = await Promise.all([
       import(`${pathToFileURL(assetPaths.meta).href}?t=${cacheKey}`),
       import(`${pathToFileURL(assetPaths.expressions).href}?t=${cacheKey}`),
       import(`${pathToFileURL(assetPaths.surfaces).href}?t=${cacheKey}`),
       import(`${pathToFileURL(assetPaths.scenes).href}?t=${cacheKey}`),
+      fs.existsSync(profilePath)
+        ? import(`${pathToFileURL(profilePath).href}?t=${cacheKey}`)
+        : Promise.resolve({}),
       fs.existsSync(linesPath)
         ? import(`${pathToFileURL(linesPath).href}?t=${cacheKey}`)
         : Promise.resolve({}),
     ]);
     const defaultScene = scenesModule[names.defaultScene];
+    const profile = profileModule[`${exportName}Profile`] ?? {};
     const lines = linesModule[`${exportName}Lines`] ?? {};
     const assets = {
       ...(metaModule[names.assetMeta] ?? {}),
@@ -1685,6 +1691,7 @@ async function readCharacterAssets(characterId) {
 
     return {
       characterId: safeCharacterId,
+      profile: normalizeCharacterProfile(safeCharacterId, profile),
       assets: normalizeCharacterAssets(safeCharacterId, assets),
       lines: cloneJson(lines),
     };
@@ -1696,6 +1703,7 @@ async function readCharacterAssets(characterId) {
 
   return {
     characterId: safeCharacterId,
+    profile: normalizeCharacterProfile(safeCharacterId, character?.profile ?? {}),
     assets: normalizeCharacterAssets(safeCharacterId, character?.assets ?? {}),
     lines: cloneJson(character?.lines ?? {}),
   };
@@ -1746,6 +1754,16 @@ function resolveCharacterSourcePath(characterId) {
     safeCharacterId,
     characterSourcePath,
   };
+}
+
+function readRequiredCharacterId(body) {
+  const characterId = String(body?.characterId ?? "").trim();
+
+  if (!characterId) {
+    throw new Error("invalid_character_id");
+  }
+
+  return characterId;
 }
 
 /**
@@ -1985,6 +2003,38 @@ function createCharacterBuildLinesFile(characterId, lines) {
   const exportName = toExportName(characterId);
 
   return `export const ${exportName}Lines = ${JSON.stringify(lines, null, 2)};\n`;
+}
+
+function normalizeCharacterProfile(characterId, profile = {}) {
+  const safeCharacterId = safeFileName(characterId || "");
+  const displayName = String(profile.name ?? safeCharacterId).trim() || safeCharacterId;
+  const description = String(profile.description ?? "").trim() || `${displayName} character`;
+  const tone = String(profile.tone ?? "").trim() || "차분하고 친근한 말투";
+  const defaultExpression = String(profile.defaultExpression ?? "neutral").trim() || "neutral";
+
+  if (!safeCharacterId) {
+    throw new Error("invalid_character_id");
+  }
+
+  return {
+    id: safeCharacterId,
+    name: displayName,
+    description,
+    tone,
+    defaultExpression,
+  };
+}
+
+function createCharacterSourceProfileFile(characterId, profile = {}) {
+  const exportName = toExportName(characterId);
+
+  return `import type { CharacterProfile } from "../../core/types.js";\n\nexport const ${exportName}Profile: CharacterProfile = ${JSON.stringify(normalizeCharacterProfile(characterId, profile), null, 2)};\n`;
+}
+
+function createCharacterBuildProfileFile(characterId, profile = {}) {
+  const exportName = toExportName(characterId);
+
+  return `export const ${exportName}Profile = ${JSON.stringify(normalizeCharacterProfile(characterId, profile), null, 2)};\n`;
 }
 
 /**
@@ -2325,8 +2375,62 @@ function upsertHitAreasInAssets(assets, hitAreas) {
   return nextAssets;
 }
 
+function normalizeLabAssetsObject(value, errorName) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(errorName);
+  }
+
+  return cloneJson(value);
+}
+
+function applyLabAssetsPatch(currentAssets, patch) {
+  if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+    throw new Error("invalid_character_lab_assets");
+  }
+
+  const nextAssets = { ...currentAssets };
+
+  if ("alt" in patch) {
+    nextAssets.alt = String(patch.alt ?? "").trim() || currentAssets.alt || "";
+  }
+
+  if ("expressions" in patch) {
+    nextAssets.expressions = normalizeLabAssetsObject(patch.expressions, "invalid_character_expressions");
+  }
+
+  if ("surfaces" in patch) {
+    nextAssets.surfaces = normalizeLabAssetsObject(patch.surfaces, "invalid_character_surfaces");
+  }
+
+  if ("scenes" in patch) {
+    nextAssets.scenes = normalizeLabAssetsObject(patch.scenes, "invalid_character_scenes");
+  }
+
+  if ("defaultScene" in patch) {
+    const defaultScene = String(patch.defaultScene ?? "").trim();
+
+    if (defaultScene) {
+      nextAssets.defaultScene = defaultScene;
+    } else {
+      delete nextAssets.defaultScene;
+    }
+  }
+
+  if ("hitAreas" in patch) {
+    const hitAssets = upsertHitAreasInAssets(nextAssets, normalizeHitAreas(patch.hitAreas));
+    if ("hitAreas" in hitAssets) {
+      nextAssets.hitAreas = hitAssets.hitAreas;
+    } else {
+      delete nextAssets.hitAreas;
+    }
+  }
+
+  return nextAssets;
+}
+
 async function saveCharacterAssets(body, mergeAssets) {
-  const { safeCharacterId, characterSourcePath } = resolveCharacterSourcePath(body.characterId);
+  const characterId = readRequiredCharacterId(body);
+  const { safeCharacterId, characterSourcePath } = resolveCharacterSourcePath(characterId);
   const characterBuildPath = resolveCharacterBuildPath(safeCharacterId);
   const currentAssets = normalizeCharacterAssets(safeCharacterId, await readEditableCharacterAssets(safeCharacterId));
   const nextAssets = normalizeCharacterAssets(safeCharacterId, mergeAssets(currentAssets));
@@ -2622,6 +2726,39 @@ async function saveCharacterScene(body) {
   };
 }
 
+async function saveCharacterLabAssets(body) {
+  return saveCharacterAssets(body, (assets) => applyLabAssetsPatch(assets, body.assets));
+}
+
+async function saveCharacterProfile(body) {
+  const characterId = readRequiredCharacterId(body);
+  const { safeCharacterId, characterSourcePath } = resolveCharacterSourcePath(characterId);
+  const characterBuildPath = resolveCharacterBuildPath(safeCharacterId);
+  const profile = normalizeCharacterProfile(safeCharacterId, body.profile);
+  const sourceDirectory = path.dirname(characterSourcePath);
+  const sourceProfilePath = path.join(sourceDirectory, "profile.ts");
+
+  await fs.promises.writeFile(sourceProfilePath, createCharacterSourceProfileFile(safeCharacterId, profile), "utf8");
+  await fs.promises.writeFile(characterSourcePath, createCharacterIndexFile(safeCharacterId, { includeTypeImport: true }), "utf8");
+
+  let buildProfilePath = null;
+
+  if (characterBuildPath) {
+    const buildDirectory = path.dirname(characterBuildPath);
+
+    buildProfilePath = path.join(buildDirectory, "profile.js");
+    await fs.promises.writeFile(buildProfilePath, createCharacterBuildProfileFile(safeCharacterId, profile), "utf8");
+    await fs.promises.writeFile(characterBuildPath, createCharacterIndexFile(safeCharacterId, { includeTypeImport: false }), "utf8");
+  }
+
+  return {
+    characterId: safeCharacterId,
+    profile,
+    path: path.relative(root, sourceProfilePath).replaceAll(path.sep, "/"),
+    buildPath: buildProfilePath ? path.relative(root, buildProfilePath).replaceAll(path.sep, "/") : null,
+  };
+}
+
 async function deleteCharacterSurface(body) {
   const surfaceId = String(body.surfaceId ?? body.surface?.surfaceId ?? "").trim();
 
@@ -2715,7 +2852,8 @@ function normalizeCharacterLines(lines) {
 }
 
 async function saveCharacterLines(body) {
-  const { safeCharacterId, characterSourcePath } = resolveCharacterSourcePath(body.characterId);
+  const characterId = readRequiredCharacterId(body);
+  const { safeCharacterId, characterSourcePath } = resolveCharacterSourcePath(characterId);
   const characterBuildPath = resolveCharacterBuildPath(safeCharacterId);
   const lines = normalizeCharacterLines(body.lines);
   const sourceDirectory = path.dirname(characterSourcePath);
@@ -2747,7 +2885,6 @@ async function saveCharacterLines(body) {
 }
 
 function createCharacterSourceFiles(characterId, profile) {
-  const exportName = toExportName(characterId);
   const displayName = String(profile.name ?? characterId).trim() || characterId;
   const description = String(profile.description ?? "").trim() || `${displayName} character`;
   const tone = String(profile.tone ?? "").trim() || "차분하고 친근한 말투";
@@ -2764,13 +2901,12 @@ function createCharacterSourceFiles(characterId, profile) {
   };
 
   return {
-    profile: `import type { CharacterProfile } from "../../core/types.js";\n\nexport const ${exportName}Profile: CharacterProfile = ${JSON.stringify({
-      id: characterId,
+    profile: createCharacterSourceProfileFile(characterId, {
       name: displayName,
       description,
       tone,
       defaultExpression: "neutral",
-    }, null, 2)};\n`,
+    }),
     lines: createCharacterSourceLinesFile(characterId, lines),
     index: createCharacterIndexFile(characterId, { includeTypeImport: true }),
     assets: createCharacterSourceAssetFiles(characterId, assets),
@@ -2778,7 +2914,6 @@ function createCharacterSourceFiles(characterId, profile) {
 }
 
 function createCharacterBuildFiles(characterId, profile) {
-  const exportName = toExportName(characterId);
   const displayName = String(profile.name ?? characterId).trim() || characterId;
   const description = String(profile.description ?? "").trim() || `${displayName} character`;
   const tone = String(profile.tone ?? "").trim() || "차분하고 친근한 말투";
@@ -2795,13 +2930,12 @@ function createCharacterBuildFiles(characterId, profile) {
   };
 
   return {
-    profile: `export const ${exportName}Profile = ${JSON.stringify({
-      id: characterId,
+    profile: createCharacterBuildProfileFile(characterId, {
       name: displayName,
       description,
       tone,
       defaultExpression: "neutral",
-    }, null, 2)};\n`,
+    }),
     lines: createCharacterBuildLinesFile(characterId, lines),
     index: createCharacterIndexFile(characterId, { includeTypeImport: false }),
     assets: createCharacterBuildAssetFiles(characterId, assets),
@@ -4238,6 +4372,99 @@ async function handleSaveCharacterScene(request, response) {
   return true;
 }
 
+async function handleSaveCharacterLabAssets(request, response) {
+  if (!isCharacterSettingsEnabled()) {
+    sendJson(response, 404, {
+      ok: false,
+      error: "extension_not_enabled",
+      message: "Character Settings extension is not enabled in ghost-nest.extensions.json.",
+    });
+    return true;
+  }
+
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "method_not_allowed" });
+    return true;
+  }
+
+  try {
+    const body = await readRequestJson(request);
+    const saved = await saveCharacterLabAssets(body);
+
+    sendJson(response, 200, {
+      ok: true,
+      message: "Character lab assets saved.",
+      saved,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "save_character_lab_assets_failed";
+    const statusCode = [
+      "invalid_json",
+      "invalid_character_id",
+      "character_source_not_found",
+      "invalid_character_lab_assets",
+      "invalid_character_expressions",
+      "invalid_character_surfaces",
+      "invalid_character_scenes",
+      "invalid_character_hit_areas",
+      "invalid_character_hit_area",
+      "character_assets_not_found",
+      "object_block_not_found",
+    ].includes(message) ? 400 : 500;
+
+    sendJson(response, statusCode, {
+      ok: false,
+      error: message,
+      message: "Character lab assets could not be saved.",
+    });
+  }
+
+  return true;
+}
+
+async function handleSaveCharacterProfile(request, response) {
+  if (!isCharacterSettingsEnabled()) {
+    sendJson(response, 404, {
+      ok: false,
+      error: "extension_not_enabled",
+      message: "Character Settings extension is not enabled in ghost-nest.extensions.json.",
+    });
+    return true;
+  }
+
+  if (request.method !== "POST") {
+    sendJson(response, 405, { ok: false, error: "method_not_allowed" });
+    return true;
+  }
+
+  try {
+    const body = await readRequestJson(request);
+    const saved = await saveCharacterProfile(body);
+
+    sendJson(response, 200, {
+      ok: true,
+      message: "Character profile saved.",
+      saved,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "save_character_profile_failed";
+    const statusCode = [
+      "invalid_json",
+      "invalid_character_id",
+      "character_source_not_found",
+      "object_block_not_found",
+    ].includes(message) ? 400 : 500;
+
+    sendJson(response, statusCode, {
+      ok: false,
+      error: message,
+      message: "Character profile could not be saved.",
+    });
+  }
+
+  return true;
+}
+
 async function handleSaveCharacterLines(request, response) {
   if (!isCharacterSettingsEnabled()) {
     sendJson(response, 404, {
@@ -5000,6 +5227,14 @@ async function handleApiRequest(request, response) {
 
   if (pathname === "/api/devtools/save-character-scene") {
     return handleSaveCharacterScene(request, response);
+  }
+
+  if (pathname === "/api/devtools/save-character-lab-assets") {
+    return handleSaveCharacterLabAssets(request, response);
+  }
+
+  if (pathname === "/api/devtools/save-character-profile") {
+    return handleSaveCharacterProfile(request, response);
   }
 
   if (pathname === "/api/devtools/save-character-lines") {

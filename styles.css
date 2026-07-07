@@ -1032,6 +1032,12 @@ body.runtime-embed-page {
   user-select: none;
 }
 
+.ghostnest-runtime .scene-layer img[data-image-placement="percent"] {
+  inset: auto;
+  display: block;
+  max-width: none;
+}
+
 .ghostnest-runtime .scene-composition-layer img {
   object-position: center center;
 }
@@ -1930,6 +1936,11 @@ body.runtime-embed-page {
   height: 100%;
   object-fit: contain;
   object-position: center;
+}
+
+.ghostnest-runtime .character-sprite-scene-layer > img[data-image-placement="percent"] {
+  inset: auto;
+  max-width: none;
 }
 
 .ghostnest-runtime .character-sprite-scene-layer[data-placement="percent"] > img {
@@ -7311,6 +7322,10 @@ body.runtime-embed-page {
   display: block;
   object-fit: fill;
   pointer-events: none;
+}
+
+.asset-scene-preview-layer img[data-image-placement="percent"] {
+  max-width: none;
 }
 
 .asset-scene-character-slot {

@@ -35,6 +35,7 @@
     "index.html",
     "dev-assets.html",
     "dev-character.html",
+    "dev-character-lab.html",
     "dev-character-create.html",
     "dev-character-expression.html",
     "dev-character-dialogue.html",

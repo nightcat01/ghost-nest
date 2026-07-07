@@ -134,6 +134,60 @@ const speechBalloonSizeOptions = {
  */
 const sceneOptions = {
   defaultScene: "desk-room",
+  scenes: {
+    "image-placement-fixture": {
+      id: "image-placement-fixture",
+      canvas: {
+        width: 760,
+        height: 604,
+      },
+      layers: [
+        {
+          id: "fixture-backdrop",
+          role: "background",
+          color: "linear-gradient(180deg, rgba(255, 247, 232, 0.96), rgba(237, 247, 244, 0.86))",
+          depth: 0,
+          fit: "fill",
+          overflow: "hidden",
+        },
+        {
+          id: "character-slot",
+          role: "character",
+          depth: 20,
+          placement: {
+            x: 31,
+            y: 8,
+            width: 38,
+            height: 86,
+            unit: "percent",
+          },
+        },
+        {
+          id: "image-placement-prop",
+          role: "prop",
+          image: "./src/characters/rine/assets/base/rine_standing_defualt.png",
+          depth: 30,
+          fit: "fill",
+          objectPosition: "center center",
+          overflow: "hidden",
+          placement: {
+            x: 40,
+            y: 40,
+            width: 20,
+            height: 20,
+            unit: "percent",
+          },
+          imagePlacement: {
+            x: -25,
+            y: -25,
+            width: 150,
+            height: 150,
+            unit: "percent",
+          },
+        },
+      ],
+    },
+  },
   sceneSets: {
     "desk-room": [
       {

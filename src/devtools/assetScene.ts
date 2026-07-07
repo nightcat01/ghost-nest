@@ -41,6 +41,7 @@ type EditableSceneLayer = {
   fit?: RuntimeSceneLayer["fit"];
   objectPosition?: string;
   overflow?: RuntimeSceneLayer["overflow"];
+  imagePlacement?: RuntimeSceneLayer["imagePlacement"];
   placement: {
     x: number;
     y: number;
@@ -481,6 +482,7 @@ function createEditableRuntimeLayers() {
       objectPosition: layer.objectPosition ?? "center",
       overflow: layer.overflow ?? "hidden",
       placement: layer.placement,
+      ...(layer.imagePlacement ? { imagePlacement: layer.imagePlacement } : {}),
     } satisfies RuntimeSceneLayer));
 }
 
@@ -751,6 +753,16 @@ function createPreviewLayer(layer: RuntimeSceneLayer) {
 
     image.src = layer.image;
     image.alt = layer.alt ?? layer.id;
+    image.style.objectPosition = layer.objectPosition ?? "center";
+    if (layer.imagePlacement) {
+      image.dataset.imagePlacement = layer.imagePlacement.unit ?? "percent";
+      image.style.position = "absolute";
+      image.style.left = `${layer.imagePlacement.x}%`;
+      image.style.top = `${layer.imagePlacement.y}%`;
+      image.style.width = `${layer.imagePlacement.width}%`;
+      image.style.height = `${layer.imagePlacement.height}%`;
+      image.style.maxWidth = "none";
+    }
     element.append(image);
   }
 
@@ -831,6 +843,10 @@ function readEditableLayers(scene: RuntimeScene | undefined, role: EditableScene
       role,
       image: layer.image ?? "",
       depth: layer.depth ?? (role === "prop" ? sceneDepthDefaults.prop : sceneDepthDefaults.effect),
+      ...(layer.fit ? { fit: layer.fit } : {}),
+      ...(layer.objectPosition ? { objectPosition: layer.objectPosition } : {}),
+      ...(layer.overflow ? { overflow: layer.overflow } : {}),
+      ...(layer.imagePlacement ? { imagePlacement: layer.imagePlacement } : {}),
       placement: clampPlacement({
         x: layer.placement?.x ?? (role === "prop" ? 20 : 0),
         y: layer.placement?.y ?? (role === "prop" ? 74 : 0),

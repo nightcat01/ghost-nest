@@ -203,6 +203,25 @@ function applySceneLayerPlacement(element: HTMLElement, layer: RuntimeSceneLayer
   element.style.height = `${placement.height}%`;
 }
 
+function applySceneLayerImagePlacement(image: HTMLImageElement, layer: RuntimeSceneLayer) {
+  const placement = layer.imagePlacement;
+
+  if (!placement) {
+    image.removeAttribute("data-image-placement");
+    return;
+  }
+
+  image.dataset.imagePlacement = placement.unit ?? "percent";
+  image.style.position = "absolute";
+  image.style.left = `${placement.x}%`;
+  image.style.top = `${placement.y}%`;
+  image.style.width = `${placement.width}%`;
+  image.style.height = `${placement.height}%`;
+  image.style.maxWidth = "none";
+  image.style.objectFit = getSceneLayerFit(layer);
+  image.style.objectPosition = layer.objectPosition ?? "center center";
+}
+
 /**
  * Resolves once the browser has loaded and decoded an image source.
  */
@@ -411,6 +430,7 @@ export function createCharacterRenderer({ elements, character }: CharacterRender
       if (layer.objectPosition) {
         image.style.objectPosition = layer.objectPosition;
       }
+      applySceneLayerImagePlacement(image, layer);
       layerElement.append(image);
     }
 

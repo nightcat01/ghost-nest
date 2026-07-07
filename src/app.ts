@@ -343,6 +343,15 @@ function createRuntimeTestRules(): RuntimeRule[] {
       ],
     },
     {
+      id: "test.scene.image_placement",
+      event: "test:scene:image_placement",
+      actions: [
+        { type: "scene", id: "image-placement-fixture" },
+        { type: "speak_text", text: "이미지 내부 조정 fixture를 적용했어요. 작은 레이어 안에서 큰 이미지를 잘라 보여줍니다." },
+        { type: "log", label: "test:scene.image_placement" },
+      ],
+    },
+    {
       id: "test.scene.overlay",
       event: "test:scene:overlay",
       actions: [
@@ -481,6 +490,11 @@ function runRuntimeTestAction(action: string) {
 
   if (action === "rine-demo-scene") {
     emitRuntimeEvent("test:scene:rine_demo");
+    return;
+  }
+
+  if (action === "image-placement-scene") {
+    emitRuntimeEvent("test:scene:image_placement");
     return;
   }
 
